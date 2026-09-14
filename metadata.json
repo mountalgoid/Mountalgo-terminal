@@ -1,0 +1,8 @@
+{
+  "name": "Mountalgo Terminal",
+  "description": "Mount-Algo professional trading terminal with interactive multi-panel charting, custom indicators, bookmaps, footprints, and broker integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,528 @@
+@import "tailwindcss";
+
+@keyframes gradient-xy {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes text-slash {
+  0% { background-position: 200% 50%; }
+  100% { background-position: -200% 50%; }
+}
+
+@keyframes border-glow-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animated-border-glow {
+  background: linear-gradient(
+    125deg,
+    var(--color-bull, #10b981),
+    #38bdf8,
+    var(--color-poc, #a855f7),
+    var(--color-bear, #f43f5e),
+    var(--color-bull, #10b981)
+  );
+  background-size: 300% 300%;
+  animation: border-glow-shift 7s ease-in-out infinite;
+}
+
+@keyframes breathing-bullish {
+  0%, 100% { box-shadow: 0 0 0 rgba(16, 185, 129, 0); border-color: rgba(255, 255, 255, 0.05); }
+  50% { box-shadow: 0 0 25px rgba(16, 185, 129, 0.25), inset 0 0 15px rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.4); }
+}
+
+@keyframes breathing-bearish {
+  0%, 100% { box-shadow: 0 0 0 rgba(244, 63, 94, 0); border-color: rgba(255, 255, 255, 0.05); }
+  50% { box-shadow: 0 0 25px rgba(244, 63, 94, 0.25), inset 0 0 15px rgba(244, 63, 94, 0.1); border-color: rgba(244, 63, 94, 0.4); }
+}
+
+@keyframes breathing-void {
+  0%, 100% { box-shadow: 0 0 0 rgba(168, 85, 247, 0); border-color: rgba(255, 255, 255, 0.05); }
+  50% { box-shadow: 0 0 25px rgba(168, 85, 247, 0.25), inset 0 0 15px rgba(168, 85, 247, 0.1); border-color: rgba(168, 85, 247, 0.4); }
+}
+
+.volatility-glow-bullish {
+  animation: breathing-bullish 3s ease-in-out infinite;
+  transition: all 0.5s ease-out;
+}
+.volatility-glow-bearish {
+  animation: breathing-bearish 3s ease-in-out infinite;
+  transition: all 0.5s ease-out;
+}
+.volatility-glow-void {
+  animation: breathing-void 2.5s ease-in-out infinite;
+  transition: all 0.5s ease-out;
+}
+
+.panel-material {
+  background: rgba(15, 20, 30, 0.4);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-xy 6s ease infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 4s ease-in-out infinite;
+}
+
+.animate-text-slash {
+  background: linear-gradient(
+    100deg,
+    #ffffff 35%,
+    #38bdf8 50%,
+    #ffffff 65%
+  );
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: text-slash 4s linear infinite;
+}
+
+/* Futuristic Cyber Grid Background Effect */
+.bg-cyber-grid {
+  background-image: 
+    linear-gradient(to right, rgba(81, 52, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(81, 52, 255, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+@layer base {
+  .btn-cyber {
+    background: linear-gradient(135deg, var(--color-bull), #0a0a14 45%, #0a0a14 55%, var(--color-bear)) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+    transition: all 0.3s ease !important;
+  }
+  
+  .btn-cyber:hover {
+    box-shadow: 0 0 8px var(--color-bull), 0 0 12px var(--color-bear) !important;
+    filter: brightness(1.2) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    transform: translateY(-1px) !important;
+  }
+  
+  .btn-cyber:active {
+    transform: scale(0.95) !important;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.5) !important;
+  }
+}
+
+.react-grid-item.resizing iframe,
+.react-grid-item.react-draggable-dragging iframe {
+  pointer-events: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar { display: none; } 
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ============================================
+   COMPREHENSIVE MOBILE HIERARCHY UTILITIES
+   ============================================ */
+
+/* Safe area insets for notched phones */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pl-safe { padding-left: env(safe-area-inset-left); }
+  .pr-safe { padding-right: env(safe-area-inset-right); }
+  .pb-safe-fixed { padding-bottom: calc(env(safe-area-inset-bottom) + 12px); }
+}
+
+/* Touch-friendly minimum tap targets (44px - Apple HIG standard) */
+@media (max-width: 640px) {
+  .touch-target { min-height: 44px; min-width: 44px; }
+  .tap-fix { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  .mobile-stack { flex-direction: column !important; }
+  .mobile-compact { gap: 0.25rem !important; padding: 0.25rem !important; }
+  .mobile-text-xs { font-size: 9px !important; line-height: 1.2 !important; }
+  .mobile-hide { display: none !important; }
+  .mobile-full { width: 100% !important; }
+  
+  /* Mobile modal - fullscreen on small screens */
+  .mobile-modal-fullscreen {
+    max-width: 100% !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+  
+  /* Mobile compact spacing */
+  .gap-mobile-xs { gap: 0.125rem !important; }
+  .gap-mobile-sm { gap: 0.25rem !important; }
+  .gap-mobile-md { gap: 0.375rem !important; }
+  
+  /* Mobile smaller font hierarchy */
+  .text-mobile-xs { font-size: 9px !important; }
+  .text-mobile-sm { font-size: 10px !important; }
+  .text-mobile-base { font-size: 11px !important; }
+  
+  /* Mobile compact padding */
+  .px-mobile-sm { padding-left: 0.375rem !important; padding-right: 0.375rem !important; }
+  .py-mobile-sm { padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
+  .p-mobile-xs { padding: 0.25rem !important; }
+  .p-mobile-sm { padding: 0.375rem !important; }
+  
+  /* Mobile compact border radius */
+  .rounded-mobile-sm { border-radius: 0.375rem !important; }
+  .rounded-mobile-md { border-radius: 0.5rem !important; }
+}
+
+/* Tablet (641px - 768px) */
+@media (min-width: 641px) and (max-width: 768px) {
+  .tablet-compact { gap: 0.375rem !important; }
+  .tablet-modal { max-width: 90vw !important; }
+}
+
+/* Small mobile (< 380px) - extra compact for very small screens */
+@media (max-width: 380px) {
+  .xs-compact { font-size: 8px !important; gap: 0.125rem !important; padding: 0.125rem !important; }
+}
+
+/* Prevent text overflow on small screens */
+.truncate-mobile { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80px; }
+@media (min-width: 640px) { .truncate-mobile { max-width: 200px; } }
+@media (min-width: 768px) { .truncate-mobile { max-width: none; } }
+
+/* Prevent horizontal scroll on mobile */
+.no-overflow-x { overflow-x: hidden; }
+
+/* Mobile-friendly input sizing */
+@media (max-width: 640px) {
+  input[type="number"],
+  input[type="text"],
+  input[type="password"],
+  select {
+    font-size: 16px !important; /* Prevent iOS zoom on focus */
+    min-height: 36px !important;
+  }
+}
+
+/* Universal Sleek Scrollbar System for All Dropdowns, Modals, Panels & Menus */
+body {
+  background-color: var(--color-bg, #030309);
+  color: var(--color-text, #f8fafc);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.light, body.light {
+  color-scheme: light;
+  background-color: var(--color-bg, #f8fafc);
+  color: var(--color-text, #0f172a);
+}
+
+html.light ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+html.light .scrollbar-thin,
+html.light .custom-scrollbar {
+  scrollbar-color: rgba(0, 0, 0, 0.25) rgba(0, 0, 0, 0.05);
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-bull, #22c55e);
+  box-shadow: 0 0 10px var(--color-bull);
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.3);
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) rgba(0, 0, 0, 0.35);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-bull, #22c55e);
+}
+
+/* Splash Screen Animations */
+.splash-gradient-bg {
+  background: linear-gradient(-45deg, #0a0a0a, #1a1a1a, #2d2d2d, #111111, #1f1f1f, #0a0a0a);
+  background-size: 400% 400%;
+  animation: splashGradientShift 8s ease infinite;
+}
+
+/* Dedicated Indicator & Sub-window CSS Stacking Hierarchy */
+.z-modal-ultimate {
+  z-index: 100000 !important;
+}
+
+.z-dropdown-ultimate {
+  z-index: 99999 !important;
+}
+
+.chart-pane-container {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.chart-layer-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.chart-layer-indicators-hud {
+  position: absolute;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+/* Volume Profile Hierarchy (Incremental stacking for indicators) */
+.chart-layer-vp-main {
+  z-index: 21;
+}
+.chart-layer-vp-short {
+  z-index: 22;
+}
+.chart-layer-vp-ladder {
+  z-index: 23;
+}
+
+.chart-layer-controls {
+  position: absolute;
+  z-index: 30;
+  pointer-events: auto;
+}
+
+.chart-layer-overlay-hud {
+  position: absolute;
+  z-index: 40;
+  pointer-events: auto;
+}
+
+.chart-layer-modal {
+  position: fixed;
+  z-index: 100000;
+}
+
+@keyframes splashGradientShift {
+  0% { background-position: 0% 50%; }
+  25% { background-position: 100% 0%; }
+  50% { background-position: 100% 100%; }
+  75% { background-position: 0% 100%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes splashFloat1 {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(30px, -20px); }
+  66% { transform: translate(-20px, 15px); }
+}
+
+@keyframes splashFloat2 {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(-25px, 15px); }
+  66% { transform: translate(20px, -25px); }
+}
+
+@keyframes splashFloat3 {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.2); }
+}
+
+@keyframes splashSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+@keyframes flash-pulse {
+  0%, 100% { opacity: 0.15; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.15); }
+}
+
+.animate-flash-pulse {
+  animation: flash-pulse 1.5s ease-in-out infinite;
+}
+
+.bg-gradient-conic {
+  background: conic-gradient(from 0deg, var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to));
+}
+
+@keyframes splashPulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+/* Landing page ticker strip infinite scroll */
+@keyframes ticker-strip {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-ticker-strip {
+  animation: ticker-strip 30s linear infinite;
+}
+.animate-ticker-strip:hover {
+  animation-play-state: paused;
+}
+
+/* Animated conic-gradient border for chart preview */
+@keyframes borderSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* =========================================================
+   HIGH FREQUENCY HEDGE FUND PERFORMANCE OPTIMIZATIONS
+   ========================================================= */
+
+/* Prevent global browser gesture conflicts, rubber-band lag and jitter */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+#app-layout {
+  transform-origin: top left;
+  box-sizing: border-box;
+  will-change: width, height, zoom;
+}
+
+/* Hardware Layer Promotion for Canvas and Heavy Trading Widgets */
+.gpu-accelerated {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* Strict Layout and Paint Containment to eliminate DOM reflow cascades */
+.contain-strict {
+  contain: strict;
+}
+
+.contain-paint {
+  contain: paint;
+}
+
+.contain-layout-paint {
+  contain: layout paint;
+}
+
+/* Canvas stage container optimization */
+.chart-stage-container {
+  contain: layout paint size;
+  transform: translateZ(0);
+  will-change: transform;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Instant crisp rendering for Canvas without GPU blitting delay */
+.chart-layer-canvas {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  transform: translateZ(0);
+  will-change: transform;
+  touch-action: none;
+}
+
+/* Touch & tap responsiveness */
+.instant-tap {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 100% Complete suppression of TradingView logo and attribution anchors */
+a#tv-attr-logo,
+a[id="tv-attr-logo"],
+a[href*="tradingview.com"],
+[class*="tv-logo"],
+[class*="tradingview"],
+[id*="tv-attr-logo"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  clip: rect(0, 0, 0, 0) !important;
+}
+
+
