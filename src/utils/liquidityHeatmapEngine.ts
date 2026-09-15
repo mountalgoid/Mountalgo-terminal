@@ -1466,14 +1466,32 @@ export function calculateLiquidityHeatmap(
   const minAllowedHalfSpan = currentPrice * 0.012; // Min 1.2% channel spread
   const halfSpan = Math.min(maxAllowedHalfSpan, Math.max(minAllowedHalfSpan, activeSpan * 0.62));
 
-  const priceMin = Math.max(0.0001, currentPrice - halfSpan);
-  const priceMax = currentPrice + halfSpan;
-  const priceSpan = priceMax - priceMin;
+  const rawPriceMin = Math.max(0.0001, currentPrice - halfSpan);
+  const rawPriceMax = currentPrice + halfSpan;
+  const rawPriceSpan = rawPriceMax - rawPriceMin;
 
-  const binsCount = Math.max(32, Math.min(64, settings.depthBins));
+  const targetBinsCount = Math.max(32, Math.min(64, settings.depthBins));
   const priceDecimals = currentPrice > 1000 ? 2 : currentPrice > 10 ? 2 : 4;
-  const rawStep = priceSpan / binsCount;
-  const priceStep = Math.max(Math.pow(10, -priceDecimals), rawStep);
+  const rawStep = rawPriceSpan / targetBinsCount;
+  
+  // Snap priceStep to a nice round number (1, 2, 2.5, 5 multipliers) to keep bands stable
+  const stepMagnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const normalizedStep = rawStep / stepMagnitude;
+  let snappedStep = stepMagnitude;
+  if (normalizedStep > 5) snappedStep = 10 * stepMagnitude;
+  else if (normalizedStep > 2.5) snappedStep = 5 * stepMagnitude;
+  else if (normalizedStep > 2) snappedStep = 2.5 * stepMagnitude;
+  else if (normalizedStep > 1) snappedStep = 2 * stepMagnitude;
+  else snappedStep = stepMagnitude;
+
+  const priceStep = Math.max(Math.pow(10, -priceDecimals), snappedStep);
+
+  // Snap priceMin to an exact multiple of priceStep so the heatmap grid never shifts sub-tick
+  const priceMin = Math.floor(rawPriceMin / priceStep) * priceStep;
+  
+  // Dynamically calculate actual binsCount needed to cover the raw price span safely
+  const binsCount = Math.ceil((rawPriceMax - priceMin) / priceStep) + 2;
+  const priceMax = priceMin + binsCount * priceStep;
 
   // Calculate Liquidation Radar HUD metrics (with active timeframe mode)
   let liquidationRadar: LiquidationCascadeRadar | null = null;
@@ -3522,6 +3540,7 @@ export function renderLiquidityHeatmapLayer({
   priceMin,
   priceMax,
   volumeProfileConfig,
+  currentPrice,
 }: {
   ctx: CanvasRenderingContext2D;
   data: PreciseHeatmapData;
@@ -3542,6 +3561,7 @@ export function renderLiquidityHeatmapLayer({
   priceMin?: number;
   priceMax?: number;
   volumeProfileConfig?: VolumeProfileDetailConfig;
+  currentPrice?: number | null;
 }) {
   if (!settings.enabled || !data || data.matrix.length === 0) return;
 
@@ -3716,15 +3736,26 @@ export function renderLiquidityHeatmapLayer({
       if (drawY <= mainChartHeight + 10 && drawY + drawH >= -10) {
         const quantizedDensity = Math.round(maxDensityInAgg * quantLevels) / Math.max(1, quantLevels);
         if (quantizedDensity >= 0.15) {
+          const binPrice = data.priceMin + (b + binAggFactor / 2) * data.priceStep;
+          let distanceFade = 1.0;
+          if (currentPrice != null) {
+            const distance = Math.abs(binPrice - currentPrice);
+            const range = (priceMax && priceMin) ? Math.max((priceMax - priceMin) * 0.8, currentPrice * 0.05) : currentPrice * 0.05;
+            distanceFade = Math.max(0.15, 1 - (distance / (range * 0.75)));
+          }
+
           ctx.globalCompositeOperation = 'source-over';
           // Clean single-pass fill for high performance
-          ctx.fillStyle = getBookmapThemeColor(quantizedDensity, sideInAgg, settings.colorMode, palette, settings.opacity);
+          const baseOpacity = (settings.opacity ?? 0.90) * distanceFade;
+          ctx.fillStyle = getBookmapThemeColor(quantizedDensity, sideInAgg, settings.colorMode, palette, baseOpacity);
           ctx.fillRect(drawX, drawY, drawW, drawH);
 
           // Subtle top highlight edge for high-value peak liquidity walls
           if (quantizedDensity > 0.70) {
+            ctx.globalAlpha = distanceFade;
             ctx.fillStyle = sideInAgg === 'bid' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 215, 0, 0.7)';
             ctx.fillRect(drawX, drawY, drawW, 1);
+            ctx.globalAlpha = 1.0;
           }
         }
       }

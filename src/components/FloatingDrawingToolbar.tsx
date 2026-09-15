@@ -345,14 +345,14 @@ export default function FloatingDrawingToolbar({
               title="Geser Toolbar (Double-klik untuk minimize)"
             >
               <div className="flex items-center gap-1.5 text-[var(--color-text-muted)]">
-                <GripVertical size={14} className="text-cyan-500" />
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-500">Toolbar Gambar</span>
+                <GripVertical size={14} style={{ color: palette.bull }} />
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider" style={{ color: palette.bull }}>Toolbar Gambar</span>
               </div>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => { setIsMinimized(true); closeAllPopovers(); }}
                   title="Minimize Toolbar"
-                  className="w-5 h-5 rounded flex items-center justify-center text-[var(--color-text-muted)] hover:text-cyan-500 hover:bg-[var(--color-hover)] transition-colors cursor-pointer"
+                  className="w-5 h-5 rounded flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)] transition-colors cursor-pointer"
                 >
                   <Minimize2 size={11} />
                 </button>
@@ -631,7 +631,8 @@ export default function FloatingDrawingToolbar({
           <button
             onClick={() => setIsMinimized(false)}
             title="Perluas Toolbar"
-            className="p-1 rounded-full text-cyan-500 hover:text-[var(--color-text)] hover:`bg-[${palette.poc}20]` border border-cyan-500/40 transition-all cursor-pointer ml-0.5 shadow-sm"
+            style={{ color: palette.bull, borderColor: `${palette.bull}40` }}
+            className="p-1 rounded-full hover:brightness-125 border transition-all cursor-pointer ml-0.5 shadow-sm"
           >
             <Maximize2 size={12} />
           </button>
@@ -659,13 +660,13 @@ export default function FloatingDrawingToolbar({
               className="flex-1 flex items-center justify-center cursor-grab active:cursor-grabbing text-gray-500 hover:text-[var(--color-text)] py-0.5"
               title="Geser Toolbar (Double-klik untuk minimize)"
             >
-              <GripVertical size={13} />
+              <GripVertical size={13} style={{ color: palette.bull }} />
             </div>
             <div className="flex items-center gap-0.5">
               <button
                 onClick={() => { setIsMinimized(true); closeAllPopovers(); }}
                 title="Minimize Toolbar"
-                className="w-5 h-5 rounded flex items-center justify-center text-[var(--color-text-muted)] hover:text-cyan-500 hover:bg-[var(--color-hover)] transition-colors cursor-pointer"
+                className="w-5 h-5 rounded flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)] transition-colors cursor-pointer"
               >
                 <Minimize2 size={11} />
               </button>
@@ -715,11 +716,11 @@ export default function FloatingDrawingToolbar({
               <button
                 onClick={() => { closeAllPopovers(); setShowPinManager(!showPinManager); }}
                 title="Kelola Pin Alat"
-                style={showPinManager ? { backgroundColor: `${palette.bull}25`, color: palette.bull, borderColor: `${palette.bull}80` } : {}}
+                style={showPinManager ? { backgroundColor: `${palette.bull}25`, color: palette.bull, borderColor: `${palette.bull}80` } : { color: palette.bull, borderColor: `${palette.bull}40` }}
                 className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center transition-all cursor-pointer border ${
                   showPinManager
                     ? 'font-bold'
-                    : 'text-cyan-500 border-dashed border-[var(--color-border)] hover:border-cyan-500 hover:text-cyan-500 hover:bg-[var(--color-hover)]'
+                    : 'border-dashed hover:bg-[var(--color-hover)]'
                 }`}
               >
                 <Plus size={13} />
@@ -731,12 +732,22 @@ export default function FloatingDrawingToolbar({
             {/* Action Utilities */}
             <div className="flex flex-col items-center gap-1">
               {onOpenTemplates && (
-                <button onClick={onOpenTemplates} title="Template Gambar" className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center text-amber-500 hover:`text-[${palette.poc}]` hover:bg-amber-500/15 cursor-pointer transition-colors border `border-[${palette.poc}30]` shadow-sm">
+                <button 
+                  onClick={onOpenTemplates} 
+                  title="Template Gambar" 
+                  style={{ color: palette.poc, borderColor: `${palette.poc}40` }}
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center hover:brightness-125 cursor-pointer transition-colors border shadow-sm"
+                >
                   <FolderOpen size={14} />
                 </button>
               )}
               {onOpenLayers && (
-                <button onClick={onOpenLayers} title="Layer Manager" className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center text-cyan-500 hover:`text-[${palette.poc}]` hover:bg-cyan-500/15 cursor-pointer transition-colors border border-cyan-500/30 shadow-sm">
+                <button 
+                  onClick={onOpenLayers} 
+                  title="Layer Manager" 
+                  style={{ color: palette.bull, borderColor: `${palette.bull}40` }}
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center hover:brightness-125 cursor-pointer transition-colors border shadow-sm"
+                >
                   <Layers size={14} />
                 </button>
               )}
@@ -837,8 +848,8 @@ export default function FloatingDrawingToolbar({
           className="border rounded-xl shadow-2xl backdrop-blur-xl p-3 flex flex-col gap-2 w-72 max-h-[75vh] animate-in fade-in slide-in-from-left-2 duration-150 text-xs text-[var(--color-text)] select-none overflow-hidden"
         >
           <div className="flex items-center justify-between pb-1.5 border-b border-[var(--color-border)]">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-cyan-500 flex items-center gap-1.5">
-              <Pin size={13} className="fill-cyan-500 text-cyan-500" />
+            <div className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: palette.bull }}>
+              <Pin size={13} style={{ fill: palette.bull, color: palette.bull }} />
               <span>Kelola Pin Toolbar</span>
             </div>
             <button onClick={() => setShowPinManager(false)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-0.5 rounded hover:bg-[var(--color-hover)]">
@@ -855,7 +866,7 @@ export default function FloatingDrawingToolbar({
               value={pinSearchQuery ?? ''}
               onChange={(e) => setPinSearchQuery(e.target.value)}
               placeholder="Cari alat gambar..."
-              className="w-full bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-lg pl-7 pr-2.5 py-1 text-[11px] text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-cyan-400"
+              className="w-full bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-lg pl-7 pr-2.5 py-1 text-[11px] text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-bull)]"
             />
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 max-h-[260px] pr-0.5 divide-y divide-[var(--color-border)]">
@@ -868,7 +879,7 @@ export default function FloatingDrawingToolbar({
               if (matchingTools.length === 0) return null;
               return (
                 <div key={`pin-mgr-${group.id}`} className="pt-1.5 first:pt-0 flex flex-col gap-1">
-                  <span className="text-[9.5px] font-bold uppercase tracking-wider text-cyan-500 px-1">{group.title}</span>
+                  <span className="text-[9.5px] font-bold uppercase tracking-wider px-1" style={{ color: palette.bull }}>{group.title}</span>
                   <div className="flex flex-col gap-1">
                     {matchingTools.map((tool) => {
                       const ToolIcon = tool.icon;
@@ -881,13 +892,14 @@ export default function FloatingDrawingToolbar({
                           </div>
                           <button
                             onClick={() => handleTogglePin(tool.id)}
+                            style={isPinned ? { backgroundColor: `${palette.bull}20`, color: palette.bull, borderColor: `${palette.bull}50` } : {}}
                             className={`px-2 py-0.5 rounded text-[9.5px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
                               isPinned
-                                ? '`bg-[${palette.poc}20]` text-cyan-500 border border-cyan-500/50'
+                                ? 'border'
                                 : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] border border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
                             }`}
                           >
-                            <Pin size={10} className={isPinned ? 'fill-cyan-500 text-cyan-500 rotate-45' : ''} />
+                            <Pin size={10} style={isPinned ? { fill: palette.bull, color: palette.bull } : {}} className={isPinned ? 'rotate-45' : ''} />
                             <span>{isPinned ? 'Terpasang' : 'Pin'}</span>
                           </button>
                         </div>
@@ -902,7 +914,8 @@ export default function FloatingDrawingToolbar({
             <span>{pinnedTools.length} alat terpasang</span>
             <button
               onClick={() => { if (onSetPinnedTools) onSetPinnedTools(['trendline', 'ray', 'horizontal', 'rectangle', 'fibonacci', 'position_long']); }}
-              className="text-cyan-500 hover:`text-[${palette.poc}]` flex items-center gap-1 cursor-pointer"
+              style={{ color: palette.bull }}
+              className="hover:brightness-125 flex items-center gap-1 cursor-pointer"
             >
               <RotateCcw size={10} />
               <span>Reset Default</span>
@@ -916,23 +929,35 @@ export default function FloatingDrawingToolbar({
           style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-panel)' }}
           className="border rounded-xl shadow-2xl backdrop-blur-xl p-3 flex flex-col gap-2.5 w-60 animate-in fade-in slide-in-from-left-2 duration-150 text-xs text-[var(--color-text)] select-none"
         >
-          <div className="text-[11px] font-bold uppercase tracking-wider text-cyan-500 flex items-center gap-1.5 pb-1 border-b border-[var(--color-border)]">
+          <div className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 pb-1 border-b border-[var(--color-border)]" style={{ color: palette.bull }}>
             <Magnet size={13} />
             <span>Snapping & Penyelarasan Cerdas</span>
           </div>
           <div className="flex items-center justify-between py-1">
             <span className="text-[var(--color-text)] font-medium">Magnet Snapping</span>
-            <button onClick={onToggleMagnet} className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors cursor-pointer ${magnetMode ? '`bg-[${palette.bull}20]` text-emerald-500 border border-emerald-500/40' : 'bg-[var(--color-hover)] text-[var(--color-text-muted)] border border-[var(--color-border)] hover:text-[var(--color-text)]'}`}>
+            <button 
+              onClick={onToggleMagnet} 
+              style={magnetMode ? { backgroundColor: `${palette.bull}20`, color: palette.bull, borderColor: `${palette.bull}50` } : {}}
+              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors cursor-pointer ${magnetMode ? 'border font-bold' : 'bg-[var(--color-hover)] text-[var(--color-text-muted)] border border-[var(--color-border)] hover:text-[var(--color-text)]'}`}
+            >
               {magnetMode ? 'AKTIF' : 'OFF'}
             </button>
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[10px] text-[var(--color-text-muted)] font-mono">KEKUATAN DAYA TARIK:</span>
             <div className="grid grid-cols-2 gap-1.5">
-              <button onClick={() => onSetMagnetStrength && onSetMagnetStrength('weak')} className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer text-center ${magnetStrength === 'weak' ? 'bg-cyan-500/25 text-cyan-500 border border-cyan-500/40 font-bold' : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)]'}`}>
+              <button 
+                onClick={() => onSetMagnetStrength && onSetMagnetStrength('weak')} 
+                style={magnetStrength === 'weak' ? { backgroundColor: `${palette.bull}25`, color: palette.bull, borderColor: `${palette.bull}50` } : {}}
+                className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer text-center ${magnetStrength === 'weak' ? 'border font-bold' : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)]'}`}
+              >
                 Lemah (14px)
               </button>
-              <button onClick={() => onSetMagnetStrength && onSetMagnetStrength('strong')} className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer text-center ${magnetStrength === 'strong' ? 'bg-cyan-500/25 text-cyan-500 border border-cyan-500/40 font-bold' : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)]'}`}>
+              <button 
+                onClick={() => onSetMagnetStrength && onSetMagnetStrength('strong')} 
+                style={magnetStrength === 'strong' ? { backgroundColor: `${palette.bull}25`, color: palette.bull, borderColor: `${palette.bull}50` } : {}}
+                className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer text-center ${magnetStrength === 'strong' ? 'border font-bold' : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)]'}`}
+              >
                 Kuat (28px)
               </button>
             </div>
@@ -1009,14 +1034,15 @@ function MobilePinManagerPopover({
   pinSearchQuery: string;
   setPinSearchQuery: (v: string) => void;
 }) {
+  const { palette } = useTheme();
   return (
     <div
       style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-panel)' }}
       className="rounded-xl border shadow-2xl backdrop-blur-xl p-3 flex flex-col gap-2 max-h-[50vh] overflow-hidden"
     >
       <div className="flex items-center justify-between pb-1.5 border-b border-[var(--color-border)]">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-cyan-500 flex items-center gap-1.5">
-          <Pin size={13} className="fill-cyan-500 text-cyan-500" />
+        <div className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: palette.bull }}>
+          <Pin size={13} style={{ fill: palette.bull, color: palette.bull }} />
           <span>Kelola Pin Alat</span>
         </div>
         <button onClick={onClose} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1 rounded min-w-[32px] min-h-[32px] flex items-center justify-center">
@@ -1030,7 +1056,7 @@ function MobilePinManagerPopover({
           value={pinSearchQuery ?? ''}
           onChange={(e) => setPinSearchQuery(e.target.value)}
           placeholder="Cari alat..."
-          className="w-full bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-lg pl-7 pr-2.5 py-2 text-[12px] text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-cyan-400"
+          className="w-full bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-lg pl-7 pr-2.5 py-2 text-[12px] text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-bull)]"
         />
       </div>
       <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 max-h-[200px] divide-y divide-[var(--color-border)]">
@@ -1041,7 +1067,7 @@ function MobilePinManagerPopover({
           if (matchingTools.length === 0) return null;
           return (
             <div key={`mob-pin-${group.id}`} className="pt-1.5 first:pt-0 flex flex-col gap-1">
-              <span className="text-[9.5px] font-bold uppercase tracking-wider text-cyan-500 px-1">{group.title}</span>
+              <span className="text-[9.5px] font-bold uppercase tracking-wider px-1" style={{ color: palette.bull }}>{group.title}</span>
               <div className="flex flex-col gap-0.5">
                 {matchingTools.map((tool) => {
                   const ToolIcon = tool.icon;
@@ -1054,11 +1080,12 @@ function MobilePinManagerPopover({
                       </div>
                       <button
                         onClick={() => onTogglePin(tool.id)}
+                        style={isPinned ? { backgroundColor: `${palette.bull}20`, color: palette.bull, borderColor: `${palette.bull}50` } : {}}
                         className={`min-w-[36px] min-h-[28px] px-2 py-1 rounded text-[10px] font-semibold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                          isPinned ? '`bg-[${palette.poc}20]` text-cyan-500 border border-cyan-500/50' : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] border border-[var(--color-border)]'
+                          isPinned ? 'border' : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] border border-[var(--color-border)]'
                         }`}
                       >
-                        <Pin size={10} className={isPinned ? 'fill-cyan-500 text-cyan-500 rotate-45' : ''} />
+                        <Pin size={10} style={isPinned ? { fill: palette.bull, color: palette.bull } : {}} className={isPinned ? 'rotate-45' : ''} />
                         <span>{isPinned ? 'Lepas' : 'Pin'}</span>
                       </button>
                     </div>
@@ -1073,7 +1100,8 @@ function MobilePinManagerPopover({
         <span>{pinnedTools.length} alat terpasang</span>
         <button
           onClick={() => { if (onSetPinnedTools) onSetPinnedTools(['trendline', 'ray', 'horizontal', 'rectangle', 'fibonacci', 'position_long']); }}
-          className="text-cyan-500 hover:`text-[${palette.poc}]` flex items-center gap-1 cursor-pointer"
+          style={{ color: palette.bull }}
+          className="hover:brightness-125 flex items-center gap-1 cursor-pointer"
         >
           <RotateCcw size={10} />
           <span>Reset</span>
@@ -1098,13 +1126,14 @@ function MobileMagnetMenuPopover({
   onToggleAlignToExistingDrawings?: () => void;
   onClose: () => void;
 }) {
+  const { palette } = useTheme();
   return (
     <div
       style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-panel)' }}
       className="rounded-xl border shadow-2xl backdrop-blur-xl p-3 flex flex-col gap-2.5 max-h-[45vh] overflow-y-auto custom-scrollbar"
     >
       <div className="flex items-center justify-between pb-1.5 border-b border-[var(--color-border)]">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-cyan-500 flex items-center gap-1.5">
+        <div className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: palette.bull }}>
           <Magnet size={13} />
           <span>Snapping & Penyelarasan</span>
         </div>
@@ -1114,17 +1143,29 @@ function MobileMagnetMenuPopover({
       </div>
       <div className="flex items-center justify-between py-1">
         <span className="text-[var(--color-text)] font-medium text-[12px]">Magnet Snapping</span>
-        <button onClick={onToggleMagnet} className={`min-w-[52px] px-2 py-1.5 rounded text-[10px] font-bold uppercase transition-colors cursor-pointer ${magnetMode ? '`bg-[${palette.bull}20]` text-emerald-500 border border-emerald-500/40' : 'bg-[var(--color-hover)] text-[var(--color-text-muted)] border border-[var(--color-border)]'}`}>
+        <button 
+          onClick={onToggleMagnet} 
+          style={magnetMode ? { backgroundColor: `${palette.bull}20`, color: palette.bull, borderColor: `${palette.bull}50` } : {}}
+          className={`min-w-[52px] px-2 py-1.5 rounded text-[10px] font-bold uppercase transition-colors cursor-pointer ${magnetMode ? 'border font-bold' : 'bg-[var(--color-hover)] text-[var(--color-text-muted)] border border-[var(--color-border)]'}`}
+        >
           {magnetMode ? 'AKTIF' : 'OFF'}
         </button>
       </div>
       <div className="flex flex-col gap-1.5">
         <span className="text-[10px] text-[var(--color-text-muted)] font-mono">KEKUATAN:</span>
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => onSetMagnetStrength?.('weak')} className={`min-h-[36px] px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors cursor-pointer text-center ${magnetStrength === 'weak' ? 'bg-cyan-500/25 text-cyan-500 border border-cyan-500/40 font-bold' : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] border border-[var(--color-border)]'}`}>
+          <button 
+            onClick={() => onSetMagnetStrength?.('weak')} 
+            style={magnetStrength === 'weak' ? { backgroundColor: `${palette.bull}25`, color: palette.bull, borderColor: `${palette.bull}50` } : {}}
+            className={`min-h-[36px] px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors cursor-pointer text-center ${magnetStrength === 'weak' ? 'border font-bold' : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] border border-[var(--color-border)]'}`}
+          >
             Lemah
           </button>
-          <button onClick={() => onSetMagnetStrength?.('strong')} className={`min-h-[36px] px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors cursor-pointer text-center ${magnetStrength === 'strong' ? 'bg-cyan-500/25 text-cyan-500 border border-cyan-500/40 font-bold' : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] border border-[var(--color-border)]'}`}>
+          <button 
+            onClick={() => onSetMagnetStrength?.('strong')} 
+            style={magnetStrength === 'strong' ? { backgroundColor: `${palette.bull}25`, color: palette.bull, borderColor: `${palette.bull}50` } : {}}
+            className={`min-h-[36px] px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors cursor-pointer text-center ${magnetStrength === 'strong' ? 'border font-bold' : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] border border-[var(--color-border)]'}`}
+          >
             Kuat
           </button>
         </div>

@@ -76,6 +76,7 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
     setIsInstantTradeEnabled
   } = useTrade();
   const {
+    palette,
     isHighContrast,
     setIsHighContrast,
     isAutoOsTheme,
@@ -206,19 +207,6 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
         <span className="hidden lg:inline">Presets</span>
       </button>
 
-      {/* Global Price Scale Toggle (Logarithmic vs Linear) for all active charts */}
-      {onTogglePriceScaleMode && (
-        <button
-          onClick={onTogglePriceScaleMode}
-          className={`${btnClass} ${priceScaleMode === 'logarithmic' ? 'bg-[var(--color-hover)] text-[var(--color-text)]' : 'text-[var(--color-text-muted)]'}`}
-          title={`Skala Harga Global: ${priceScaleMode === 'logarithmic' ? 'Logaritmik (Log)' : 'Linear (Lin)'} untuk semua chart aktif. Klik untuk beralih.`}
-          aria-label="Toggle Logarithmic / Linear Price Scaling"
-        >
-          <TrendingUp size={14} className={`shrink-0 ${priceScaleMode === 'logarithmic' ? 'text-[var(--color-text)]' : 'text-[var(--color-text-muted)]'}`} />
-          <span className="font-mono font-bold">{priceScaleMode === 'logarithmic' ? 'Log' : 'Lin'}</span>
-        </button>
-      )}
-
       {/* Global Scroll Zoom Controller Badge & Presets Menu */}
       {globalZoom !== undefined && zoomIn && zoomOut && resetZoom && setGlobalZoom && (
         <div className="relative flex items-center shrink-0" ref={zoomMenuRef}>
@@ -241,7 +229,8 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
             </button>
             <button
               onClick={() => setIsZoomDropdownOpen(!isZoomDropdownOpen)}
-              className="px-1 py-0.5 hover:bg-white/10 rounded font-mono font-bold text-emerald-400 hover:text-emerald-300 cursor-pointer transition-colors flex items-center gap-0.5 text-[10px]"
+              style={{ color: palette.bull }}
+              className="px-1 py-0.5 hover:bg-white/10 rounded font-mono font-bold cursor-pointer transition-colors flex items-center gap-0.5 text-[10px]"
               title="Scroll mouse wheel di sini atau gunakan Ctrl+Scroll di mana saja untuk Zoom UI Global. Klik untuk opsi preset."
             >
               <span>{globalZoom}%</span>
@@ -262,20 +251,26 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
             return (
               <div className="absolute top-full right-0 mt-1 w-56 bg-zinc-950/95 border border-zinc-800 rounded-2xl shadow-2xl backdrop-blur-xl p-2 z-[10005] font-mono text-xs animate-in fade-in zoom-in-95 duration-150">
                 {/* Auto Resolution Detector Info Box */}
-                <div className="mb-2 p-2 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-[10px]">
-                  <div className="flex items-center justify-between font-bold text-emerald-400 mb-0.5">
+                <div 
+                  style={{ backgroundColor: `${palette.bull}15`, borderColor: `${palette.bull}35` }}
+                  className="mb-2 p-2 rounded-xl border text-[10px]"
+                >
+                  <div className="flex items-center justify-between font-bold mb-0.5" style={{ color: palette.bull }}>
                     <span className="flex items-center gap-1">
                       <span>{res.icon}</span>
                       <span>DETEKSI MONITOR</span>
                     </span>
-                    <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-500/40">
+                    <span 
+                      style={{ backgroundColor: `${palette.bull}25`, color: palette.bull, borderColor: `${palette.bull}50` }}
+                      className="text-[9px] px-1.5 py-0.5 rounded-full border font-bold"
+                    >
                       Auto
                     </span>
                   </div>
                   <div className="text-white font-bold text-[11px] truncate">{res.shortLabel}</div>
                   <div className="text-zinc-400 text-[9px] flex items-center justify-between mt-0.5">
                     <span>{res.screenWidth}x{res.screenHeight} ({res.devicePixelRatio}x DPI)</span>
-                    <span className="text-cyan-400 font-bold">Anti-Blur Sharp</span>
+                    <span style={{ color: palette.bull }} className="font-bold">Anti-Blur Sharp</span>
                   </div>
 
                   <button
@@ -283,7 +278,8 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
                       setGlobalZoom(res.recommendedZoom);
                       setIsZoomDropdownOpen(false);
                     }}
-                    className="mt-1.5 w-full py-1 px-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-black text-[10px] transition-all cursor-pointer shadow-md flex items-center justify-center gap-1 active:scale-95"
+                    style={{ backgroundColor: palette.bull, color: '#000000' }}
+                    className="mt-1.5 w-full py-1 px-2 rounded-lg font-black text-[10px] transition-all cursor-pointer shadow-md flex items-center justify-center gap-1 active:scale-95 hover:brightness-110"
                     title={`Optimal UI Zoom untuk ${res.shortLabel}`}
                   >
                     <Sparkles size={11} />
@@ -293,7 +289,7 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
 
                 <div className="text-[10px] text-zinc-400 px-1 py-0.5 font-bold border-b border-zinc-800/80 mb-1 flex items-center justify-between">
                   <span>PRESET ZOOM MANUAL</span>
-                  <span className="text-[9px] text-emerald-400 font-bold">Ctrl+Scroll</span>
+                  <span className="text-[9px] font-bold" style={{ color: palette.bull }}>Ctrl+Scroll</span>
                 </div>
                 <div className="grid grid-cols-3 gap-1">
                   {[60, 75, 85, 90, 100, 110, 125, 150, 175].map((preset) => (
@@ -303,9 +299,10 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
                         setGlobalZoom(preset);
                         setIsZoomDropdownOpen(false);
                       }}
+                      style={globalZoom === preset ? { backgroundColor: `${palette.bull}25`, color: palette.bull, borderColor: `${palette.bull}50` } : {}}
                       className={`px-2 py-1 rounded-lg text-center text-xs transition-all cursor-pointer ${
                         globalZoom === preset
-                          ? 'bg-emerald-500/25 text-emerald-300 font-bold border border-emerald-500/40 shadow-sm'
+                          ? 'font-bold border shadow-sm'
                           : 'text-zinc-300 bg-zinc-900/60 hover:bg-zinc-800 hover:text-white border border-zinc-800/60'
                       }`}
                     >
@@ -320,10 +317,11 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
                       window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
                       setIsZoomDropdownOpen(false);
                     }}
-                    className="w-full text-center py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold text-[10.5px] transition-all cursor-pointer flex items-center justify-center gap-1 border border-emerald-500/40 active:scale-95"
+                    style={{ backgroundColor: `${palette.bull}20`, color: palette.bull, borderColor: `${palette.bull}40` }}
+                    className="w-full text-center py-1 rounded-lg font-bold text-[10.5px] transition-all cursor-pointer flex items-center justify-center gap-1 border active:scale-95 hover:brightness-110"
                     title="Smooth Auto-Center Layout & Charts ke koordinat awal"
                   >
-                    <Crosshair size={11} className="text-emerald-400" />
+                    <Crosshair size={11} style={{ color: palette.bull }} />
                     <span>Auto-Center Layout</span>
                   </button>
 
@@ -372,12 +370,17 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
       {setIsNewsModalOpen && (
         <button
           onClick={() => setIsNewsModalOpen(true)}
-          className={`${btnClass} flex items-center gap-1.5 font-bold hover:border-cyan-500/40 text-cyan-300 hover:text-white bg-cyan-950/30 hover:bg-cyan-900/40 border border-cyan-500/30 shadow-sm transition-all`}
+          style={{
+            borderColor: `${palette.bull}40`,
+            backgroundColor: `${palette.bull}12`,
+            color: palette.bull
+          }}
+          className={`${btnClass} flex items-center gap-1.5 font-bold hover:brightness-125 shadow-sm transition-all`}
           title="Buka Real-Time Financial News Feeds & Kalender Berita Ekonomi Realtime"
         >
-          <Newspaper size={13} className="text-cyan-400 shrink-0" />
+          <Newspaper size={13} style={{ color: palette.bull }} className="shrink-0" />
           <span className="hidden md:inline font-mono">News & Kalender</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse hidden sm:inline" />
+          <span className="w-1.5 h-1.5 rounded-full animate-pulse hidden sm:inline" style={{ backgroundColor: palette.bull }} />
         </button>
       )}
 
@@ -385,40 +388,22 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
       {setIsAiAgentModalOpen && (
         <button
           onClick={() => setIsAiAgentModalOpen(true)}
-          className={`${btnClass} flex items-center gap-1.5 font-bold hover:border-cyan-400 text-white bg-gradient-to-r from-cyan-600/30 to-blue-600/30 hover:from-cyan-600/50 hover:to-blue-600/50 border border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.25)] transition-all animate-in fade-in`}
+          style={{
+            borderColor: `${palette.bull}50`,
+            background: `linear-gradient(135deg, ${palette.bull}25, ${palette.poc}18)`,
+            boxShadow: `0 0 12px ${palette.bull}20`
+          }}
+          className={`${btnClass} flex items-center gap-1.5 font-bold hover:brightness-125 text-white shadow-sm transition-all animate-in fade-in`}
           title="Buka MountAlgo Quant AI Agent Terminal (Gemini 3.8 Flash)"
         >
-          <Bot size={13} className="text-cyan-400 shrink-0 animate-pulse" />
+          <Bot size={13} style={{ color: palette.bull }} className="shrink-0 animate-pulse" />
           <span className="hidden sm:inline font-mono">AI Agent</span>
-          <span className="px-1 py-0.2 rounded text-[8px] bg-cyan-500/30 text-cyan-200 font-mono hidden xl:inline">
+          <span 
+            style={{ backgroundColor: `${palette.bull}30`, color: palette.bull, borderColor: `${palette.bull}50` }}
+            className="px-1 py-0.2 rounded text-[8px] border font-mono hidden xl:inline"
+          >
             FLASH
           </span>
-        </button>
-      )}
-
-      {/* Multi-Broker New Listings Snipe Hub Button */}
-      {setIsSniperHubOpen && (
-        <button
-          onClick={() => setIsSniperHubOpen(true)}
-          
-          className={`${btnClass} flex font-bold hover:brightness-125 animate-pulse`}
-          title="Buka Multi-Broker (MEXC, Binance, Bybit) New Listing Realtime Sniper Hub"
-        >
-          <Zap size={12} className="shrink-0 text-emerald-400 fill-current" />
-          <span className="hidden sm:inline font-mono">Snipe Hub</span>
-        </button>
-      )}
-
-      {/* Multi-Broker Hedge & Arbitrage Quick Button */}
-      {setIsHedgeModalOpen && (
-        <button
-          onClick={() => setIsHedgeModalOpen(true)}
-          
-          className={`${btnClass} hidden sm:flex font-bold hover:brightness-125`}
-          title="Buka Multi-Broker Instant Hedging & Arbitrage Engine"
-        >
-          <Zap size={12} className="shrink-0 text-amber-400" />
-          <span className="hidden lg:inline font-mono">Hedge Algo</span>
         </button>
       )}
 
@@ -430,7 +415,7 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
           className={`${btnClass} hidden sm:flex font-bold hover:brightness-125`}
           title="Buka Unified Cross-Account Net Worth Aggregator"
         >
-          <PieChart size={12} className="shrink-0 text-emerald-400" />
+          <PieChart size={12} className="shrink-0" style={{ color: palette.bull }} />
           <span className="hidden lg:inline font-mono">Net Worth</span>
         </button>
       )}
@@ -634,15 +619,15 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
                   onClick={() => { setIsHighContrast(!isHighContrast); }}
                   className="flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-md sm:rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors w-full text-left cursor-pointer active:bg-white/20"
                 >
-                  <Contrast size={14} style={{ color: isHighContrast ? '#00ff66' : 'var(--color-text-muted)' }} />
+                  <Contrast size={14} style={{ color: isHighContrast ? palette.bull : 'var(--color-text-muted)' }} />
                   <div className="flex flex-col flex-1 min-w-0">
                     <span className="font-semibold text-[11px] sm:text-xs text-[var(--color-text)]">Mode Kontras Tinggi</span>
                     <span className="text-[9px] sm:text-[10px] text-[var(--color-text-muted)]">Volatilitas tinggi</span>
                   </div>
                   <span 
                     style={{
-                      backgroundColor: isHighContrast ? 'rgba(0,255,102,0.2)' : 'rgba(255,255,255,0.08)',
-                      color: isHighContrast ? '#00ff66' : 'var(--color-text-muted)'
+                      backgroundColor: isHighContrast ? `${palette.bull}25` : 'rgba(255,255,255,0.08)',
+                      color: isHighContrast ? palette.bull : 'var(--color-text-muted)'
                     }}
                     className="text-[8px] sm:text-[9px] font-mono font-bold px-1 sm:px-1.5 py-0.5 rounded shrink-0"
                   >
@@ -689,9 +674,9 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
                   onClick={() => { setIsInstantTradeEnabled(!isInstantTradeEnabled); }}
                   className="flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-md sm:rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors w-full text-left cursor-pointer active:bg-white/20 min-h-[36px] sm:min-h-[42px]"
                 >
-                  <Zap size={14} style={{ color: isInstantTradeEnabled ? '#22c55e' : 'var(--color-text-muted)' }} className={isInstantTradeEnabled ? 'drop-shadow-[0_0_6px_rgba(34,197,94,0.6)]' : ''} />
-                  <span className="font-semibold text-[11px] sm:text-xs flex-1" style={{ color: isInstantTradeEnabled ? '#22c55e' : 'var(--color-text)' }}>Order Instan</span>
-                  <span style={{ backgroundColor: isInstantTradeEnabled ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.08)', color: isInstantTradeEnabled ? '#22c55e' : 'var(--color-text-muted)' }} className="text-[8px] sm:text-[9px] font-mono px-1 sm:px-1.5 py-0.5 rounded font-bold shrink-0">
+                  <Zap size={14} style={{ color: isInstantTradeEnabled ? palette.bull : 'var(--color-text-muted)' }} className={isInstantTradeEnabled ? 'drop-shadow-[0_0_6px_rgba(34,197,94,0.6)]' : ''} />
+                  <span className="font-semibold text-[11px] sm:text-xs flex-1" style={{ color: isInstantTradeEnabled ? palette.bull : 'var(--color-text)' }}>Order Instan</span>
+                  <span style={{ backgroundColor: isInstantTradeEnabled ? `${palette.bull}25` : 'rgba(255,255,255,0.08)', color: isInstantTradeEnabled ? palette.bull : 'var(--color-text-muted)' }} className="text-[8px] sm:text-[9px] font-mono px-1 sm:px-1.5 py-0.5 rounded font-bold shrink-0">
                     {isInstantTradeEnabled ? 'ON' : 'OFF'}
                   </span>
                 </button>

@@ -1636,13 +1636,13 @@ Timeframe Chart: ${timeframe}
 Perubahan 24 Jam: ${priceChange24h}%
 High 24 Jam: ${high24h || 'N/A'}
 Low 24 Jam: ${low24h || 'N/A'}
-Indikator Tambahan: ${indicators ? JSON.stringify(indicators) : 'RSI(14) ~ 52.4, EMA(20) di atas EMA(50), Bullish Market Structure'}
+Indikator Tambahan: ${indicators ? JSON.stringify(indicators) : 'RSI(14) ~ 52.4, EMA(20) di atas EMA(50)'}
 Berita Terkini Terkait: ${recentNews && recentNews.length ? recentNews.slice(0, 3).map((n: any) => n.title).join("; ") : "Sentimen pasar stabil dengan likuiditas institutional solid."}
 `;
 
       const systemPrompt = `Anda adalah "MountAlgo Quant AI Agent", asisten perdagangan kuantitatif dan analis pasar profesional tingkat global yang tertanam langsung di MountAlgo Pro Terminal.
 Keahlian Anda:
-1. Analisis Price Action tingkat lanjut, Smart Money Concepts (Order Block, Fair Value Gap, Liquidity Grab, Break of Structure).
+1. Analisis Price Action tingkat lanjut (Order Block, Liquidity Grab, Support/Resistance).
 2. Institutional Order Flow, Volume Profile (POC, VAH, VAL), dan Footprint tape reading.
 3. Korelasi Makroekonomi dan dampak jadwal rilis Berita Ekonomi (CPI, NFP, Suku Bunga The Fed/FOMC).
 4. Manajemen Resiko Presisi: Menghitung Rasio Risk-to-Reward (R:R minimal 1:2), Stop Loss rasional berbasis struktur pasar, dan kalkulasi Position Sizing.

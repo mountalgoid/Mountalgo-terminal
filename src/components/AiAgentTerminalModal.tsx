@@ -66,7 +66,7 @@ export const AiAgentTerminalModal: React.FC<AiAgentTerminalModalProps> = ({
 
 Saya siap mendampingi eksekusi dan analisis kuantitatif Anda di terminal.
 Beberapa hal yang dapat saya bantu secara real-time:
-* **Analisis Multi-Timeframe & Price Action**: Identifikasi Order Block, Liquidity Sweep, dan Fair Value Gap.
+* **Analisis Multi-Timeframe & Price Action**: Identifikasi Order Block dan Liquidity Sweep.
 * **Order Flow & Volume Profile**: Membaca serapan (absorption) institusi, delta volume, dan level POC.
 * **Korelasi Makro & Berita**: Proyeksi volatilitas rilis kalender ekonomi (CPI, NFP, Fed).
 * **Setup Trade Presisi**: Menghitung entry, stop loss terukur, target profit, dan rasio R:R minimal 1:2.

@@ -192,6 +192,13 @@ export default function App() {
     setGlobalZoom(100);
   }, [setGlobalZoom]);
 
+  // Synchronize CSS variable and dispatch zoom events when globalZoom changes
+  useEffect(() => {
+    document.documentElement.style.setProperty('--global-zoom-scale', String(globalZoom / 100));
+    window.dispatchEvent(new CustomEvent('mountalgo:zoom-change', { detail: { zoom: globalZoom } }));
+    window.dispatchEvent(new Event('resize'));
+  }, [globalZoom]);
+
   const triggerAutoCenter = useCallback(() => {
     // 1. Dispatch global custom event for chart smooth panning back to center coordinates (panOffset: 0, priceOffset: 0)
     window.dispatchEvent(new CustomEvent('mountalgo-auto-center'));
@@ -517,6 +524,7 @@ export default function App() {
           onMoveRight={!isWorkspaceLocked ? () => handleMove(id, 'right') : undefined} 
           onSplit={!isWorkspaceLocked ? () => handleSplitChart(id) : undefined}
           onClose={!isWorkspaceLocked && widgetOrder.length > 1 ? () => handleCloseWidget(id) : undefined}
+          globalZoom={globalZoom}
         />
       );
     }
@@ -640,12 +648,16 @@ export default function App() {
               <span className="font-black italic animate-text-slash text-white inline-block pr-1 sm:pr-1.5 md:pr-2">𝙈𝙤𝙪𝙣𝙩𝘼𝙡𝙜𝙤</span>
             </span>
             <span 
-              className="text-[8px] sm:text-[9px] md:text-[10px] px-2 py-0.5 rounded-full font-mono font-bold border border-white/15 bg-white/[0.05] text-zinc-300 backdrop-blur-md tracking-wider hidden sm:inline-block"
+              style={{ borderColor: `${palette.bull}35`, color: palette.bull, backgroundColor: `${palette.bull}12` }}
+              className="text-[8px] sm:text-[9px] md:text-[10px] px-2 py-0.5 rounded-full font-mono font-bold border backdrop-blur-md tracking-wider hidden sm:inline-block"
             >
               PRO TERMINAL
             </span>
-            <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-[9px] font-mono text-emerald-400 backdrop-blur-md">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <div 
+              style={{ borderColor: `${palette.bull}30`, backgroundColor: `${palette.bull}10`, color: palette.bull }}
+              className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-mono backdrop-blur-md"
+            >
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: palette.bull }} />
               <span>LIVE NETWORK</span>
             </div>
           </div>

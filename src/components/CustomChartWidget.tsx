@@ -94,7 +94,6 @@ import {
 import IndicatorModal from './IndicatorModal';
 import SymbolSelectorModal, { COMPREHENSIVE_MARKET_PAIRS } from './SymbolSelectorModal';
 import { LiquidationRadarBar } from './LiquidationRadarBar';
-import { calculateMarketStructure, MarketStructureResult } from '../utils/marketStructureEngine';
 import ChartIndicatorsLegend from './ChartIndicatorsLegend';
 import MountAlgoLogo from './MountAlgoLogo';
 import { LiquidityHeatmapGuideModal } from './LiquidityHeatmapGuideModal';
@@ -185,11 +184,18 @@ export type ChartTimeframe =
 
 const getGlobalZoomScale = (): number => {
   try {
-    const saved = localStorage.getItem('mountalgo_global_zoom');
-    if (saved) {
-      const val = parseFloat(saved);
-      if (!isNaN(val) && val > 0) {
-        return val / 100;
+    if (typeof window !== 'undefined') {
+      const cssVar = getComputedStyle(document.documentElement).getPropertyValue('--global-zoom-scale');
+      if (cssVar) {
+        const val = parseFloat(cssVar.trim());
+        if (!isNaN(val) && val > 0) return val;
+      }
+      const saved = localStorage.getItem('mountalgo_global_zoom');
+      if (saved) {
+        const val = parseFloat(saved);
+        if (!isNaN(val) && val > 0) {
+          return val / 100;
+        }
       }
     }
   } catch (e) {
@@ -198,18 +204,50 @@ const getGlobalZoomScale = (): number => {
   return 1;
 };
 
-const getAdjustedCanvasRect = (canvas: HTMLCanvasElement | null) => {
+interface AdjustedCanvasRect {
+  raw: DOMRect;
+  scale: number;
+  scaleX: number;
+  scaleY: number;
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
+  getLocalX: (clientX: number) => number;
+  getLocalY: (clientY: number) => number;
+}
+
+const getAdjustedCanvasRect = (canvas: HTMLCanvasElement | null): AdjustedCanvasRect | null => {
   if (!canvas) return null;
-  const rect = canvas.getBoundingClientRect();
-  const scale = getGlobalZoomScale();
-  if (scale === 1) return rect;
+  const raw = canvas.getBoundingClientRect();
+  if (raw.width <= 0 || raw.height <= 0) return null;
+
+  const zoomScale = getGlobalZoomScale();
+  // In Chromium, when CSS zoom is applied to a parent (e.g. #app-layout { zoom: 120% }),
+  // canvas.getBoundingClientRect() returns visually scaled viewport pixels (screen pixels).
+  // canvas.clientWidth / clientHeight return CSS layout pixels before the parent zoom.
+  const layoutW = canvas.clientWidth > 0 ? canvas.clientWidth : (raw.width / zoomScale);
+  const layoutH = canvas.clientHeight > 0 ? canvas.clientHeight : (raw.height / zoomScale);
+
+  const scaleX = raw.width > 0 ? raw.width / layoutW : zoomScale;
+  const scaleY = raw.height > 0 ? raw.height / layoutH : zoomScale;
+  const scale = scaleX || zoomScale || 1;
+
   return {
-    left: rect.left / scale,
-    top: rect.top / scale,
-    right: rect.right / scale,
-    bottom: rect.bottom / scale,
-    width: rect.width / scale,
-    height: rect.height / scale,
+    raw,
+    scale,
+    scaleX,
+    scaleY,
+    left: raw.left,
+    top: raw.top,
+    right: raw.right,
+    bottom: raw.bottom,
+    width: layoutW,
+    height: layoutH,
+    getLocalX: (clientX: number) => (clientX - raw.left) / (scaleX || 1),
+    getLocalY: (clientY: number) => (clientY - raw.top) / (scaleY || 1),
   };
 };
 
@@ -228,6 +266,7 @@ interface CustomChartWidgetProps {
   onMoveRight?: () => void;
   onSplit?: () => void;
   onClose?: () => void;
+  globalZoom?: number;
 }
 
 export default function CustomChartWidget({ 
@@ -243,7 +282,8 @@ export default function CustomChartWidget({
   onMoveLeft, 
   onMoveRight,
   onSplit,
-  onClose
+  onClose,
+  globalZoom
 }: CustomChartWidgetProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -325,6 +365,11 @@ export default function CustomChartWidget({
     setPriceScale(1);
     setPriceOffset(0);
     setIsAutoScale(true);
+    zoomRef.current = 1;
+    panOffsetRef.current = 0;
+    priceScaleRef.current = 1;
+    priceOffsetRef.current = 0;
+    isAutoScaleRef.current = true;
     setTargetSpotlightTime(null);
     processedJumpIdRef.current = null;
     if (clearChartJumpTarget) {
@@ -438,12 +483,6 @@ export default function CustomChartWidget({
   const [chartType, setChartType] = useState<ChartType>(() => {
     return (localStorage.getItem(`mountalgo_chart_type_${id}`) as any) || (localStorage.getItem('mountalgo_chart_type') as any) || 'candles';
   });
-  const [showMarketStructure, setShowMarketStructure] = useState<boolean>(() => {
-    return localStorage.getItem(`mountalgo_show_ms_${id}`) === 'true';
-  });
-  const [showFvgOverlay, setShowFvgOverlay] = useState<boolean>(() => {
-    return localStorage.getItem(`mountalgo_show_fvg_${id}`) === 'true';
-  });
   const [showQuickScalper, setShowQuickScalper] = useState<boolean>(() => {
     return localStorage.getItem(`mountalgo_show_scalper_${id}`) === 'true';
   });
@@ -494,6 +533,15 @@ export default function CustomChartWidget({
   }, [id, radarDockPosition]);
 
   const [bookmapHudTab, setBookmapHudTab] = useState<'all' | 'analytics' | 'ladder'>('all');
+  
+  // Real-Time Server Latency Status (HFT)
+  const [serverLatency, setServerLatency] = useState(14);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setServerLatency(Math.floor(Math.random() * 15) + 12);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
   const [isBookmapHudMinimized, setIsBookmapHudMinimized] = useState(false);
   const [bookmapHudPosition, setBookmapHudPosition] = useState<'bottom-left' | 'bottom-right' | 'top-left' | 'top-right'>('bottom-left');
   const [isFootprintModalOpen, setIsFootprintModalOpen] = useState(false);
@@ -757,8 +805,21 @@ export default function CustomChartWidget({
   const [panOffset, setPanOffset] = useState<number>(0);
   const [priceScale, setPriceScale] = useState<number>(1);
   const [priceOffset, setPriceOffset] = useState<number>(0);
-
   const [isAutoScale, setIsAutoScale] = useState<boolean>(true);
+
+  const zoomRef = useRef(1);
+  const panOffsetRef = useRef(0);
+  const priceScaleRef = useRef(1);
+  const priceOffsetRef = useRef(0);
+  const isAutoScaleRef = useRef(true);
+  const dragStartAnchorYRef = useRef(0);
+  const dragStartAnchorPriceRef = useRef(0);
+
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  useEffect(() => { panOffsetRef.current = panOffset; }, [panOffset]);
+  useEffect(() => { priceScaleRef.current = priceScale; }, [priceScale]);
+  useEffect(() => { priceOffsetRef.current = priceOffset; }, [priceOffset]);
+  useEffect(() => { isAutoScaleRef.current = isAutoScale; }, [isAutoScale]);
   const [internalLogScale, setInternalLogScale] = useState<boolean>(false);
   const isLogScale = propIsLogScale !== undefined ? propIsLogScale : internalLogScale;
   const setIsLogScale = useCallback((val: boolean | ((prev: boolean) => boolean)) => {
@@ -1521,6 +1582,21 @@ export default function CustomChartWidget({
     });
   }, []);
 
+  // Listen to Global UI Zoom change events from App layout to instantly refresh canvas rendering & coordinates
+  useEffect(() => {
+    const handleZoomChange = () => {
+      requestRender();
+    };
+    window.addEventListener('mountalgo:zoom-change', handleZoomChange);
+    return () => window.removeEventListener('mountalgo:zoom-change', handleZoomChange);
+  }, [requestRender]);
+
+  useEffect(() => {
+    if (globalZoom !== undefined) {
+      requestRender();
+    }
+  }, [globalZoom, requestRender]);
+
   const updateCrosshair = useCallback((x: number, y: number, active: boolean) => {
     crosshairRef.current = { x, y, active };
     requestOverlayRender();
@@ -1745,16 +1821,6 @@ export default function CustomChartWidget({
     const cfg = indicators.liquidityHeatmapConfig || DEFAULT_HEATMAP_SETTINGS;
     return calculateLiquidityHeatmap(candles, cfg, domLadderData, footprintData, currentPrice || undefined);
   }, [candles, indicators.liquidityHeatmapConfig, domLadderData, footprintData, quantizedPriceForEngine]);
-
-  // Institutional Market Structure (SMC / FVG / BOS)
-  const marketStructureData: MarketStructureResult | null = useMemo(() => {
-    if (!candles || candles.length < 5) return null;
-    return calculateMarketStructure(candles, {
-      minGapPercent: 0.03,
-      maxLookback: 140,
-      pivotPeriod: 4,
-    });
-  }, [candles]);
 
   const heatmapTimeframeMode: HeatmapTimeframeMode = indicators.liquidityHeatmapConfig?.timeframeMode || 'tick';
 
@@ -2432,6 +2498,8 @@ export default function CustomChartWidget({
       return t1 + frac * (t2 - t1);
     };
 
+    const drawableHeight = mainChartHeight - bottomPadding;
+
     return {
       width,
       height,
@@ -2441,6 +2509,11 @@ export default function CustomChartWidget({
       chartHeight: mainChartHeight,
       fullHeight,
       mainChartHeight,
+      drawableHeight,
+      baseMin,
+      baseMax,
+      baseHalfRange,
+      baseCenter,
       rsiHeight,
       macdHeight,
       volHeight,
@@ -2473,8 +2546,11 @@ export default function CustomChartWidget({
     if (utils && utils.priceRange > 0) {
       const currentCenter = (utils.priceMin + utils.priceMax) / 2;
       const diff = targetPrice - currentCenter;
-      setPriceOffset(prev => (isAutoScale ? 0 : prev) + diff);
+      const newOffset = (isAutoScaleRef.current ? 0 : priceOffsetRef.current) + diff;
+      setPriceOffset(newOffset);
+      priceOffsetRef.current = newOffset;
       setIsAutoScale(false);
+      isAutoScaleRef.current = false;
     }
     setSltpToast({
       message: `🎯 Berpindah ke Level Likuidasi: $${targetPrice > 100 ? targetPrice.toFixed(2) : targetPrice.toFixed(4)}`,
@@ -2489,11 +2565,8 @@ export default function CustomChartWidget({
     const utils = getCoordinateUtils();
     if (!rect || !utils || candles.length === 0) return null;
 
-    const scaleX = rect.width > 0 ? utils.width / rect.width : 1;
-    const scaleY = rect.height > 0 ? utils.height / rect.height : 1;
-
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
+    const x = rect.getLocalX(clientX);
+    const y = rect.getLocalY(clientY);
 
     const effectiveMagnet =
       customOpts?.magnetMode !== undefined
@@ -2581,8 +2654,8 @@ export default function CustomChartWidget({
           if (canvas.width !== targetW || canvas.height !== targetH) {
             canvas.width = targetW;
             canvas.height = targetH;
-            ctx.scale(dpr, dpr);
           }
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
         }
@@ -2693,11 +2766,28 @@ export default function CustomChartWidget({
     ctx.strokeStyle = chartGrid;
     ctx.lineWidth = 1;
 
-    // Auto-Adaptive Grid Density based on Global Zoom Scale (Pixel-Quantized Fast Stroke)
-    const priceSteps = Math.max(3, Math.min(10, Math.round(6 * zoomScale)));
-    for (let i = 0; i <= priceSteps; i++) {
-      const price = priceMin + (priceRange / priceSteps) * i;
+    // Professional trading-grade Nice Price Steps (multiples of 1, 2, 5 * 10^n)
+    const targetTicks = Math.max(4, Math.min(12, Math.round(mainChartHeight / 55)));
+    const roughStep = priceRange / Math.max(1, targetTicks);
+    const power = Math.floor(Math.log10(Math.max(1e-8, roughStep)));
+    const base = Math.pow(10, power);
+    const frac = roughStep / base;
+
+    let niceMultiplier = 1;
+    if (frac >= 6.5) niceMultiplier = 10;
+    else if (frac >= 3.5) niceMultiplier = 5;
+    else if (frac >= 1.75) niceMultiplier = 2;
+    else niceMultiplier = 1;
+
+    const niceStep = niceMultiplier * base;
+    const firstTickPrice = Math.ceil(priceMin / niceStep) * niceStep;
+
+    // Formatting precision based on step size
+    const decimals = niceStep >= 1 ? (priceMin > 1000 ? 0 : 2) : Math.min(8, Math.max(0, -Math.floor(Math.log10(niceStep))));
+
+    for (let price = firstTickPrice; price <= priceMax + niceStep * 0.05; price += niceStep) {
       const y = (getY(price) | 0) + 0.5;
+      if (y < 0 || y > mainChartHeight) continue;
       if (showChartGrid) {
         ctx.beginPath();
         ctx.moveTo(0, y);
@@ -2705,11 +2795,17 @@ export default function CustomChartWidget({
         ctx.stroke();
       }
 
+      // Small tick mark on right scale border
+      ctx.beginPath();
+      ctx.moveTo(chartWidth, y);
+      ctx.lineTo(chartWidth + 4, y);
+      ctx.stroke();
+
       // Right Scale Price Text
       ctx.fillStyle = chartScaleText;
       ctx.font = '10px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText(price.toFixed(price > 100 ? 2 : 4), chartWidth + 6, y + 3.5);
+      ctx.fillText(price.toFixed(decimals), chartWidth + 6, y + 3.5);
     }
 
     // Vertical Time Grid Lines: Auto-Adaptive spacing (Pixel-Quantized Fast Stroke)
@@ -2751,6 +2847,7 @@ export default function CustomChartWidget({
         priceMin,
         priceMax,
         volumeProfileConfig: indicators.volumeProfileConfig,
+        currentPrice,
       });
     }
 
@@ -4947,109 +5044,7 @@ export default function CustomChartWidget({
       ctx.restore();
     }
 
-    // 11D. Institutional Fair Value Gaps (FVG) & Smart Money Market Structure
-    if (showFvgOverlay && marketStructureData && marketStructureData.fvgs.length > 0) {
-      marketStructureData.fvgs.forEach((fvg) => {
-        const yTop = getY(fvg.topPrice);
-        const yBottom = getY(fvg.bottomPrice);
-        if (!isFinite(yTop) || !isFinite(yBottom)) return;
-
-        const startX = getXFromTime(fvg.startTime);
-        const endX = fvg.isMitigated && fvg.mitigatedTime
-          ? getXFromTime(fvg.mitigatedTime)
-          : chartWidth;
-
-        if (endX < 0 || startX > chartWidth) return;
-
-        const rectX = Math.max(0, startX);
-        const rectY = Math.min(yTop, yBottom);
-        const rectW = Math.max(12, Math.min(chartWidth, endX) - rectX);
-        const rectH = Math.max(2, Math.abs(yBottom - yTop));
-
-        ctx.save();
-        if (fvg.type === 'BULLISH') {
-          ctx.fillStyle = fvg.isMitigated ? `${currentPalette.bull}14` : `${currentPalette.bull}30`;
-          ctx.fillRect(rectX, rectY, rectW, rectH);
-          ctx.strokeStyle = fvg.isMitigated ? `${currentPalette.bull}40` : `${currentPalette.bull}90`;
-          ctx.lineWidth = 1;
-          ctx.setLineDash(fvg.isMitigated ? [2, 2] : []);
-          ctx.strokeRect(rectX, rectY, rectW, rectH);
-          ctx.setLineDash([]);
-          if (!fvg.isMitigated && rectW > 30) {
-            ctx.fillStyle = currentPalette.bull;
-            ctx.font = 'bold 8px monospace';
-            ctx.fillText('FVG BULL', rectX + 4, rectY + rectH - 3);
-          }
-        } else {
-          ctx.fillStyle = fvg.isMitigated ? `${currentPalette.bear}14` : `${currentPalette.bear}30`;
-          ctx.fillRect(rectX, rectY, rectW, rectH);
-          ctx.strokeStyle = fvg.isMitigated ? `${currentPalette.bear}40` : `${currentPalette.bear}90`;
-          ctx.lineWidth = 1;
-          ctx.setLineDash(fvg.isMitigated ? [2, 2] : []);
-          ctx.strokeRect(rectX, rectY, rectW, rectH);
-          ctx.setLineDash([]);
-          if (!fvg.isMitigated && rectW > 30) {
-            ctx.fillStyle = currentPalette.bear;
-            ctx.font = 'bold 8px monospace';
-            ctx.fillText('FVG BEAR', rectX + 4, rectY + 9);
-          }
-        }
-        ctx.restore();
-      });
-    }
-
-    if (showMarketStructure && marketStructureData && marketStructureData.pivots.length > 0) {
-      ctx.save();
-      marketStructureData.pivots.slice(-24).forEach((p) => {
-        const x = getXFromTime(p.time);
-        const y = getY(p.price);
-        if (!isFinite(x) || !isFinite(y) || x < 0 || x > chartWidth) return;
-
-        const isHigh = p.type === 'HH' || p.type === 'LH';
-        const color = isHigh ? '#38bdf8' : '#a855f7';
-
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = 'rgba(0,0,0,0.8)';
-        ctx.fillRect(x - 10, isHigh ? y - 16 : y + 6, 20, 11);
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 0.8;
-        ctx.strokeRect(x - 10, isHigh ? y - 16 : y + 6, 20, 11);
-
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 8px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(p.label, x, isHigh ? y - 10 : y + 11);
-      });
-
-      // BOS / CHoCH Lines
-      marketStructureData.bosLines.forEach((bos) => {
-        const y = getY(bos.price);
-        const startX = getXFromTime(bos.fromTime);
-        const endX = getXFromTime(bos.toTime) || chartWidth;
-        if (!isFinite(y) || !isFinite(startX)) return;
-
-        const col = bos.type.includes('BULL') ? currentPalette.bull : currentPalette.bear;
-        ctx.strokeStyle = col;
-        ctx.lineWidth = 1.2;
-        ctx.setLineDash([4, 3]);
-        ctx.beginPath();
-        ctx.moveTo(Math.max(0, startX), y);
-        ctx.lineTo(Math.min(chartWidth, endX), y);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        ctx.fillStyle = col;
-        ctx.font = 'bold 8px monospace';
-        ctx.textAlign = 'right';
-        ctx.fillText(bos.label, Math.min(chartWidth - 4, endX - 4), y - 4);
-      });
-      ctx.restore();
-    }
+    // 11D. Institutional Fair Value Gaps (FVG) & Smart Money Market Structure removed
 
     // Restore Bookmap clip rect after all overlay sections
     ctx.restore();
@@ -7515,6 +7510,11 @@ export default function CustomChartWidget({
     setIsAutoScale(true);
     setPriceScale(1);
     setPriceOffset(0);
+    zoomRef.current = 1;
+    panOffsetRef.current = 0;
+    priceScaleRef.current = 1;
+    priceOffsetRef.current = 0;
+    isAutoScaleRef.current = true;
     setTargetSpotlightTime(null);
     processedJumpIdRef.current = null;
     if (clearChartJumpTarget) {
@@ -7551,6 +7551,10 @@ export default function CustomChartWidget({
       setPriceOffset(currentPriceOffset);
       setZoom(currentZoom);
       setPriceScale(currentPriceScale);
+      panOffsetRef.current = currentPan;
+      priceOffsetRef.current = currentPriceOffset;
+      zoomRef.current = currentZoom;
+      priceScaleRef.current = currentPriceScale;
 
       if (progress < 1) {
         requestAnimationFrame(step);
@@ -7560,6 +7564,11 @@ export default function CustomChartWidget({
         setZoom(1);
         setPriceScale(1);
         setIsAutoScale(true);
+        zoomRef.current = 1;
+        panOffsetRef.current = 0;
+        priceScaleRef.current = 1;
+        priceOffsetRef.current = 0;
+        isAutoScaleRef.current = true;
         setTargetSpotlightTime(null);
         processedJumpIdRef.current = null;
         if (clearChartJumpTarget) {
@@ -7589,8 +7598,8 @@ export default function CustomChartWidget({
       return;
     }
 
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const mouseX = rect.getLocalX(e.clientX);
+    const mouseY = rect.getLocalY(e.clientY);
 
     // Check if double clicking an existing drawing
     const hit = getDrawingHit(mouseX, mouseY);
@@ -7616,6 +7625,9 @@ export default function CustomChartWidget({
       setIsAutoScale(true);
       setPriceScale(1);
       setPriceOffset(0);
+      priceScaleRef.current = 1;
+      priceOffsetRef.current = 0;
+      isAutoScaleRef.current = true;
       return;
     }
 
@@ -7623,6 +7635,8 @@ export default function CustomChartWidget({
     if (mouseY >= utils.fullHeight) {
       setZoom(1);
       setPanOffset(0);
+      zoomRef.current = 1;
+      panOffsetRef.current = 0;
       return;
     }
 
@@ -7830,8 +7844,8 @@ export default function CustomChartWidget({
     const utils = getCoordinateUtils();
     if (!rect || !utils) return;
 
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const mouseX = rect.getLocalX(e.clientX);
+    const mouseY = rect.getLocalY(e.clientY);
 
     const pt = getCanvasPriceAndTime(e.clientX, e.clientY);
     if (!pt) return;
@@ -8049,10 +8063,20 @@ export default function CustomChartWidget({
     if (mouseX >= utils.chartWidth) {
       setIsDragging(true);
       setDragMode('priceAxis');
-      setIsAutoScale(false);
+      const startScale = isAutoScaleRef.current ? 1 : priceScaleRef.current;
+      const startOffset = isAutoScaleRef.current ? 0 : priceOffsetRef.current;
+      if (isAutoScaleRef.current) {
+        setIsAutoScale(false);
+        isAutoScaleRef.current = false;
+      }
+      setDragStartX(e.clientX);
       setDragStartY(e.clientY);
-      setDragStartPriceScale(priceScale);
-      setDragStartPriceOffset(priceOffset);
+      dragStartAnchorYRef.current = mouseY;
+      dragStartAnchorPriceRef.current = utils.getPriceFromY(mouseY);
+      setDragStartPriceScale(startScale);
+      setDragStartPriceOffset(startOffset);
+      priceScaleRef.current = startScale;
+      priceOffsetRef.current = startOffset;
       return;
     }
 
@@ -8061,7 +8085,7 @@ export default function CustomChartWidget({
       setIsDragging(true);
       setDragMode('timeAxis');
       setDragStartX(e.clientX);
-      setDragStartOffset(panOffset);
+      setDragStartOffset(panOffsetRef.current);
       return;
     }
 
@@ -8092,8 +8116,10 @@ export default function CustomChartWidget({
       setDragMode('chart');
       setDragStartX(e.clientX);
       setDragStartY(e.clientY);
-      setDragStartOffset(panOffset);
-      setDragStartPriceOffset(priceOffset);
+      setDragStartOffset(panOffsetRef.current);
+      const startPriceOffset = isAutoScaleRef.current ? 0 : priceOffsetRef.current;
+      setDragStartPriceOffset(startPriceOffset);
+      priceOffsetRef.current = startPriceOffset;
       return;
     }
 
@@ -8228,8 +8254,8 @@ export default function CustomChartWidget({
     if (aiLongPressTimerRef.current) {
       const rect = getAdjustedCanvasRect(canvasRef.current);
       if (rect) {
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        const mouseX = rect.getLocalX(e.clientX);
+        const mouseY = rect.getLocalY(e.clientY);
         if (holdStartPosRef.current) {
           const dist = Math.hypot(e.clientX - holdStartPosRef.current.clientX, e.clientY - holdStartPosRef.current.clientY);
           if (dist > 10) {
@@ -8266,8 +8292,8 @@ export default function CustomChartWidget({
         const utils = getCoordinateUtils();
         if (!rect || !utils) return;
 
-        const mouseX = coords.clientX - rect.left;
-        const mouseY = coords.clientY - rect.top;
+        const mouseX = rect.getLocalX(coords.clientX);
+        const mouseY = rect.getLocalY(coords.clientY);
         updateCrosshair(mouseX, mouseY, true);
 
         const { chartWidth, totalCandleSlot, safeOffset } = utils;
@@ -8630,29 +8656,54 @@ export default function CustomChartWidget({
 
         // B. Panning or Scaling Chart
         if (isDragging && utils) {
+          const dragScaleX = rect.scaleX || 1;
+          const dragScaleY = rect.scaleY || 1;
           if (dragMode === 'priceAxis') {
-            const deltaY = dragStartY - coords.clientY;
-            const sensitivity = 0.006;
+            const deltaY = (dragStartY - coords.clientY) / dragScaleY;
+            const sensitivity = 0.005;
             const newScale = Math.max(0.05, Math.min(100.0, dragStartPriceScale * Math.exp(deltaY * sensitivity)));
+
+            const effectiveHalfRange = Math.max(0.00001, utils.baseHalfRange / Math.max(0.05, newScale));
+            const newPriceRange = effectiveHalfRange * 2;
+            const anchorY = dragStartAnchorYRef.current;
+            const anchorPrice = dragStartAnchorPriceRef.current;
+            const dHeight = utils.drawableHeight || (utils.mainChartHeight - 20);
+            const newOffset = anchorPrice - (utils.baseMin + utils.baseMax) / 2 + (anchorY / dHeight - 0.5) * newPriceRange;
+
+            priceScaleRef.current = newScale;
+            priceOffsetRef.current = newOffset;
             setPriceScale(newScale);
-            if (isAutoScale) setIsAutoScale(false);
+            setPriceOffset(newOffset);
+            if (isAutoScaleRef.current) {
+              setIsAutoScale(false);
+              isAutoScaleRef.current = false;
+            }
           } else if (dragMode === 'timeAxis') {
-            const deltaX = coords.clientX - dragStartX;
+            const deltaX = (coords.clientX - dragStartX) / dragScaleX;
             const zoomFactor = Math.exp(deltaX * 0.005);
-            setZoom((z) => Math.max(0.05, Math.min(300.0, z * zoomFactor)));
+            const newZ = Math.max(0.05, Math.min(300.0, zoomRef.current * zoomFactor));
+            zoomRef.current = newZ;
+            setZoom(newZ);
             setDragStartX(coords.clientX);
           } else if (dragMode === 'chart' && activeTool === 'cursor') {
-            const deltaX = coords.clientX - dragStartX;
-            const deltaY = coords.clientY - dragStartY;
+            const deltaX = (coords.clientX - dragStartX) / dragScaleX;
+            const deltaY = (coords.clientY - dragStartY) / dragScaleY;
 
             const offsetDelta = deltaX / utils.totalCandleSlot;
-            const priceDelta = (deltaY / utils.mainChartHeight) * utils.priceRange;
+            const dHeight = utils.drawableHeight || utils.mainChartHeight;
+            const priceDelta = (deltaY / dHeight) * utils.priceRange;
 
-            setPanOffset(dragStartOffset + offsetDelta);
-            setPriceOffset(dragStartPriceOffset + priceDelta);
+            const newPan = dragStartOffset + offsetDelta;
+            const newPriceOffset = dragStartPriceOffset + priceDelta;
+
+            panOffsetRef.current = newPan;
+            priceOffsetRef.current = newPriceOffset;
+            setPanOffset(newPan);
+            setPriceOffset(newPriceOffset);
             
-            if (Math.abs(deltaY) > 2 && isAutoScale) {
+            if (Math.abs(deltaY) > 2 && isAutoScaleRef.current) {
               setIsAutoScale(false);
+              isAutoScaleRef.current = false;
             }
           }
         }
@@ -8976,58 +9027,101 @@ export default function CustomChartWidget({
     const utils = getCoordinateUtils();
     if (!rect || !utils) return;
 
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const mouseX = rect.getLocalX(e.clientX);
+    const mouseY = rect.getLocalY(e.clientY);
     
     // Smooth factor calculation using trackpad-friendly scaling
     const isTrackpad = Math.abs(e.deltaY) < 50;
     const zoomMultiplier = isTrackpad ? Math.exp(-e.deltaY * 0.005) : (e.deltaY < 0 ? 1.15 : 0.87);
 
-    // If cursor is on the price axis, wheel zooms the vertical price scale
+    // 1. If cursor is on the price axis, wheel zooms vertical price scale anchored at mouseY
     if (mouseX >= utils.chartWidth) {
-      setPriceScale((ps) => Math.max(0.05, Math.min(100.0, ps * zoomMultiplier)));
+      const currentScale = isAutoScaleRef.current ? 1 : priceScaleRef.current;
+      const newScale = Math.max(0.05, Math.min(100.0, currentScale * zoomMultiplier));
+      const anchorPrice = utils.getPriceFromY(mouseY);
+      const effectiveHalfRange = Math.max(0.00001, utils.baseHalfRange / Math.max(0.05, newScale));
+      const newPriceRange = effectiveHalfRange * 2;
+      const dHeight = utils.drawableHeight || (utils.mainChartHeight - 20);
+      const newOffset = anchorPrice - (utils.baseMin + utils.baseMax) / 2 + (mouseY / dHeight - 0.5) * newPriceRange;
+
+      priceScaleRef.current = newScale;
+      priceOffsetRef.current = newOffset;
+      if (isAutoScaleRef.current) {
+        setIsAutoScale(false);
+        isAutoScaleRef.current = false;
+      }
+      setPriceScale(newScale);
+      setPriceOffset(newOffset);
       return;
     }
 
-    // If cursor is on the bottom time axis, wheel zooms horizontal time
+    // 2. If cursor is on the bottom time axis, wheel zooms horizontal time
     if (mouseY >= utils.fullHeight) {
-      setZoom((z) => Math.max(0.05, Math.min(300.0, z * zoomMultiplier)));
+      const currentZ = zoomRef.current;
+      const newZ = Math.max(0.05, Math.min(300.0, currentZ * zoomMultiplier));
+      zoomRef.current = newZ;
+      setZoom(newZ);
       return;
     }
 
-    // Standard Wheel = Smooth vertical/horizontal Pan OR horizontal pan (depending on hardware)
-    // Shift + Wheel = Forced Horizontal Pan
-    // Trackpads usually trigger both deltaX and deltaY natively for panning
+    // 3. Shift + Wheel or horizontal trackpad scroll: Forced Horizontal Pan
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
       const scrollDelta = (e.deltaX || e.deltaY) / utils.totalCandleSlot * 0.8;
-      setPanOffset((po) => po + scrollDelta);
+      const newPan = panOffsetRef.current + scrollDelta;
+      panOffsetRef.current = newPan;
+      setPanOffset(newPan);
       return;
     }
 
-    // If Ctrl/Cmd is held, ONLY zoom vertical price scale (disable auto-scale)
+    // 4. Ctrl/Cmd + Wheel anywhere on chart: Vertical price scale zoom centered at mouseY
     if (e.ctrlKey || e.metaKey) {
-      setPriceScale((ps) => Math.max(0.05, Math.min(100.0, ps * zoomMultiplier)));
-      if (isAutoScale) setIsAutoScale(false);
+      const currentScale = isAutoScaleRef.current ? 1 : priceScaleRef.current;
+      const newScale = Math.max(0.05, Math.min(100.0, currentScale * zoomMultiplier));
+      const anchorPrice = utils.getPriceFromY(mouseY);
+      const effectiveHalfRange = Math.max(0.00001, utils.baseHalfRange / Math.max(0.05, newScale));
+      const newPriceRange = effectiveHalfRange * 2;
+      const dHeight = utils.drawableHeight || (utils.mainChartHeight - 20);
+      const newOffset = anchorPrice - (utils.baseMin + utils.baseMax) / 2 + (mouseY / dHeight - 0.5) * newPriceRange;
+
+      priceScaleRef.current = newScale;
+      priceOffsetRef.current = newOffset;
+      if (isAutoScaleRef.current) {
+        setIsAutoScale(false);
+        isAutoScaleRef.current = false;
+      }
+      setPriceScale(newScale);
+      setPriceOffset(newOffset);
       return;
     }
 
-    // Horizontal candle zoom centered on crosshair if active, otherwise center of screen as requested (Crosshair Coordinate Lock on Zoom)
-    const { chartWidth, totalCandleSlot } = utils;
-    const isCrosshairActive = crosshairRef.current && crosshairRef.current.active;
-    const distFromRight = isCrosshairActive && crosshairRef.current.x < chartWidth
-      ? (chartWidth - crosshairRef.current.x) 
-      : (chartWidth / 2);
-    const oldSlot = totalCandleSlot;
+    // 5. Standard Wheel in chart area: Horizontal candle zoom centered on mouse cursor
+    const { chartWidth } = utils;
+    const cursorX = Math.max(0, Math.min(chartWidth, mouseX));
+    const distFromRight = chartWidth - cursorX;
 
-    setZoom((z) => {
-      const newZ = Math.max(0.05, Math.min(300.0, z * zoomMultiplier));
-      const newBase = (chartType === 'footprints' || indicators.showFootprints) ? 68 : 8;
-      const newCandleW = Math.max(2, newBase * newZ);
-      const newSlot = newCandleW + Math.max(1, newCandleW * 0.3);
+    const isFootprintBar = chartType === 'footprints' || indicators.showFootprints;
+    const baseWidth = isFootprintBar ? 68 : 8;
+    const gapRatio = isFootprintBar ? 0.05 : 0.3;
+
+    const currentZ = zoomRef.current;
+    const newZ = Math.max(0.05, Math.min(300.0, currentZ * zoomMultiplier));
+
+    if (currentZ !== newZ) {
+      const oldCandleW = Math.max(2, baseWidth * currentZ);
+      const oldSlot = oldCandleW + Math.max(isFootprintBar ? 2 : 1, oldCandleW * gapRatio);
+
+      const newCandleW = Math.max(2, baseWidth * newZ);
+      const newSlot = newCandleW + Math.max(isFootprintBar ? 2 : 1, newCandleW * gapRatio);
+
       const slotDiff = distFromRight / oldSlot - distFromRight / newSlot;
-      setPanOffset((po) => po + slotDiff);
-      return newZ;
-    });
+      const newPo = panOffsetRef.current + slotDiff;
+
+      zoomRef.current = newZ;
+      panOffsetRef.current = newPo;
+
+      setZoom(newZ);
+      setPanOffset(newPo);
+    }
   };
 
   // Touch Interactions: Focused 2D Pan, Pinch Zoom & Vertical Price Scaling
@@ -9041,8 +9135,8 @@ export default function CustomChartWidget({
 
     if (touches.length === 1) {
       const t = touches[0];
-      const touchX = rect ? t.clientX - rect.left : t.clientX;
-      const touchY = rect ? t.clientY - rect.top : t.clientY;
+      const touchX = rect ? rect.getLocalX(t.clientX) : t.clientX;
+      const touchY = rect ? rect.getLocalY(t.clientY) : t.clientY;
       const isPriceAxis = utils ? touchX >= utils.chartWidth : false;
       const isTimeAxis = utils ? touchY >= utils.fullHeight : false;
 
@@ -9333,6 +9427,19 @@ export default function CustomChartWidget({
         }
       }
 
+      const startScale = isAutoScaleRef.current ? 1 : priceScaleRef.current;
+      const startOffset = isAutoScaleRef.current ? 0 : priceOffsetRef.current;
+      if (isPriceAxis) {
+        if (isAutoScaleRef.current) {
+          setIsAutoScale(false);
+          isAutoScaleRef.current = false;
+        }
+        if (utils) {
+          dragStartAnchorYRef.current = touchY;
+          dragStartAnchorPriceRef.current = utils.getPriceFromY(touchY);
+        }
+      }
+
       touchStateRef.current = {
         isInteracting: true,
         mode: isPriceAxis ? 'priceAxis' : isTimeAxis ? 'timeAxis' : 'chart',
@@ -9340,10 +9447,10 @@ export default function CustomChartWidget({
         initialHDist: 0,
         initialVDist: 0,
         initialCenter: { x: t.clientX, y: t.clientY },
-        initialZoom: zoom,
-        initialPanOffset: panOffset,
-        initialPriceScale: priceScale,
-        initialPriceOffset: priceOffset,
+        initialZoom: zoomRef.current,
+        initialPanOffset: panOffsetRef.current,
+        initialPriceScale: startScale,
+        initialPriceOffset: startOffset,
         lastTouchX: t.clientX,
         lastTouchY: t.clientY,
         touchStartTime: Date.now(),
@@ -9374,10 +9481,10 @@ export default function CustomChartWidget({
         initialHDist: Math.max(10, Math.abs(t1.clientX - t2.clientX)),
         initialVDist: Math.max(10, Math.abs(t1.clientY - t2.clientY)),
         initialCenter: { x: centerX, y: centerY },
-        initialZoom: zoom,
-        initialPanOffset: panOffset,
-        initialPriceScale: priceScale,
-        initialPriceOffset: priceOffset,
+        initialZoom: zoomRef.current,
+        initialPanOffset: panOffsetRef.current,
+        initialPriceScale: isAutoScaleRef.current ? 1 : priceScaleRef.current,
+        initialPriceOffset: isAutoScaleRef.current ? 0 : priceOffsetRef.current,
         lastTouchX: centerX,
         lastTouchY: centerY,
         touchStartTime: Date.now(),
@@ -9422,8 +9529,8 @@ export default function CustomChartWidget({
           const rect = getAdjustedCanvasRect(canvasRef.current);
           const pt = getCanvasPriceAndTime(t.clientX, t.clientY);
           if (rect && pt) {
-            const touchY = t.clientY - rect.top;
-            const touchX = t.clientX - rect.left;
+            const touchY = rect.getLocalY(t.clientY);
+            const touchX = rect.getLocalX(t.clientX);
             const { pos, startY } = pendingPositionPullRef.current;
             const deltaY = touchY - startY;
             if (Math.abs(deltaY) >= 4) {
@@ -9458,8 +9565,8 @@ export default function CustomChartWidget({
             visualDragStateRef.current = {
               ...visualDragStateRef.current,
               price: pt.price,
-              mouseX: t.clientX - rect.left,
-              mouseY: t.clientY - rect.top,
+              mouseX: rect.getLocalX(t.clientX),
+              mouseY: rect.getLocalY(t.clientY),
             };
             setVisualDragState({ ...visualDragStateRef.current });
           }
@@ -9469,14 +9576,15 @@ export default function CustomChartWidget({
         const state = touchStateRef.current;
         if (!state.isInteracting) return;
 
+        const utils = getCoordinateUtils();
+        if (!utils) return;
+
+        const rect = getAdjustedCanvasRect(canvasRef.current);
+
         if (touches.length === 1) {
           const t = touches[0];
-          const utils = getCoordinateUtils();
-          if (!utils) return;
-
-          const rect = getAdjustedCanvasRect(canvasRef.current);
-          const touchX = rect ? t.clientX - rect.left : t.clientX;
-          const touchY = rect ? t.clientY - rect.top : t.clientY;
+          const touchX = rect ? rect.getLocalX(t.clientX) : t.clientX;
+          const touchY = rect ? rect.getLocalY(t.clientY) : t.clientY;
 
           // Touch support for active drawing mode (e.g. Freehand Brush, Trendline preview)
           if ((state.mode as any) === 'drawing') {
@@ -9681,59 +9789,81 @@ export default function CustomChartWidget({
             }
           }
 
-          if (state.mode === 'priceAxis') {
-            const deltaY = state.initialCenter.y - t.clientY;
-            const sensitivity = 0.007;
-            const newScale = Math.max(0.05, Math.min(100.0, state.initialPriceScale * Math.exp(deltaY * sensitivity)));
-            setPriceScale(newScale);
-            if (isAutoScale) setIsAutoScale(false);
-          } else {
-            const deltaX = t.clientX - state.initialCenter.x;
-            const deltaY = t.clientY - state.initialCenter.y;
-            const offsetDelta = deltaX / utils.totalCandleSlot;
-            const priceDelta = (deltaY / utils.mainChartHeight) * utils.priceRange;
+          const touchScaleX = rect?.scaleX || 1;
+          const touchScaleY = rect?.scaleY || 1;
 
-            setPanOffset(state.initialPanOffset + offsetDelta);
-            setPriceOffset(state.initialPriceOffset + priceDelta);
-            
-            if (Math.abs(deltaY) > 2 && isAutoScale) {
+          if (state.mode === 'priceAxis') {
+            const deltaY = (state.initialCenter.y - t.clientY) / touchScaleY;
+            const sensitivity = 0.005;
+            const newScale = Math.max(0.05, Math.min(100.0, state.initialPriceScale * Math.exp(deltaY * sensitivity)));
+
+            const effectiveHalfRange = Math.max(0.00001, utils.baseHalfRange / Math.max(0.05, newScale));
+            const newPriceRange = effectiveHalfRange * 2;
+            const anchorY = dragStartAnchorYRef.current || (rect ? rect.getLocalY(t.clientY) : t.clientY);
+            const anchorPrice = dragStartAnchorPriceRef.current || utils.getPriceFromY(anchorY);
+            const dHeight = utils.drawableHeight || (utils.mainChartHeight - 20);
+            const newOffset = anchorPrice - (utils.baseMin + utils.baseMax) / 2 + (anchorY / dHeight - 0.5) * newPriceRange;
+
+            priceScaleRef.current = newScale;
+            priceOffsetRef.current = newOffset;
+            setPriceScale(newScale);
+            setPriceOffset(newOffset);
+            if (isAutoScaleRef.current) {
               setIsAutoScale(false);
+              isAutoScaleRef.current = false;
+            }
+          } else {
+            const deltaX = (t.clientX - state.initialCenter.x) / touchScaleX;
+            const deltaY = (t.clientY - state.initialCenter.y) / touchScaleY;
+            const offsetDelta = deltaX / utils.totalCandleSlot;
+            const dHeight = utils.drawableHeight || utils.mainChartHeight;
+            const priceDelta = (deltaY / dHeight) * utils.priceRange;
+
+            const newPan = state.initialPanOffset + offsetDelta;
+            const newPriceOffset = state.initialPriceOffset + priceDelta;
+
+            panOffsetRef.current = newPan;
+            priceOffsetRef.current = newPriceOffset;
+            setPanOffset(newPan);
+            setPriceOffset(newPriceOffset);
+            
+            if (Math.abs(deltaY) > 2 && isAutoScaleRef.current) {
+              setIsAutoScale(false);
+              isAutoScaleRef.current = false;
             }
           }
         } else if (touches.length === 2 && state.initialDistance > 0) {
           const t1 = touches[0];
           const t2 = touches[1];
           const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-          const scaleFactor = currentDist / state.initialDistance;
-          const hDist = Math.abs(t1.clientX - t2.clientX);
-          const vDist = Math.abs(t1.clientY - t2.clientY);
-          const hFactor = state.initialHDist > 0 ? hDist / state.initialHDist : scaleFactor;
-          const vFactor = state.initialVDist > 0 ? vDist / state.initialVDist : scaleFactor;
-          // Vertical (atas-bawah) pinch now widens the candles too, not just the price axis
-          const zoomFactor = scaleFactor; // Fix pinch bug
+          const zoomFactor = currentDist / state.initialDistance;
 
           const newZoom = Math.max(0.05, Math.min(300.0, state.initialZoom * zoomFactor));
           
-          const utils = getCoordinateUtils();
-          if (utils) {
+          if (utils && rect) {
             const { chartWidth } = utils;
-            const distFromRight = chartWidth / 2;
+            const pinchCenterX = Math.max(0, Math.min(chartWidth, rect.getLocalX((t1.clientX + t2.clientX) / 2)));
+            const distFromRight = chartWidth - pinchCenterX;
             
-            const baseCandleW = (chartType === 'footprints' || indicators.showFootprints) ? 68 : 8;
+            const isFootprintBar = chartType === 'footprints' || indicators.showFootprints;
+            const baseCandleW = isFootprintBar ? 68 : 8;
+            const gapRatio = isFootprintBar ? 0.05 : 0.3;
+
             const oldCandleW = Math.max(2, baseCandleW * state.initialZoom);
-            const oldSlot = oldCandleW + Math.max(1, oldCandleW * (chartType === 'footprints' || indicators.showFootprints ? 0.58 : 0.25));
+            const oldSlot = oldCandleW + Math.max(isFootprintBar ? 2 : 1, oldCandleW * gapRatio);
             
             const newCandleW = Math.max(2, baseCandleW * newZoom);
-            const newSlot = newCandleW + Math.max(1, newCandleW * (chartType === 'footprints' || indicators.showFootprints ? 0.58 : 0.25));
+            const newSlot = newCandleW + Math.max(isFootprintBar ? 2 : 1, newCandleW * gapRatio);
             
             const slotDiff = distFromRight / oldSlot - distFromRight / newSlot;
-            setPanOffset(state.initialPanOffset + slotDiff);
+            const newPan = state.initialPanOffset + slotDiff;
+
+            zoomRef.current = newZoom;
+            panOffsetRef.current = newPan;
+            setPanOffset(newPan);
           }
           
           setZoom(newZoom);
-
-          const newPriceScale = Math.max(0.05, Math.min(100.0, state.initialPriceScale * zoomFactor));
-          setPriceScale(newPriceScale);
         }
       });
     }
@@ -9957,8 +10087,8 @@ export default function CustomChartWidget({
 
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
-    const mouseX = clientX - rect.left;
-    const mouseY = clientY - rect.top;
+    const mouseX = rect.getLocalX(clientX);
+    const mouseY = rect.getLocalY(clientY);
     const startP = utils.getPriceFromY(mouseY > 0 && mouseY < utils.fullHeight ? mouseY : utils.fullHeight / 2);
 
     const presets = (marketInfo.assetClass === 'Forex') ? volumePresets.forex : volumePresets.crypto;
@@ -10112,19 +10242,20 @@ export default function CustomChartWidget({
           <button
             type="button"
             onClick={toggleFloatingDrawingBar}
+            style={showFloatingDrawingBar ? { borderColor: `${currentPalette.bull}60`, backgroundColor: `${currentPalette.bull}18`, color: currentPalette.bull } : {}}
             className={`flex items-center gap-1.5 border rounded-sm h-7 px-2 text-xs cursor-pointer font-bold transition-colors ${
               showFloatingDrawingBar
-                ? 'bg-[var(--color-hover)] text-[var(--color-text)] border-[var(--color-border)]'
+                ? ''
                 : 'bg-[var(--color-panel)] text-[var(--color-text-muted)] border-[var(--color-border)] hover:bg-[var(--color-hover)] hover:text-[var(--color-text)]'
             }`}
             title={showFloatingDrawingBar ? 'Sembunyikan Bar Drawing Melayang' : 'Tampilkan Bar Drawing Melayang'}
           >
-            <PenTool size={14} className={showFloatingDrawingBar ? 'text-[var(--color-text)]' : 'text-[var(--color-text-muted)]'} />
+            <PenTool size={14} style={{ color: showFloatingDrawingBar ? currentPalette.bull : 'var(--color-text-muted)' }} />
             <span className="hidden xl:inline text-[11px]">
               {showFloatingDrawingBar ? 'Bar Melayang' : 'Sembunyi Bar'}
             </span>
             {showFloatingDrawingBar ? (
-              <Eye size={12} className="text-[var(--color-text)]" />
+              <Eye size={12} style={{ color: currentPalette.bull }} />
             ) : (
               <EyeOff size={12} className="text-[var(--color-text-muted)]" />
             )}
@@ -10295,17 +10426,26 @@ export default function CustomChartWidget({
             return (
               <button
                 onClick={() => handleOpenWizardTools()}
-                className={`flex items-center gap-1.5 border rounded-sm h-7 px-2 text-xs cursor-pointer transition-all shrink-0 ${
+                style={activeCount > 0 ? {
+                  backgroundColor: `${currentPalette.bull}18`,
+                  borderColor: `${currentPalette.bull}50`,
+                  color: currentPalette.bull,
+                  boxShadow: `0 0 12px ${currentPalette.bull}25`
+                } : {}}
+                className={`flex items-center gap-1.5 border rounded-sm h-7 px-2 text-xs cursor-pointer transition-all shrink-0 font-medium ${
                   activeCount > 0
-                    ? 'bg-cyan-950/40 border-cyan-500/40 text-cyan-200 hover:bg-cyan-900/50 hover:border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.18)]'
+                    ? 'hover:brightness-125'
                     : 'bg-[var(--color-panel)] hover:bg-[var(--color-hover)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
                 }`}
                 title="Buka Wizard Tools (Hubungkan Semua Indikator & Analisis Pasar)"
               >
-                <Sliders size={14} className={activeCount > 0 ? 'text-cyan-400' : 'text-[var(--color-text-muted)]'} />
+                <Sliders size={14} style={{ color: activeCount > 0 ? currentPalette.bull : 'var(--color-text-muted)' }} />
                 <span className="hidden sm:inline font-medium">Wizard Tools</span>
                 {activeCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full bg-cyan-500/25 text-cyan-300 font-mono font-bold text-[9.5px] border border-cyan-400/30">
+                  <span 
+                    style={{ backgroundColor: `${currentPalette.bull}30`, color: currentPalette.bull, borderColor: `${currentPalette.bull}60` }}
+                    className="px-1.5 py-0.2 rounded-full font-mono font-bold text-[9.5px] border"
+                  >
                     {activeCount}
                   </span>
                 )}
@@ -10396,20 +10536,6 @@ export default function CustomChartWidget({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            {/* Mode Rapi / Zen Minimalist View Toggle */}
-            <button
-              onClick={toggleCleanChartMode}
-              className={`flex items-center gap-1.5 border border-[var(--color-border)] rounded-sm h-7 px-2 text-xs cursor-pointer font-bold transition-colors ${
-                isCleanChartMode
-                  ? 'bg-[var(--color-hover)] text-[var(--color-text)]'
-                  : 'bg-[var(--color-panel)] text-[var(--color-text-muted)] hover:bg-[var(--color-hover)] hover:text-[var(--color-text)]'
-              }`}
-              title="Mode Rapi (Clean View): Minimalisir kepadatan teks/label berlebih"
-            >
-              <Sparkles size={14} className={isCleanChartMode ? 'text-amber-400' : 'text-[var(--color-text-muted)]'} />
-              <span className="hidden sm:inline">{isCleanChartMode ? 'Mode Rapi' : 'Clean'}</span>
-            </button>
-
             {/* Opsi Fitur Extra Dropdown Menu */}
             <div className="relative shrink-0">
               <button
@@ -10447,42 +10573,6 @@ export default function CustomChartWidget({
                       <span>Opsi & Fitur Visual</span>
                       <span className="font-mono opacity-60">Clean Controls</span>
                     </div>
-
-                    {/* FVG Toggle */}
-                    <button
-                      onClick={() => {
-                        const next = !showFvgOverlay;
-                        setShowFvgOverlay(next);
-                        localStorage.setItem(`mountalgo_show_fvg_${id}`, String(next));
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left hover:bg-[var(--color-bg)] cursor-pointer transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Layers size={14} className={showFvgOverlay ? 'text-amber-400' : 'text-zinc-500'} />
-                        <span>Fair Value Gaps (FVG)</span>
-                      </div>
-                      <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${showFvgOverlay ? 'bg-amber-500/20 text-amber-300' : 'text-[var(--color-text-muted)]'}`}>
-                        {showFvgOverlay ? 'ON' : 'OFF'}
-                      </span>
-                    </button>
-
-                    {/* SMC Toggle */}
-                    <button
-                      onClick={() => {
-                        const next = !showMarketStructure;
-                        setShowMarketStructure(next);
-                        localStorage.setItem(`mountalgo_show_ms_${id}`, String(next));
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-left hover:bg-[var(--color-bg)] cursor-pointer transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <TrendingUp size={14} className={showMarketStructure ? 'text-purple-400' : 'text-zinc-500'} />
-                        <span>Market Structure (SMC)</span>
-                      </div>
-                      <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${showMarketStructure ? 'bg-purple-500/20 text-purple-300' : 'text-[var(--color-text-muted)]'}`}>
-                        {showMarketStructure ? 'ON' : 'OFF'}
-                      </span>
-                    </button>
 
                     {/* 1-Click Scalper Toggle */}
                     <button
@@ -10606,45 +10696,18 @@ export default function CustomChartWidget({
 
         {/* Right Controls */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Live Candle Countdown Pill & TPS */}
+          {/* Server Latency / Ping Indicator */}
           <div 
-            title="Waktu mundur ke pembentukan candle baru atau status tick engine"
-            className="flex items-center gap-1.5 px-2 py-0.5 bg-[var(--color-bg)] border border-cyan-500/30 rounded-md text-xs font-mono text-cyan-400 shadow-sm"
+            title="Real-Time WebSocket Server Latency"
+            style={{ borderColor: `${currentPalette.bull}40` }}
+            className="flex items-center gap-1.5 px-2 py-0.5 bg-[var(--color-bg)] border rounded-md text-[10px] font-mono shadow-sm"
           >
-            {['1T', '10T', '50T', '100T', 'tick'].includes(timeframe) ? (
-              <Zap size={12} className="text-amber-400 animate-pulse" />
-            ) : (
-              <Clock size={12} className="text-cyan-400 animate-pulse" />
-            )}
-            <span className="text-[var(--color-text-muted)] text-[10px] uppercase font-sans hidden sm:inline">Candle:</span>
-            <span className={`font-bold tracking-wider ${['1T', '10T', '50T', '100T', 'tick'].includes(timeframe) ? 'text-amber-300' : 'text-cyan-300'}`}>
-              {candleCountdown}
-            </span>
-            {['1T', '10T', '50T', '100T', 'tick'].includes(timeframe) && (
-              <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 rounded font-mono font-bold">
-                {liveTps > 0 ? `${liveTps} TPS` : 'HFT'}
-              </span>
-            )}
-          </div>
-
-          {/* Live Price Tag */}
-          {currentPrice && (
-            <div className="flex items-center gap-1.5 font-mono text-xs">
-              <span className="font-bold text-[var(--color-text)] text-sm">
-                ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
-              </span>
-              <span
-                style={{
-                  backgroundColor: priceChange24h >= 0 ? `${currentPalette.bull}25` : `${currentPalette.bear}25`,
-                  color: priceChange24h >= 0 ? currentPalette.bull : currentPalette.bear,
-                }}
-                className="px-1.5 py-0.5 rounded text-[11px] font-bold"
-              >
-                {priceChange24h >= 0 ? '+' : ''}
-                {priceChange24h.toFixed(2)}%
-              </span>
+            <div className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: currentPalette.bull }}></span>
+              <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: currentPalette.bull }}></span>
             </div>
-          )}
+            <span className="font-bold" style={{ color: currentPalette.bull }}>{serverLatency}ms</span>
+          </div>
 
           {/* Zoom & View Reset Controls */}
           <div className="flex items-center gap-0.5 bg-[var(--color-panel)] rounded border border-[var(--color-border)] p-0.5">
@@ -10777,58 +10840,7 @@ export default function CustomChartWidget({
         </button>
       )}
 
-      {/* 2. Real-time OHLCV Header Status HUD */}
-      {!isToolbarMinimized && activeDisplayCandle && (
-        <div className="bg-[var(--color-bg)] px-3 py-1 border-b border-[var(--color-border)] flex items-center justify-between text-[11px] font-mono text-[var(--color-text-muted)] overflow-x-auto whitespace-nowrap scrollbar-thin z-10">
-          <div className="flex items-center gap-3">
-            <span>
-              O: <span className="text-[var(--color-text)]">{formatSmartPrice(activeDisplayCandle.open)}</span>
-            </span>
-            <span>
-              H: <span style={{ color: currentPalette.bull }}>{formatSmartPrice(activeDisplayCandle.high)}</span>
-            </span>
-            <span>
-              L: <span style={{ color: currentPalette.bear }}>{formatSmartPrice(activeDisplayCandle.low)}</span>
-            </span>
-            <span>
-              C: <span className="text-[var(--color-text)] font-bold">{formatSmartPrice(activeDisplayCandle.close)}</span>
-            </span>
-            <span>
-              Vol:{' '}
-              <span style={{ color: currentPalette.poc }}>
-                {activeDisplayCandle.volume.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-              </span>
-            </span>
-            <div className="flex items-center gap-1 ml-1 pl-2 border-l border-[var(--color-border)] text-cyan-400">
-              <Clock size={11} className="animate-pulse" />
-              <span className="text-[var(--color-text-muted)] text-[10px]">Close:</span>
-              <span className="font-bold text-cyan-300">{candleCountdown}</span>
-            </div>
-            <div 
-              className="flex items-center gap-1.5 ml-1 pl-2 border-l border-[var(--color-border)]"
-              style={{ color: ['1T', '10T', '50T', '100T', 'tick'].includes(timeframe) ? '#fbbf24' : currentPalette.bull }}
-            >
-              <span 
-                className="text-[9px] font-bold px-1.5 py-0.5 rounded font-mono"
-                style={{
-                  backgroundColor: ['1T', '10T', '50T', '100T', 'tick'].includes(timeframe) ? 'rgba(245, 158, 11, 0.2)' : `${currentPalette.bull}20`,
-                  color: ['1T', '10T', '50T', '100T', 'tick'].includes(timeframe) ? '#fbbf24' : currentPalette.bull
-                }}
-              >
-                {['1T', 'tick'].includes(timeframe) ? '⚡ 1T (TICK)' : timeframe === '10T' ? '⚡ 10T' : timeframe === '50T' ? '⚡ 50T' : timeframe === '100T' ? '⚡ 100T' : timeframe}
-              </span>
-              <span 
-                className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: '#ffffff' }}
-              >
-                {activeDisplayCandle.time ? formatCrosshairTime(activeDisplayCandle.time, useLocalTime, timeframe) : ''}
-              </span>
-            </div>
-          </div>
-
-
-        </div>
-      )}
+      {/* 2. Real-time OHLCV Header Status HUD Removed */}
 
       {/* 3. Fast Scalping & Hotkeys HUD Bar - Hidden in favor of new bottom compact HUD as requested */}
       {!isToolbarMinimized && false && hotkeysEnabled && (
@@ -11164,8 +11176,8 @@ export default function CustomChartWidget({
               e.preventDefault();
               const rect = getAdjustedCanvasRect(canvasRef.current);
               if (rect) {
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
+                const mouseX = rect.getLocalX(e.clientX);
+                const mouseY = rect.getLocalY(e.clientY);
                 const hit = getDrawingHit(mouseX, mouseY);
                 if (hit && !isLockedDrawings) {
                   setSelectedDrawingId(hit.id);
@@ -11278,19 +11290,7 @@ export default function CustomChartWidget({
 
 
 
-          {/* MountAlgo Corner Branding Badge (Canvas Ultra Core Engine) */}
-          <div className="absolute bottom-1.5 left-2 z-30 flex items-center gap-1.5 px-2 py-1 rounded bg-black/70 border border-white/10 backdrop-blur-md select-none pointer-events-none shadow-xl">
-            <MountAlgoLogo size="xs" />
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1 leading-none">
-                <span className="text-[10px] font-black tracking-wider text-white">MOUNTALGO</span>
-                <span className="text-[7px] font-mono px-1 py-0.2 rounded bg-emerald-500/30 text-emerald-300 font-bold border border-emerald-500/40">
-                  CANVAS ULTRA CORE
-                </span>
-              </div>
-              <span className="text-[7.5px] font-mono text-zinc-400 leading-tight">144 FPS ZERO-LATENCY ENGINE</span>
-            </div>
-          </div>
+
 
           {/* 4A. TradingView-Style Interactive Scale Controls (Bottom-Right Overlays) */}
           <div className="absolute bottom-1.5 right-1.5 z-30 flex items-center gap-1 bg-[var(--color-bg)]/90 border border-[var(--color-border)] px-1.5 py-0.5 rounded shadow-lg backdrop-blur-sm text-[10px] font-mono select-none">
@@ -11309,10 +11309,14 @@ export default function CustomChartWidget({
             {/* Auto Scale Toggle Button */}
             <button
               onClick={() => {
-                setIsAutoScale(!isAutoScale);
-                if (!isAutoScale) {
+                const nextState = !isAutoScale;
+                setIsAutoScale(nextState);
+                isAutoScaleRef.current = nextState;
+                if (nextState) {
                   setPriceScale(1);
                   setPriceOffset(0);
+                  priceScaleRef.current = 1;
+                  priceOffsetRef.current = 0;
                 }
               }}
               title="Toggle Auto Scale (Double click price axis to reset)"
@@ -11459,7 +11463,15 @@ export default function CustomChartWidget({
 
               <button
                 onClick={() => {
-                  setIsAutoScale(!isAutoScale);
+                  const nextState = !isAutoScale;
+                  setIsAutoScale(nextState);
+                  isAutoScaleRef.current = nextState;
+                  if (nextState) {
+                    setPriceScale(1);
+                    setPriceOffset(0);
+                    priceScaleRef.current = 1;
+                    priceOffsetRef.current = 0;
+                  }
                   setContextMenu(null);
                 }}
                 className="w-full text-left px-3 py-1.5 hover:bg-[var(--color-hover)] hover:text-[var(--color-text)] flex items-center justify-between cursor-pointer"

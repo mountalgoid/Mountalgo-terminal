@@ -104,7 +104,7 @@ export default function TopDrawingMenu({
             <div className="p-2.5 sm:p-3 border-b border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent">
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                  <Pin size={13} className="text-cyan-400 fill-cyan-400" />
+                  <Pin size={13} style={{ color: currentPalette.bull, fill: currentPalette.bull }} />
                   <span>Katalog Alat & Pin Favorit</span>
                 </div>
                 <div className="flex items-center gap-1">
@@ -136,20 +136,32 @@ export default function TopDrawingMenu({
                 <button
                   type="button"
                   onClick={onToggleFloatingDrawingBar}
+                  style={showFloatingDrawingBar ? {
+                    backgroundColor: `${currentPalette.bull}18`,
+                    borderColor: `${currentPalette.bull}50`,
+                    color: currentPalette.bull
+                  } : {}}
                   className={`w-full flex items-center justify-between px-2.5 py-1.5 mb-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
                     showFloatingDrawingBar
-                      ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/20'
+                      ? 'hover:brightness-125'
                       : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white'
                   }`}
                   title={showFloatingDrawingBar ? 'Sembunyikan Bar Drawing Melayang pada Canvas' : 'Tampilkan Bar Drawing Melayang pada Canvas'}
                 >
                   <div className="flex items-center gap-2">
-                    <PenTool size={13} className={showFloatingDrawingBar ? "text-cyan-400" : "text-gray-400"} />
+                    <PenTool size={13} style={{ color: showFloatingDrawingBar ? currentPalette.bull : '#9ca3af' }} />
                     <span>Bar Drawing Melayang</span>
                   </div>
-                  <div className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1 ${
-                    showFloatingDrawingBar ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50' : 'bg-gray-800 text-gray-400 border border-white/10'
-                  }`}>
+                  <div 
+                    style={showFloatingDrawingBar ? {
+                      backgroundColor: `${currentPalette.bull}25`,
+                      color: currentPalette.bull,
+                      borderColor: `${currentPalette.bull}60`
+                    } : {}}
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1 ${
+                      showFloatingDrawingBar ? 'border' : 'bg-gray-800 text-gray-400 border border-white/10'
+                    }`}
+                  >
                     {showFloatingDrawingBar ? <Eye size={11} /> : <EyeOff size={11} />}
                     <span>{showFloatingDrawingBar ? 'TAMPIL' : 'SEMBUNYI'}</span>
                   </div>
@@ -180,9 +192,10 @@ export default function TopDrawingMenu({
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setFilterMode('all')}
+                    style={filterMode === 'all' ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}50` } : {}}
                     className={`flex-1 text-[10px] py-0.5 rounded text-center font-medium transition-colors cursor-pointer ${
                       filterMode === 'all'
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                        ? 'border font-bold'
                         : 'bg-white/5 text-gray-400 hover:text-white'
                     }`}
                   >
@@ -190,13 +203,14 @@ export default function TopDrawingMenu({
                   </button>
                   <button
                     onClick={() => setFilterMode('pinned')}
+                    style={filterMode === 'pinned' ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}50` } : {}}
                     className={`flex-1 text-[10px] py-0.5 rounded text-center font-medium transition-colors cursor-pointer flex items-center justify-center gap-1 ${
                       filterMode === 'pinned'
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                        ? 'border font-bold'
                         : 'bg-white/5 text-gray-400 hover:text-white'
                     }`}
                   >
-                    <Pin size={10} className={filterMode === 'pinned' ? 'fill-cyan-300' : ''} />
+                    <Pin size={10} style={filterMode === 'pinned' ? { fill: currentPalette.bull } : {}} />
                     <span>Hanya Di-Pin ({pinnedTools.length})</span>
                   </button>
                 </div>
@@ -266,16 +280,23 @@ export default function TopDrawingMenu({
                             {/* Clear, Prominent Pin Button */}
                             <button
                               onClick={(e) => togglePin(tool.id, e)}
+                              style={isPinned ? {
+                                backgroundColor: `${currentPalette.bull}20`,
+                                color: currentPalette.bull,
+                                borderColor: `${currentPalette.bull}50`,
+                                boxShadow: `0 0 8px ${currentPalette.bull}20`
+                              } : {}}
                               className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border transition-all cursor-pointer ${
                                 isPinned
-                                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-sm shadow-cyan-500/20 font-bold'
+                                  ? 'font-bold'
                                   : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/15 hover:text-white hover:border-white/30'
                               }`}
                               title={isPinned ? `Lepas sematan (Unpin) "${tool.name}" dari Toolbar Melayang` : `Sematkan (Pin) "${tool.name}" ke Toolbar Melayang`}
                             >
                               <Pin 
                                 size={11} 
-                                className={`transition-transform ${isPinned ? 'rotate-45 fill-cyan-300 text-cyan-300' : 'text-gray-400 group-hover:text-gray-200'}`} 
+                                style={isPinned ? { color: currentPalette.bull, fill: currentPalette.bull } : {}}
+                                className={`transition-transform ${isPinned ? 'rotate-45' : 'text-gray-400 group-hover:text-gray-200'}`} 
                               />
                               <span className="text-[9.5px] hidden sm:inline">
                                 {isPinned ? 'Ter-Pin' : 'Pin'}

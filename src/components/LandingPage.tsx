@@ -4,12 +4,10 @@ import {
   BarChart3, Layers, Zap, Shield, Globe2, Activity,
   ArrowUpRight, ChevronDown, Monitor,
   LayoutDashboard, Crosshair,
-  CandlestickChart, Sparkles, Wifi,
-  Palette as PaletteIcon, Check
+  CandlestickChart, Sparkles, Wifi
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { MountAlgoLogo } from './MountAlgoLogo';
-import { ColorThemeName } from '../context/ThemeContext';
 
 interface LandingPageProps {
   onEnterTerminal: () => void;
@@ -289,28 +287,14 @@ const metrics = [
 
 /* ───── main landing page ───── */
 export default function LandingPage({ onEnterTerminal }: LandingPageProps) {
-  const { theme, setTheme, availableThemes, palette } = useTheme();
+  const { palette } = useTheme();
   const [showContent, setShowContent] = useState(false);
-  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
-  const themeMenuRef = useRef<HTMLDivElement>(null);
   const themeDarkGradient = getThemeDarkGradient(palette.bull, palette.bear);
 
   useEffect(() => {
     const t = setTimeout(() => setShowContent(true), 300);
     return () => clearTimeout(t);
   }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (themeMenuRef.current && !themeMenuRef.current.contains(e.target as Node)) {
-        setIsThemeMenuOpen(false);
-      }
-    };
-    if (isThemeMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isThemeMenuOpen]);
 
   const features = [
     {
@@ -409,56 +393,6 @@ export default function LandingPage({ onEnterTerminal }: LandingPageProps) {
           </span>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Quick Theme Selector Dropdown */}
-          <div className="relative" ref={themeMenuRef}>
-            <button
-              onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-white/15 bg-white/[0.05] hover:bg-white/[0.1] text-[10px] sm:text-xs font-mono font-bold text-zinc-300 hover:text-white backdrop-blur-md transition-all cursor-pointer shadow-sm active:scale-95"
-              title="Ganti Tema Warna"
-            >
-              <PaletteIcon size={13} style={{ color: palette.bull }} />
-              <span className="hidden sm:inline max-w-[120px] truncate">{theme}</span>
-              <span 
-                className="w-2 h-2 rounded-full inline-block shrink-0 shadow-sm" 
-                style={{ backgroundColor: palette.bull }} 
-              />
-              <ChevronDown size={11} className={`transition-transform duration-200 ${isThemeMenuOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isThemeMenuOpen && (
-              <div 
-                className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-white/15 bg-[#050712]/95 backdrop-blur-2xl shadow-2xl p-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150 max-h-72 overflow-y-auto custom-scrollbar"
-                style={{
-                  boxShadow: `0 20px 40px rgba(0,0,0,0.8), 0 0 20px -5px ${palette.bull}30`,
-                }}
-              >
-                <div className="text-[10px] font-mono text-zinc-400 font-bold px-2 py-1 uppercase tracking-wider border-b border-white/10 mb-1">
-                  Pilih Tema Warna
-                </div>
-                {availableThemes.map((tName) => {
-                  const isSelected = theme === tName;
-                  return (
-                    <button
-                      key={tName}
-                      onClick={() => {
-                        setTheme(tName as ColorThemeName);
-                        setIsThemeMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                        isSelected 
-                          ? 'bg-white/15 text-white font-bold' 
-                          : 'text-zinc-300 hover:bg-white/10 hover:text-white'
-                      }`}
-                    >
-                      <span className="truncate">{tName}</span>
-                      {isSelected && <Check size={13} style={{ color: palette.bull }} />}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
           <span className="hidden md:flex items-center gap-1.5 text-[10px] text-zinc-400 font-mono uppercase tracking-wider">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             Live Network
