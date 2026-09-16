@@ -1386,7 +1386,8 @@ export function calculateLiquidityHeatmap(
   settings: LiquidityHeatmapSettings,
   domData: DomLadderState | null,
   footprintData?: (FootprintCandleData | null)[],
-  currentPriceOverride?: number
+  currentPriceOverride?: number,
+  visibleCount?: number
 ): PreciseHeatmapData {
   if (!candles || candles.length === 0) {
     return {
@@ -1490,7 +1491,11 @@ export function calculateLiquidityHeatmap(
   const priceMin = Math.floor(rawPriceMin / priceStep) * priceStep;
   
   // Dynamically calculate actual binsCount needed to cover the raw price span safely
-  const binsCount = Math.ceil((rawPriceMax - priceMin) / priceStep) + 2;
+  // Adaptive binsCount: scale with visible candle count so cell density stays
+  // consistent at any zoom level — more candles → more bins, fewer → fewer.
+  const rawBinCount = Math.ceil((rawPriceMax - priceMin) / priceStep) + 2;
+  const targetBinDensity = visibleCount ? Math.max(32, Math.min(200, Math.floor(visibleCount * 1.5))) : rawBinCount;
+  const binsCount = Math.min(rawBinCount, targetBinDensity);
   const priceMax = priceMin + binsCount * priceStep;
 
   // Calculate Liquidation Radar HUD metrics (with active timeframe mode)
@@ -3642,7 +3647,12 @@ export function renderLiquidityHeatmapLayer({
   // Unified zoom-proportional scale for fixed-pixel heatmap overlays so every visual
   // (rays, ghost walls, icebergs, diamonds, GEX bands, pips...) follows the vertical
   // price grid when zooming and never flattens into a wide "gepeng" streak.
-  const heatmapVisualScale = Math.max(0.55, Math.min(1.6, heatmapBinHeightPx / 6));
+  // Exponential smoothing: use a ref for lerp to avoid jarring visual jumps during fast zoom
+  // prevBinHeightPx persists across frames; lerp at 18% per frame for smooth transitions
+  const prevBinHeightPx = (renderLiquidityHeatmapLayer as any).__prevBinHeightPx ?? heatmapBinHeightPx;
+  const smoothedBinPx = prevBinHeightPx + (heatmapBinHeightPx - prevBinHeightPx) * 0.18;
+  (renderLiquidityHeatmapLayer as any).__prevBinHeightPx = smoothedBinPx;
+  const heatmapVisualScale = Math.max(0.55, Math.min(1.6, smoothedBinPx / 6));
 
   // -------------------------------------------------------------------------
   // 1. 100% Seamless Continuous Horizontal Liquidity Depth Bands (LOD Adaptive)
@@ -3800,7 +3810,7 @@ export function renderLiquidityHeatmapLayer({
       const isBid = ray.side === 'bid';
       const rayHeight = ray.isLargeWall
         ? Math.max(3.2, (mainChartHeight / data.binsCount) * 0.95)
-        : Math.max(1.6, Math.min(3.2, heatmapBinHeightPx * 0.9));
+        : Math.max(1.6, Math.min(3.2, smoothedBinPx * 0.9));
 
       // Age calculation for half-life decay
       const ageBars = (ray.endBar === -1 ? data.matrix.length - 1 : ray.endBar) - ray.startBar;
@@ -3861,7 +3871,7 @@ export function renderLiquidityHeatmapLayer({
         const color = isBidSpoof ? palette.bear : palette.bull; // Pulled bid is bearish fake support
 
         // Render Ghost Dashed Area Zone (Replaced stroke with area gradient)
-        const spoofH = Math.max(4, Math.min(candleWidth * 0.4, heatmapBinHeightPx * 3.0));
+        const spoofH = Math.max(4, Math.min(candleWidth * 0.4, smoothedBinPx * 3.0));
         const gradient = ctx.createLinearGradient(x1, y, x2, y);
         gradient.addColorStop(0, `${color}15`);
         gradient.addColorStop(0.8, `${color}40`);
@@ -3895,7 +3905,7 @@ export function renderLiquidityHeatmapLayer({
 
         // Iceberg horizontal area zone (Clean glow)
         const iceW = candleWidth * 2.5;
-        const iceH = Math.max(4, Math.min(candleWidth * 0.4, heatmapBinHeightPx * 3.0));
+        const iceH = Math.max(4, Math.min(candleWidth * 0.4, smoothedBinPx * 3.0));
         const baseColor = palette.poc || '#ffd600';
         const iceGradient = ctx.createLinearGradient(x - candleWidth, y, x - candleWidth + iceW, y);
         iceGradient.addColorStop(0, `${baseColor}00`);
@@ -3934,7 +3944,7 @@ export function renderLiquidityHeatmapLayer({
       const nodeCol = isBull ? palette.bull : palette.bear;
 
       // Draw Multi-Tier Diamond Glyph
-      const size = Math.max(3.5, Math.min(8.0, heatmapBinHeightPx * 1.7));
+      const size = Math.max(3.5, Math.min(8.0, smoothedBinPx * 1.7));
       ctx.save();
       ctx.translate(cx, cy);
 
@@ -4056,7 +4066,7 @@ export function renderLiquidityHeatmapLayer({
 
       // Subtle endpoint pip
       ctx.fillStyle = col;
-      const pipR = Math.max(1.5, Math.min(4.0, heatmapBinHeightPx * 0.85));
+      const pipR = Math.max(1.5, Math.min(4.0, smoothedBinPx * 0.85));
       ctx.beginPath();
       ctx.arc(effectiveChartWidth - 4, clusterY, cluster.isImminent ? pipR + 0.6 : pipR, 0, Math.PI * 2);
       ctx.fill();
@@ -4114,7 +4124,7 @@ export function renderLiquidityHeatmapLayer({
       ctx.fillRect(x1, topY, w, h);
 
       // Solid left limit marker (Left Starting Boundary Accent)
-      const vacuumMarkerW = Math.max(1.5, Math.min(4.0, heatmapBinHeightPx * 0.8));
+      const vacuumMarkerW = Math.max(1.5, Math.min(4.0, smoothedBinPx * 0.8));
       ctx.fillStyle = hexToRgbAlpha(vacuumColor, 0.80 + 0.20 * proximityWeight * pulseFactor);
       ctx.fillRect(x1, topY, vacuumMarkerW, h);
 
@@ -4130,7 +4140,7 @@ export function renderLiquidityHeatmapLayer({
       ctx.lineWidth = 1.0 + 0.5 * proximityWeight * pulseFactor;
       ctx.beginPath();
       
-      const slashSpacing = Math.max(8, Math.min(22, heatmapBinHeightPx * 3.5)); // Comfortably-spaced premium slashes
+      const slashSpacing = Math.max(8, Math.min(22, smoothedBinPx * 3.5)); // Comfortably-spaced premium slashes
       for (let offset = -h; offset < w; offset += slashSpacing) {
         ctx.moveTo(x1 + offset, topY);
         ctx.lineTo(x1 + offset + h, botY);
@@ -4163,7 +4173,7 @@ export function renderLiquidityHeatmapLayer({
 
       // Glow Vector Beam between Price Swings
       ctx.strokeStyle = divColor;
-      ctx.lineWidth = Math.max(1.0, Math.min(2.4, heatmapBinHeightPx * 0.55));
+      ctx.lineWidth = Math.max(1.0, Math.min(2.4, smoothedBinPx * 0.55));
       ctx.setLineDash([4, 2]);
       ctx.beginPath();
       ctx.moveTo(x1, y1);
@@ -4172,7 +4182,7 @@ export function renderLiquidityHeatmapLayer({
       ctx.setLineDash([]);
 
       // Start & End Swing Dots
-      const beamDotR = Math.max(1.5, Math.min(3.5, heatmapBinHeightPx * 0.7));
+      const beamDotR = Math.max(1.5, Math.min(3.5, smoothedBinPx * 0.7));
       ctx.fillStyle = palette.poc || '#ffffff';
       ctx.beginPath();
       ctx.arc(x1, y1, beamDotR * 0.8, 0, Math.PI * 2);
@@ -4205,7 +4215,7 @@ export function renderLiquidityHeatmapLayer({
       ctx.setLineDash([]);
 
       // Subtle target pip at margin
-      const gravityPipR = Math.max(1.5, Math.min(3.5, heatmapBinHeightPx * 0.7));
+      const gravityPipR = Math.max(1.5, Math.min(3.5, smoothedBinPx * 0.7));
       ctx.fillStyle = magnetCol;
       ctx.beginPath();
       ctx.arc(effectiveChartWidth - 4, targetY, gravityPipR, 0, Math.PI * 2);
@@ -4316,8 +4326,9 @@ export function renderLiquidityHeatmapLayer({
       const baseAlphaRaw = isCallWall || isPutWall ? 0.88 : isFlip || isMaxPain ? 0.78 : 0.55;
       const finalOpacity = baseAlphaRaw * normalizedScale;
 
-      // Area tipis thickness (base 3.8px to 6.2px, scaled with zoom for proportional bands)
-      const bandH = (isCallWall || isPutWall ? 6.2 : isFlip || isMaxPain ? 5.0 : 3.8) * heatmapVisualScale;
+      // Area tipis thickness: clamped [3.0, 7.0]px so bands stay visible at all zoom levels
+      const rawBandH = (isCallWall || isPutWall ? 6.2 : isFlip || isMaxPain ? 5.0 : 3.8) * heatmapVisualScale;
+      const bandH = Math.max(3.0, Math.min(7.0, rawBandH));
 
       return { peakT, coreHex, finalOpacity, bandH, normalizedScale, scaleFactor };
     };
@@ -4831,12 +4842,14 @@ export function renderLiquidityHeatmapLayer({
       // stay proportional to the price grid instead of flattening horizontally.
       const horizontalFactor = mode === 'ultra_accurate_tick' ? 1.05 : mode === 'compact' ? 0.9 : 1.35;
       const verticalFactor = mode === 'ultra_accurate_tick' ? 1.5 : mode === 'compact' ? 1.2 : 2.5;
-      const floorRadius = mode === 'ultra_accurate_tick' ? 3.0 : mode === 'compact' ? 2.8 : 3.5;
-      const maxAllowedRadius = Math.max(floorRadius, Math.min(candleWidth * horizontalFactor, heatmapBinHeightPx * verticalFactor));
+      const floorRadius = mode === 'ultra_accurate_tick' ? 3.0 : mode === 'compact' ? 2.8 : 3.2;
+      // Take the larger of horizontal and vertical constraints so bubbles stay visible
+      // at any zoom level without being crushed by either axis alone.
+      const maxAllowedRadius = Math.max(floorRadius, Math.max(candleWidth * horizontalFactor, smoothedBinPx * verticalFactor));
 
       const rawR = bubble.radius * userScale;
       // Guarantee minimum visibility of 2.6px, never crushed to microscopic size
-      const r = Math.max(2.6, Math.min(maxAllowedRadius, rawR));
+      const r = Math.max(Math.max(2.6, floorRadius), Math.min(maxAllowedRadius, rawR));
 
       if (r < 2.0 || !isFinite(rawCx) || !isFinite(rawCy) || !isFinite(r)) continue;
 
@@ -4974,8 +4987,10 @@ export function renderLiquidityHeatmapLayer({
 
       // Proportional distinct radius scaling for whale clusters (horizontal + vertical caps)
       const userScale = Math.max(0.5, Math.min(2.5, settings.whaleBubbleScale ?? 1.15));
-      const maxAllowedR = Math.max(8.0, Math.min(candleWidth * 2.0, heatmapBinHeightPx * 3.5));
-      const baseR = Math.max(5.5, Math.min(maxAllowedR, cluster.baseRadius * userScale));
+      // Proportional floor: whale bubbles shrink gracefully when zoomed out
+      const whaleFloor = Math.max(5.5, candleWidth * 0.6);
+      const maxAllowedR = Math.max(whaleFloor, Math.min(candleWidth * 2.0, smoothedBinPx * 3.5));
+      const baseR = Math.max(whaleFloor, Math.min(maxAllowedR, cluster.baseRadius * userScale));
 
       if (!isFinite(rawCx) || !isFinite(rawCy) || !isFinite(baseR) || baseR <= 0) continue;
 

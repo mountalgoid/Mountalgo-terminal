@@ -1836,6 +1836,16 @@ export default function CustomChartWidget({
 
   // Real-Time Whale Bubble Alert Audio Trigger (Sonar Ping)
   const lastWhalePingClusterIdRef = useRef<string | null>(null);
+  // Throttle radar bar data updates to 30fps (33ms) for performance
+  const lastRadarRenderRef = useRef(0);
+  const throttledRadarDataRef = useRef<typeof liquidityHeatmapData>(null);
+  if (liquidityHeatmapData) {
+    const now = performance.now();
+    if (now - lastRadarRenderRef.current >= 33) {
+      lastRadarRenderRef.current = now;
+      throttledRadarDataRef.current = liquidityHeatmapData;
+    }
+  }
 
   useEffect(() => {
     const cfg = indicators.liquidityHeatmapConfig || DEFAULT_HEATMAP_SETTINGS;
@@ -1860,6 +1870,29 @@ export default function CustomChartWidget({
       }
     }
   }, [liquidityHeatmapData?.whaleClusters, indicators.showLiquidityHeatmap, indicators.liquidityHeatmapConfig, candles]);
+
+  // Proximity Alert (#13): trigger audio when price approaches a liquidation cluster
+  const lastProximityAlertRef = useRef<string>('');
+  useEffect(() => {
+    if (!currentPrice || !indicators.showLiquidityHeatmap || !indicators.liquidityHeatmapConfig?.showLiquidationRadar) return;
+    const clusters = liquidityHeatmapData?.liquidationRadar?.clusters;
+    if (!clusters || clusters.length === 0) return;
+
+    const thresholdPct = 0.3; // Alert when price is within 0.3% of a cluster
+    for (const cl of clusters) {
+      if (cl.isImminent) {
+        const pctDiff = Math.abs(cl.price - currentPrice) / currentPrice * 100;
+        if (pctDiff <= thresholdPct) {
+          const alertKey = `${cl.price.toFixed(2)}_${cl.leverageTier}`;
+          if (lastProximityAlertRef.current !== alertKey) {
+            lastProximityAlertRef.current = alertKey;
+            try { tradingAudio.play('WHALE_PING'); } catch { /* benign */ }
+          }
+          break;
+        }
+      }
+    }
+  }, [currentPrice, liquidityHeatmapData?.liquidationRadar, indicators.showLiquidityHeatmap, indicators.liquidityHeatmapConfig]);
 
   // Jump to Target Execution Time Effect
   useEffect(() => {
@@ -2372,7 +2405,9 @@ export default function CustomChartWidget({
       // fall back to the full candle set so the canvas never renders blank.
       let fallbackMin = Infinity;
       let fallbackMax = -Infinity;
-      candles.forEach((c) => {
+      // Use only the most recent 50 candles to avoid displaying stale price ranges
+      const recentCandles = candles.slice(Math.max(0, candles.length - 50));
+      recentCandles.forEach((c) => {
         if (c.low < fallbackMin) fallbackMin = c.low;
         if (c.high > fallbackMax) fallbackMax = c.high;
       });
@@ -6116,6 +6151,55 @@ export default function CustomChartWidget({
         ctx.fillText(`Queue #${queueEst.queueRank} | Fill: ${queueEst.fillProbability}% (~${queueEst.estTimeToFillSec}s)`, tooltipX + 7, tooltipY + 38);
 
         ctx.restore();
+      }
+
+      // Heatmap Cluster Hover Highlight (#9): glow effect + tooltip for nearby clusters
+      if (indicators.showLiquidityHeatmap && liquidityHeatmapData && crosshairRef.current.active) {
+        const hoveredP = getPriceFromY(crosshairRef.current.y);
+        const clusters = liquidityHeatmapData.liquidationRadar?.clusters || [];
+        const nearbyThreshold = liquidityHeatmapData.priceStep * 2.5;
+        let closestDist = Infinity;
+        let closestCluster: typeof clusters[0] | null = null;
+        for (const cl of clusters) {
+          const d = Math.abs(cl.price - hoveredP);
+          if (d < nearbyThreshold && d < closestDist) {
+            closestDist = d;
+            closestCluster = cl;
+          }
+        }
+        if (closestCluster) {
+          const clY = getY(closestCluster.price);
+          const proximityFade = 1 - (closestDist / nearbyThreshold);
+          ctx.save();
+          // Glow ring
+          ctx.strokeStyle = closestCluster.side === 'long_liq'
+            ? `rgba(16, 185, 129, ${0.6 * proximityFade})`
+            : `rgba(244, 63, 94, ${0.6 * proximityFade})`;
+          ctx.lineWidth = 2.5 * proximityFade;
+          ctx.shadowColor = closestCluster.side === 'long_liq' ? '#10b981' : '#f43f5e';
+          ctx.shadowBlur = 12 * proximityFade;
+          ctx.beginPath();
+          ctx.arc(chartWidth - 8, clY, 5 + 3 * proximityFade, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          // Tooltip
+          const clTooltipX = Math.min(chartWidth - 200, Math.max(10, crosshairRef.current.x + 14));
+          const clTooltipY = Math.min(fullHeight - 30, Math.max(10, clY - 12));
+          ctx.fillStyle = isLight ? 'rgba(255,255,255,0.94)' : 'rgba(8,14,24,0.92)';
+          ctx.beginPath();
+          (ctx as any).roundRect?.(clTooltipX, clTooltipY, 170, 24, 4) ?? ctx.rect(clTooltipX, clTooltipY, 170, 24);
+          ctx.fill();
+          ctx.strokeStyle = closestCluster.side === 'long_liq' ? '#10b98180' : '#f43f5e80';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.fillStyle = closestCluster.side === 'long_liq' ? '#10b981' : '#f43f5e';
+          ctx.font = 'bold 9px monospace';
+          ctx.textAlign = 'left';
+          const clType = closestCluster.side === 'long_liq' ? 'LIQ LONG' : 'LIQ SHORT';
+          const clPct = closestCluster.distancePct ? ` (${closestCluster.distancePct.toFixed(2)}%)` : '';
+          ctx.fillText(`${clType} ${closestCluster.price.toFixed(closestCluster.price > 100 ? 2 : 4)}${clPct}`, clTooltipX + 6, clTooltipY + 16);
+          ctx.restore();
+        }
       }
 
       // Whale Volume Cluster Hover Inspector Tooltip
@@ -10132,6 +10216,40 @@ export default function CustomChartWidget({
     linkDownload(url);
   };
 
+  const exportChartData = () => {
+    const exportPayload = {
+      symbol: activeSymbol,
+      timeframe: timeframe,
+      timestamp: new Date().toISOString(),
+      candles: candles.slice(-200),
+      indicators: indicators,
+      heatmapData: liquidityHeatmapData ? {
+        priceStep: liquidityHeatmapData.priceStep,
+        binsCount: liquidityHeatmapData.binsCount,
+        clusters: liquidityHeatmapData.liquidationRadar?.clusters?.map(c => ({
+          price: c.price,
+          side: c.side,
+          leverageTier: c.leverageTier,
+          distancePct: c.distancePct,
+          estimatedNotionalUsd: c.estimatedNotionalUsd,
+        })) || [],
+        whaleClusters: liquidityHeatmapData.whaleClusters?.map(w => ({
+          price: w.price,
+          barIndex: w.barIndex,
+          side: w.side,
+          baseRadius: w.baseRadius,
+        })) || [],
+      } : null,
+    };
+    const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `MountAlgo_${activeSymbol}_data_${Date.now()}.json`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const linkDownload = (url: string) => {
     const link = document.createElement('a');
     link.download = `MountAlgo_${globalTheme}_${activeSymbol}_${Date.now()}.png`;
@@ -11534,7 +11652,17 @@ export default function CustomChartWidget({
                 }}
                 className="w-full text-left px-3 py-1.5 hover:bg-[var(--color-hover)] hover:text-[var(--color-text)] flex items-center justify-between cursor-pointer"
               >
-                <span>Ambil Screenshot (PNG)</span>
+              <span>Ambil Screenshot (PNG)</span>
+             </button>
+
+              <button
+                onClick={() => {
+                  exportChartData();
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-3 py-1.5 hover:bg-[var(--color-hover)] hover:text-[var(--color-text)] flex items-center justify-between cursor-pointer"
+              >
+                <span>Export Data (JSON)</span>
               </button>
 
               <button
