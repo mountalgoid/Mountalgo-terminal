@@ -2362,18 +2362,27 @@ export default function CustomChartWidget({
       if (c.high > maxPrice) maxPrice = c.high;
     });
 
-    // Dynamic price range calculation to fit available data points (Liquidation Heatmap clusters)
-    // This prevents the chart from rendering a blank black canvas due to extreme coordinate offsets.
-    if (indicators.showLiquidityHeatmap && showLiquidationRadarBar && liquidityHeatmapData?.liquidationRadar?.clusters) {
-      liquidityHeatmapData.liquidationRadar.clusters.forEach(cluster => {
-        if (cluster.price < minPrice) minPrice = cluster.price;
-        if (cluster.price > maxPrice) maxPrice = cluster.price;
-      });
-    }
+    // Radar clusters live at fixed % offsets (±0.85% → ±9.2%) and would blow the
+    // price axis to an enormous range, flattening every candle into a thin band.
+    // Exclude them from the coordinate range entirely — the LiquidationRadarBar
+    // component renders independently and stays fully visible at any scale.
 
     if (minPrice === Infinity || maxPrice === -Infinity || minPrice === maxPrice) {
-      minPrice = 1;
-      maxPrice = 100;
+      // No usable visible range (e.g. panned off the edge or a single flat candle):
+      // fall back to the full candle set so the canvas never renders blank.
+      let fallbackMin = Infinity;
+      let fallbackMax = -Infinity;
+      candles.forEach((c) => {
+        if (c.low < fallbackMin) fallbackMin = c.low;
+        if (c.high > fallbackMax) fallbackMax = c.high;
+      });
+      if (fallbackMin !== Infinity && fallbackMax !== -Infinity && fallbackMin < fallbackMax) {
+        minPrice = fallbackMin;
+        maxPrice = fallbackMax;
+      } else {
+        minPrice = 1;
+        maxPrice = 100;
+      }
     }
 
     const activePriceScale = isAutoScale ? 1 : priceScale;
@@ -3861,10 +3870,14 @@ export default function CustomChartWidget({
     ctx.rect(0, 0, chartWidth, mainChartHeight);
     ctx.clip();
     // 7. Heatmap Volume Bubbles (3D Spherical Volume Nodes with Dynamic Volume Colors & Responsive Scale)
-    if (indicators.showLiquidityHeatmap && indicators.liquidityHeatmapConfig?.showVolumeBubbles) {
+    if (indicators.showLiquidityHeatmap && indicators.liquidityHeatmapConfig?.showVolumeBubbles && bookmapData && bookmapData.bubbles && bookmapData.bubbles.length > 0) {
       // Dynamic Responsive Zoom Factor: Medium high-contrast responsive scaling
       // Adaptive candle scale for balanced volume bubble sizing
       const candleScale = Math.max(0.4, Math.min(1.4, candleWidth / 14));
+      // Proportional 2D clamp: vertical bin height keeps zoomed-in bubbles balanced
+      // against the price grid so the heatmap never flattens into a wide smear.
+      const heatmapPriceSpan = Math.max(1e-6, priceMax - priceMin);
+      const heatmapBinHeightPx = Math.max(2.5, (mainChartHeight / heatmapPriceSpan) * (liquidityHeatmapData?.priceStep ?? 1));
 
       for (let i = startIndex; i < endIndex; i++) {
         const b = bookmapData.bubbles[i];
@@ -3880,7 +3893,9 @@ export default function CustomChartWidget({
           const rBuyMultiplier = (b.adaptiveScale ?? 1.0);
           // Balanced adaptive radius: clearly visible, scales gracefully with candle width
           const isTickMode = ['1T', '10T', '50T', '100T', 'tick'].includes(timeframe);
-          const maxBubbleRadius = isTickMode ? Math.max(3.2, candleWidth * 1.1) : Math.max(3.5, candleWidth * 1.35);
+          const maxBubbleRadius = isTickMode
+            ? Math.max(3.2, Math.min(candleWidth * 1.1, heatmapBinHeightPx * 1.5))
+            : Math.max(3.5, Math.min(candleWidth * 1.35, heatmapBinHeightPx * 2.5));
           const baseRadius = (3.2 + b.intensityBuy * 10.0) * rBuyMultiplier * candleScale;
           const rBuy = Math.max(2.4, Math.min(maxBubbleRadius, Math.round(baseRadius)));
           const intensity = Math.min(1.0, Math.max(0.0, b.intensityBuy));
@@ -6016,8 +6031,10 @@ export default function CustomChartWidget({
       ctx.fillStyle = chartScaleText;
       ctx.font = '10px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(timeStr, x, fullHeight + 16);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(timeStr, x, fullHeight + 12);
     }
+    ctx.textBaseline = 'alphabetic';
 
     // 16. Interactive Crosshair & Tooltip Badges (TradingView Style)
     if (crosshairRef.current.active && crosshairRef.current.x >= 0 && crosshairRef.current.x <= chartWidth && crosshairRef.current.y >= 0 && crosshairRef.current.y <= fullHeight) {
