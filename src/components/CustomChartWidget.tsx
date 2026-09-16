@@ -2734,6 +2734,8 @@ export default function CustomChartWidget({
       getTimeFromX,
     } = utils;
 
+    // Update chart state ref for DOM-based crosshair time badge
+
     // 1. Background Fill & 3D Glass Radial Neon Glow Synchronized with Active Theme (Hardware-Accelerated Cached Buffer)
     const zoomScale = getGlobalZoomScale();
     const darkBase = currentPalette?.dark || '#030408';
@@ -6095,6 +6097,26 @@ export default function CustomChartWidget({
       ctx.stroke();
       ctx.restore();
 
+      // Time Badge — positioned exactly at bar center above time axis labels
+      const tbTimeStr = formatCrosshairTime(targetCandle.time, useLocalTime, timeframe);
+      const tbBarX = getX(hoveredIdx);
+      ctx.font = '10px monospace';
+      const tbTextW = ctx.measureText(tbTimeStr).width + 14;
+      const tbClampedX = Math.max(tbTextW / 2, Math.min(chartWidth - tbTextW / 2, tbBarX));
+      ctx.save();
+      ctx.fillStyle = '#0369a1';
+      ctx.beginPath();
+      ctx.roundRect(tbClampedX - tbTextW / 2, fullHeight + 2, tbTextW, 18, 3);
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tbTimeStr, tbClampedX, fullHeight + 13);
+      ctx.restore();
+
       // Y-axis Price Badge
       const hoveredPrice = getPriceFromY(crosshairRef.current.y);
       ctx.fillStyle = '#1e222d';
@@ -6401,46 +6423,7 @@ export default function CustomChartWidget({
         }
       }
 
-      // X-axis Time Badge below the crosshair point (bottom of the chart)
-      if (targetCandle) {
-        const timeStr = formatCrosshairTime(targetCandle.time, useLocalTime, timeframe);
-        ctx.font = 'bold 9px monospace';
-        const badgeW = Math.max(52, Math.min(chartWidth - 8, ctx.measureText(timeStr).width + 12));
-        const badgeH = 16;
-        // Draw in the time axis area (below the chart) so it's always visible
-        // regardless of sub-windows (Volume/RSI/MACD) or position overlays
-        const badgeY = fullHeight + 2;
-        // Centered under the crosshair, clamped inside the chart area
-        let badgeX = crosshairRef.current.x - badgeW / 2;
-        if (badgeX < 2) badgeX = 2;
-        if (badgeX + badgeW > chartWidth - 2) badgeX = chartWidth - 2 - badgeW;
-
-        ctx.fillStyle = currentPalette.bull;
-        ctx.globalAlpha = 0.15;
-        ctx.beginPath();
-        ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-
-        ctx.strokeStyle = currentPalette.bull;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.fillText(timeStr, badgeX + badgeW / 2, badgeY + 11);
-
-        // Dashed connector from crosshair bottom to time badge
-        ctx.strokeStyle = `${currentPalette.bull}50`;
-        ctx.lineWidth = 1;
-        ctx.setLineDash([2, 3]);
-        ctx.beginPath();
-        ctx.moveTo(crosshairRef.current.x, fullHeight);
-        ctx.lineTo(badgeX + badgeW / 2, fullHeight + 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.textAlign = 'left';
-      }
+      // X-axis Time Badge: rendered as canvas badge above (Section 16)
     }
 
     // 16b. Global Synchronized Crosshair (Cross-Chart Time Tracking)
@@ -7553,6 +7536,8 @@ export default function CustomChartWidget({
           isAutoEcoModeRef.current = false;
         }
       }
+
+      // 25. FINAL PASS: Time badge rendered as canvas overlay in Section 16
 
     renderCanvasRef.current = renderCanvas;
 
