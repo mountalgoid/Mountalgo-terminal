@@ -89,7 +89,7 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
     ? 'bg-gradient-to-br from-zinc-950 via-amber-950/20 to-zinc-950 border-amber-500/20 shadow-[0_0_25px_rgba(245,158,11,0.08)]'
     : isPurple
     ? 'bg-gradient-to-br from-zinc-950 via-purple-950/20 to-zinc-950 border-purple-500/20 shadow-[0_0_25px_rgba(168,85,247,0.08)]'
-    : 'bg-gradient-to-br from-zinc-950 via-zinc-900/90 to-zinc-950 border-zinc-800/80 shadow-[0_12px_40px_rgba(0,0,0,0.8)]';
+    : 'bg-gradient-to-br from-[var(--color-panel)] via-[var(--color-panel)]/90 to-[var(--color-panel)] border-[var(--color-border)] shadow-[0_12px_40px_rgba(0,0,0,0.8)]';
 
   const accentBorderClass = isEmerald
     ? 'border-emerald-500/30'
@@ -101,7 +101,7 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
     ? 'border-amber-500/30'
     : isPurple
     ? 'border-purple-500/30'
-    : 'border-zinc-800/80';
+    : 'border-[var(--color-border)]';
 
   // Local UI State
   const [localDockPosition, setLocalDockPosition] = useState<RadarDockPosition>('bottom-left');
@@ -214,7 +214,7 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
         className={`fixed z-[9600] cursor-grab active:cursor-grabbing select-none group ${minimizedFixedPosition} !important`}
         onDoubleClick={() => setActiveMinimized(false)}
       >
-        <div className={`relative flex items-center bg-zinc-950/85 backdrop-blur-2xl border ${accentBorderClass} rounded-sm p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.8)] transition-all duration-300 hover:scale-105 active:scale-95 group overflow-hidden`}>
+        <div className={`relative flex items-center bg-[var(--color-panel)]/85 backdrop-blur-2xl border ${accentBorderClass} rounded-sm p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.8)] transition-all duration-300 hover:scale-105 active:scale-95 group overflow-hidden`}>
           
           {/* Flash Pulse Radar Effect */}
           <div className="absolute inset-0 pointer-events-none">
@@ -286,13 +286,13 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
           {/* Smart Label Reveal (on hover) */}
           <div className="flex flex-col items-start overflow-hidden max-w-0 group-hover:max-w-[150px] transition-all duration-500 ease-in-out px-0 group-hover:pl-3 group-hover:pr-2">
             <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="text-[7px] font-black text-zinc-400 uppercase tracking-[0.2em] leading-none">RADAR {timeframeMode === 'tick' ? '⚡ 1T' : timeframeMode.toUpperCase()}</span>
+              <span className="text-[7px] font-black text-[var(--color-text-muted)] uppercase tracking-[0.2em] leading-none">RADAR {timeframeMode === 'tick' ? '⚡ 1T' : timeframeMode.toUpperCase()}</span>
               {imminentPrice && (
                 <span className="text-[8px] font-black text-emerald-400 leading-none">@{imminentPrice.toLocaleString()}</span>
               )}
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-[10px] font-bold whitespace-nowrap leading-none text-zinc-100">
+              <span className="text-[10px] font-bold whitespace-nowrap leading-none text-[var(--color-text)]">
                 {hazardLabel}
               </span>
               <div 
@@ -308,7 +308,7 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
               e.stopPropagation();
               setActiveMinimized(false);
             }}
-            className="p-1.5 rounded-sm bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white transition-all transform hover:rotate-180 shrink-0 ml-1 border border-zinc-700/50"
+            className="p-1.5 rounded-sm bg-[var(--color-panel)]/80 hover:bg-[var(--color-bg)] text-[var(--color-text)] hover:text-white transition-all transform hover:rotate-180 shrink-0 ml-1 border border-[var(--color-border)]/50"
             title="Maximize Control Bar"
           >
             <Maximize2 size={12} />
@@ -325,9 +325,9 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
     <div 
       className={`${
         isReallySeparate 
-          ? `${activeDockPosition.startsWith('side') ? 'w-[320px] h-full overflow-y-auto' : 'w-full'} border border-zinc-800/80` 
+          ? `${activeDockPosition.startsWith('side') ? 'w-[320px] h-full overflow-y-auto' : 'w-full'} border border-[var(--color-border)]` 
           : `absolute ${positionClasses} z-[35] max-w-full border ${accentBorderClass} shadow-2xl`
-      } ${dynamicBgClass} rounded-md font-mono text-[10px] text-zinc-100 select-none transition-all duration-200 ease-out space-y-2.5 backdrop-blur-2xl p-3 relative overflow-hidden`}
+      } ${dynamicBgClass} rounded-md font-mono text-[10px] text-[var(--color-text)] select-none transition-all duration-200 ease-out space-y-2.5 backdrop-blur-2xl p-3 relative overflow-hidden`}
     >
       <div className="absolute inset-0 bg-gradient-to-br from-zinc-950/40 via-transparent to-zinc-950/40 pointer-events-none" />
 
@@ -335,7 +335,7 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
       {isHighHazard && isAutoProtectionEnabled && (
         <div className="relative flex flex-wrap items-center justify-between gap-2 bg-rose-950/60 backdrop-blur-md border border-rose-500/50 p-2 rounded-sm text-rose-200 shadow-[0_0_15px_rgba(244,63,94,0.25)] animate-pulse">
           <div className="flex items-center gap-1.5 min-w-0">
-            <AlertTriangle size={14} className="text-zinc-100 shrink-0 animate-bounce" />
+            <AlertTriangle size={14} className="text-[var(--color-text)] shrink-0 animate-bounce" />
             <span className="font-bold text-[9.5px] truncate">
               ⚠️ HIGH HAZARD ALERT (Score: {hazardScore}) — Imminent Cascade Detected!
             </span>
@@ -353,7 +353,7 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
             </button>
             <button 
               onClick={() => setIsAutoProtectionEnabled(false)}
-              className="text-zinc-400 hover:text-white p-0.5 cursor-pointer"
+              className="text-[var(--color-text-muted)] hover:text-white p-0.5 cursor-pointer"
               title="Tutup Alert Peringatan Risiko"
             >
               <X size={12} />
@@ -362,22 +362,22 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
         </div>
       )}
       {/* 1. TOP HEADER BAR */}
-      <div className={`relative flex flex-wrap ${isSideMode ? 'flex-col items-start gap-2.5' : 'items-center justify-between gap-2'} border-b border-zinc-800/80 pb-2`}>
+      <div className={`relative flex flex-wrap ${isSideMode ? 'flex-col items-start gap-2.5' : 'items-center justify-between gap-2'} border-b border-[var(--color-border)] pb-2`}>
         <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <div className="p-1 rounded-sm bg-zinc-900 border border-zinc-800 text-white flex items-center justify-center shrink-0">
-            <Flame size={13} className="text-zinc-100 animate-pulse" />
+          <div className="p-1 rounded-sm bg-[var(--color-panel)] border border-[var(--color-border)] text-white flex items-center justify-center shrink-0">
+            <Flame size={13} className="text-[var(--color-text)] animate-pulse" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-bold text-xs tracking-wider text-zinc-100">LIQUIDATION RADAR</span>
-              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider bg-zinc-900 border border-zinc-800 text-zinc-100"
+              <span className="font-bold text-xs tracking-wider text-[var(--color-text)]">LIQUIDATION RADAR</span>
+              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider bg-[var(--color-panel)] border border-[var(--color-border)] text-[var(--color-text)]"
               >
                 {hazardLabel}
               </span>
  
               {/* Timeframe Mode Selector (Per Tick 1T, 10T, 50T, 100T, Candle) */}
               {onSelectTimeframeMode && (
-                <div className="flex items-center gap-0.5 border border-zinc-800 rounded-sm p-0.5 bg-zinc-900/80" title="Pilih Resolusi Timeframe Liquidation Heatmap">
+                <div className="flex items-center gap-0.5 border border-[var(--color-border)] rounded-sm p-0.5 bg-[var(--color-panel)]/80" title="Pilih Resolusi Timeframe Liquidation Heatmap">
                   {[
                     { id: 'tick', label: '⚡ 1T' },
                     { id: '10t', label: '10T' },
@@ -391,7 +391,7 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
                       className={`h-6 text-[8.5px] px-2 rounded-sm transition-all cursor-pointer font-bold flex items-center justify-center ${
                         timeframeMode === tf.id
                           ? 'bg-zinc-100 text-zinc-950 border border-zinc-200'
-                          : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                          : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-bg)]'
                       }`}
                     >
                       {tf.label}
@@ -400,13 +400,13 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
                 </div>
               )}
             </div>
-            <div className="text-[9px] text-zinc-400 flex items-center gap-1.5 mt-0.5 flex-wrap">
+            <div className="text-[9px] text-[var(--color-text-muted)] flex items-center gap-1.5 mt-0.5 flex-wrap">
               <span className="whitespace-nowrap">{symbol} Core</span>
               <span>•</span>
-              <span className="whitespace-nowrap">Live: <strong className="text-zinc-100">${formatPrice(currentPrice)}</strong></span>
+              <span className="whitespace-nowrap">Live: <strong className="text-[var(--color-text)]">${formatPrice(currentPrice)}</strong></span>
               <span>•</span>
-              <span className="whitespace-nowrap text-zinc-400 font-mono font-bold flex items-center gap-1">
-                <Zap size={10} className="text-zinc-400" />
+              <span className="whitespace-nowrap text-[var(--color-text-muted)] font-mono font-bold flex items-center gap-1">
+                <Zap size={10} className="text-[var(--color-text-muted)]" />
                 {timeframeMode === 'tick' ? 'Per-Tick (1T)' : `${timeframeMode.toUpperCase()}`}
               </span>
             </div>
@@ -416,24 +416,24 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
         {/* Action Controls */}
         <div className={`flex items-center gap-1 flex-wrap ${isSideMode ? 'w-full justify-between' : ''}`}>
           {/* Dock Position Switcher */}
-          <div className="flex items-center gap-0.5 border border-zinc-800 rounded-sm p-0.5 bg-zinc-900/80">
+          <div className="flex items-center gap-0.5 border border-[var(--color-border)] rounded-sm p-0.5 bg-[var(--color-panel)]/80">
             <button 
               onClick={() => setActiveDockPosition('docked-bottom')} 
-              className={`h-6 px-2 rounded-sm text-[8.5px] font-bold border transition-all cursor-pointer ${activeDockPosition === 'docked-bottom' ? 'bg-zinc-100 text-zinc-950 border-zinc-200' : 'text-zinc-400 hover:text-white hover:bg-zinc-800 border-transparent'}`} 
+              className={`h-6 px-2 rounded-sm text-[8.5px] font-bold border transition-all cursor-pointer ${activeDockPosition === 'docked-bottom' ? 'bg-zinc-100 text-zinc-950 border-zinc-200' : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-bg)] border-transparent'}`} 
               title="Pisah ke Panel Bawah (Full Width)"
             >
               Bawah
             </button>
             <button 
               onClick={() => setActiveDockPosition('side-left')} 
-              className={`h-6 px-2 rounded-sm text-[8.5px] font-bold border transition-all cursor-pointer ${activeDockPosition === 'side-left' ? 'bg-zinc-100 text-zinc-950 border-zinc-200' : 'text-zinc-400 hover:text-white hover:bg-zinc-800 border-transparent'}`} 
+              className={`h-6 px-2 rounded-sm text-[8.5px] font-bold border transition-all cursor-pointer ${activeDockPosition === 'side-left' ? 'bg-zinc-100 text-zinc-950 border-zinc-200' : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-bg)] border-transparent'}`} 
               title="Pisah ke Samping Kiri"
             >
               Kiri
             </button>
             <button 
               onClick={() => setActiveDockPosition('side-right')} 
-              className={`h-6 px-2 rounded-sm text-[8.5px] font-bold border transition-all cursor-pointer ${activeDockPosition === 'side-right' ? 'bg-zinc-100 text-zinc-950 border-zinc-200' : 'text-zinc-400 hover:text-white hover:bg-zinc-800 border-transparent'}`} 
+              className={`h-6 px-2 rounded-sm text-[8.5px] font-bold border transition-all cursor-pointer ${activeDockPosition === 'side-right' ? 'bg-zinc-100 text-zinc-950 border-zinc-200' : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-bg)] border-transparent'}`} 
               title="Pisah ke Samping Kanan"
             >
               Kanan
@@ -444,10 +444,10 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
           {onOpenGuide && (
             <button
               onClick={onOpenGuide}
-              className="h-6 px-2 rounded-sm bg-zinc-900 hover:bg-zinc-800 text-zinc-100 border border-zinc-800 transition-colors flex items-center gap-1 cursor-pointer font-bold"
+              className="h-6 px-2 rounded-sm bg-[var(--color-panel)] hover:bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] transition-colors flex items-center gap-1 cursor-pointer font-bold"
               title="Buka Panduan Liquidation & Heatmap"
             >
-              <HelpCircle size={11} className="text-zinc-400" />
+              <HelpCircle size={11} className="text-[var(--color-text-muted)]" />
               <span className="hidden sm:inline text-[8.5px]">Panduan</span>
             </button>
           )}
@@ -455,25 +455,25 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
           {/* Minimize Button */}
           <button
             onClick={() => setActiveMinimized(true)}
-            className="h-6 px-2 rounded-sm bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-800 transition-colors flex items-center justify-center cursor-pointer font-bold"
+            className="h-6 px-2 rounded-sm bg-[var(--color-panel)] hover:bg-[var(--color-bg)] text-[var(--color-text-muted)] hover:text-white border border-[var(--color-border)] transition-colors flex items-center justify-center cursor-pointer font-bold"
             title="Minimize Bar ke Mode Ringkas (Pill)"
           >
-            <Minimize2 size={11} className="text-zinc-400" />
+            <Minimize2 size={11} className="text-[var(--color-text-muted)]" />
           </button>
         </div>
       </div>
 
       {/* 2. TAB SELECTOR BAR */}
-      <div className="relative flex items-center gap-1 bg-zinc-950/80 p-0.5 rounded-sm border border-zinc-800 overflow-x-auto no-scrollbar max-w-full">
+      <div className="relative flex items-center gap-1 bg-[var(--color-panel)]/80 p-0.5 rounded-sm border border-[var(--color-border)] overflow-x-auto no-scrollbar max-w-full">
         <button
           onClick={() => setActiveTab('unified')}
           className={`h-6 flex items-center gap-1.5 px-2.5 rounded-sm transition-all text-[9.5px] font-bold whitespace-nowrap cursor-pointer shrink-0 ${
             activeTab === 'unified' 
               ? 'bg-zinc-100 text-zinc-950'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-panel)]'
           }`}
         >
-          <Sparkles size={11} className={activeTab === 'unified' ? 'text-zinc-950' : 'text-zinc-400'} />
+          <Sparkles size={11} className={activeTab === 'unified' ? 'text-zinc-950' : 'text-[var(--color-text-muted)]'} />
           <span>Radar Overview</span>
         </button>
 
@@ -482,10 +482,10 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
           className={`h-6 flex items-center gap-1.5 px-2.5 rounded-sm transition-all text-[9.5px] font-bold whitespace-nowrap cursor-pointer shrink-0 ${
             activeTab === 'liquidation' 
               ? 'bg-zinc-100 text-zinc-950'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-panel)]'
           }`}
         >
-          <Flame size={11} className={activeTab === 'liquidation' ? 'text-zinc-950' : 'text-zinc-400'} />
+          <Flame size={11} className={activeTab === 'liquidation' ? 'text-zinc-950' : 'text-[var(--color-text-muted)]'} />
           <span>Klaster Likuidasi ({radar?.clusters?.length || 0})</span>
         </button>
 
@@ -494,10 +494,10 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
           className={`h-6 flex items-center gap-1.5 px-2.5 rounded-sm transition-all text-[9.5px] font-bold whitespace-nowrap cursor-pointer shrink-0 ${
             activeTab === 'gravity' 
               ? 'bg-zinc-100 text-zinc-950'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-panel)]'
           }`}
         >
-          <Compass size={11} className={activeTab === 'gravity' ? 'text-zinc-950' : 'text-zinc-400'} />
+          <Compass size={11} className={activeTab === 'gravity' ? 'text-zinc-950' : 'text-[var(--color-text-muted)]'} />
           <span>Magnet & VPIN</span>
         </button>
 
@@ -506,10 +506,10 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
           className={`h-6 flex items-center gap-1.5 px-2.5 rounded-sm transition-all text-[9.5px] font-bold whitespace-nowrap cursor-pointer shrink-0 ${
             activeTab === 'hawkes' 
               ? 'bg-zinc-100 text-zinc-950'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-panel)]'
           }`}
         >
-          <Activity size={11} className={activeTab === 'hawkes' ? 'text-zinc-950' : 'text-zinc-400'} />
+          <Activity size={11} className={activeTab === 'hawkes' ? 'text-zinc-950' : 'text-[var(--color-text-muted)]'} />
           <span>Flash-Crash Hawkes</span>
         </button>
 
@@ -518,10 +518,10 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
           className={`h-6 flex items-center gap-1.5 px-2.5 rounded-sm transition-all text-[9.5px] font-bold whitespace-nowrap cursor-pointer shrink-0 ${
             activeTab === 'execution' 
               ? 'bg-zinc-100 text-zinc-950'
-              : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+              : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-panel)]'
           }`}
         >
-          <Target size={11} className={activeTab === 'execution' ? 'text-zinc-950' : 'text-zinc-400'} />
+          <Target size={11} className={activeTab === 'execution' ? 'text-zinc-950' : 'text-[var(--color-text-muted)]'} />
           <span>Eksekusi & Arb</span>
         </button>
       </div>
@@ -532,16 +532,16 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
       {activeTab === 'unified' && (
         <div className="space-y-2.5 animate-fadeIn">
           {/* Panduan Radar */}
-          <div className="bg-zinc-900/60 backdrop-blur-md p-2 rounded-sm border border-zinc-800/80 text-[8.5px] text-zinc-400 leading-relaxed">
-            <strong className="text-zinc-100 flex items-center gap-1 mb-1"><Info size={10} className="text-zinc-400" /> Petunjuk: Unified Overview</strong>
+          <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] text-[8.5px] text-[var(--color-text-muted)] leading-relaxed">
+            <strong className="text-[var(--color-text)] flex items-center gap-1 mb-1"><Info size={10} className="text-[var(--color-text-muted)]" /> Petunjuk: Unified Overview</strong>
             Ringkasan 360° yang mengagregasikan risiko likuidasi (Notional Ratio), tarikan gravitasi buku order, dan status kesehatan mikrostruktur secara real-time. Berguna untuk mendeteksi arah bias institusional secara instan (Apakah Smart Money sedang memburu posisi Long atau Short).
           </div>
           {/* Section A: Visual Long vs Short Liquidation Bar Chart */}
-          <div className="bg-zinc-900/60 backdrop-blur-md p-2.5 rounded-sm border border-zinc-800/80 space-y-2">
+          <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2.5 rounded-sm border border-[var(--color-border)] space-y-2">
             <div className="flex items-center justify-between text-[9px] flex-wrap gap-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-zinc-400 uppercase font-bold">Distribusi Pool Likuidasi:</span>
-                <span className="text-zinc-100 font-bold">{formatCompactUSD(totalLiqUsd)} Total Notional</span>
+                <span className="text-[var(--color-text-muted)] uppercase font-bold">Distribusi Pool Likuidasi:</span>
+                <span className="text-[var(--color-text)] font-bold">{formatCompactUSD(totalLiqUsd)} Total Notional</span>
               </div>
               <div className="flex items-center gap-2">
                 <span style={{ color: palette.bull }} className="font-extrabold">
@@ -555,7 +555,7 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
             </div>
 
             {/* Split Liquidation Ratio Bar (High Performance Visual Chart) */}
-            <div className="w-full h-3.5 bg-zinc-950 rounded-sm overflow-hidden flex p-0.5 border border-zinc-800 relative shadow-inner">
+            <div className="w-full h-3.5 bg-[var(--color-panel)] rounded-sm overflow-hidden flex p-0.5 border border-[var(--color-border)] relative shadow-inner">
               <div 
                 style={{ width: `${longLiqPct}%`, backgroundColor: palette.bull }}
                 className="h-full rounded-l-sm transition-all duration-700 ease-out flex items-center justify-center text-[8px] font-black text-black"
@@ -598,7 +598,7 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
                 </div>
               </div>
             ) : (
-              <div className="text-[9px] text-zinc-400 flex items-center justify-between px-1">
+              <div className="text-[9px] text-[var(--color-text-muted)] flex items-center justify-between px-1">
                 <span>{radar?.summary || 'Struktur likuidasi seimbang dan stabil'}</span>
                 <span className="text-emerald-400 font-bold">🟢 Zona Aman</span>
               </div>
@@ -608,8 +608,8 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
           {/* Section B: Grid Metric Cards (4 Pillars of Microstructure) */}
           <div className={`grid ${isSideMode ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'} gap-2 text-[9.5px]`}>
             {/* 1. Liquidity Magnet Gravity */}
-            <div className="bg-zinc-900/60 backdrop-blur-md p-2 rounded-sm border border-zinc-800/80 flex flex-col justify-between">
-              <div className="text-[8.5px] text-zinc-400 font-bold flex items-center justify-between">
+            <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] flex flex-col justify-between">
+              <div className="text-[8.5px] text-[var(--color-text-muted)] font-bold flex items-center justify-between">
                 <span>🧲 MAGNET LIKUIDITAS</span>
                 <span style={{ color: magnetColor }}>{isBullMagnet ? '▲ BULL' : isBearMagnet ? '▼ BEAR' : '■ MID'}</span>
               </div>
@@ -617,12 +617,12 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
                 <div style={{ color: magnetColor }} className="text-xs font-black">
                   {gravity?.magnetPriceFormatted || '—'}
                 </div>
-                <div className="text-[8.5px] text-zinc-400 flex items-center justify-between mt-0.5">
+                <div className="text-[8.5px] text-[var(--color-text-muted)] flex items-center justify-between mt-0.5">
                   <span>Kekuatan Tarik:</span>
-                  <span className="font-bold text-zinc-100">{magnetPullPct}%</span>
+                  <span className="font-bold text-[var(--color-text)]">{magnetPullPct}%</span>
                 </div>
               </div>
-              <div className="w-full bg-zinc-950/80 border border-zinc-800 h-1.5 rounded-full overflow-hidden p-0.5 shadow-inner">
+              <div className="w-full bg-[var(--color-panel)]/80 border border-[var(--color-border)] h-1.5 rounded-full overflow-hidden p-0.5 shadow-inner">
                 <div 
                   style={{ width: `${Math.min(100, magnetPullPct)}%` }}
                   className="h-full rounded-full transition-all duration-300 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]"
@@ -631,8 +631,8 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
             </div>
 
             {/* 2. VPIN Toxicity */}
-            <div className="bg-zinc-900/60 backdrop-blur-md p-2 rounded-sm border border-zinc-800/80 flex flex-col justify-between">
-              <div className="text-[8.5px] text-zinc-400 font-bold flex items-center justify-between">
+            <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] flex flex-col justify-between">
+              <div className="text-[8.5px] text-[var(--color-text-muted)] font-bold flex items-center justify-between">
                 <span>🧪 VPIN TOKSISITAS</span>
                 <span className={vpin && vpin.vpin >= 60 ? 'font-bold text-rose-400' : 'text-emerald-400'}>
                   {vpin && vpin.vpin >= 60 ? 'TOXIC' : 'NORMAL'}
@@ -642,12 +642,12 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
                 <div className={`text-xs font-black ${vpin && vpin.vpin >= 60 ? 'text-rose-400' : 'text-emerald-400'}`}>
                   {vpin ? `${vpin.vpin}%` : '32%'}
                 </div>
-                <div className="text-[8.5px] text-zinc-400 flex items-center justify-between mt-0.5">
+                <div className="text-[8.5px] text-[var(--color-text-muted)] flex items-center justify-between mt-0.5">
                   <span>Refill LOB:</span>
-                  <span className="font-bold text-zinc-100">{vpin ? `${vpin.replenishmentVelocityMs}ms` : '180ms'}</span>
+                  <span className="font-bold text-[var(--color-text)]">{vpin ? `${vpin.replenishmentVelocityMs}ms` : '180ms'}</span>
                 </div>
               </div>
-              <div className="w-full bg-zinc-950/80 border border-zinc-800 h-1.5 rounded-full overflow-hidden p-0.5 shadow-inner">
+              <div className="w-full bg-[var(--color-panel)]/80 border border-[var(--color-border)] h-1.5 rounded-full overflow-hidden p-0.5 shadow-inner">
                 <div 
                   style={{ width: `${vpin ? vpin.vpin : 32}%` }}
                   className={`h-full rounded-full transition-all duration-300 ${
@@ -660,23 +660,23 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
             </div>
 
             {/* 3. Order Flow Imbalance (OFI) */}
-            <div className="bg-zinc-900/60 backdrop-blur-md p-2 rounded-sm border border-zinc-800/80 flex flex-col justify-between">
-              <div className="text-[8.5px] text-zinc-400 font-bold flex items-center justify-between">
+            <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] flex flex-col justify-between">
+              <div className="text-[8.5px] text-[var(--color-text-muted)] font-bold flex items-center justify-between">
                 <span>⚖️ OFI IMBALANCE</span>
-                <span className={ofi && ofi.ofiRatio > 0 ? 'text-emerald-400' : ofi && ofi.ofiRatio < 0 ? 'text-rose-400' : 'text-zinc-400'}>
+                <span className={ofi && ofi.ofiRatio > 0 ? 'text-emerald-400' : ofi && ofi.ofiRatio < 0 ? 'text-rose-400' : 'text-[var(--color-text-muted)]'}>
                   {ofi && ofi.ofiRatio > 0 ? '+BUY' : ofi && ofi.ofiRatio < 0 ? '-SELL' : '0.0'}
                 </span>
               </div>
               <div className="my-1">
-                <div className={`text-xs font-black ${ofi && ofi.ofiRatio > 0 ? 'text-emerald-400' : ofi && ofi.ofiRatio < 0 ? 'text-rose-400' : 'text-zinc-100'}`}>
+                <div className={`text-xs font-black ${ofi && ofi.ofiRatio > 0 ? 'text-emerald-400' : ofi && ofi.ofiRatio < 0 ? 'text-rose-400' : 'text-[var(--color-text)]'}`}>
                   {ofi ? `${ofi.ofiRatio > 0 ? '+' : ''}${ofi.ofiRatio}` : '+0.24'}
                 </div>
-                <div className="text-[8.5px] text-zinc-400 flex items-center justify-between mt-0.5">
+                <div className="text-[8.5px] text-[var(--color-text-muted)] flex items-center justify-between mt-0.5">
                   <span>Kyle's λ Impact:</span>
-                  <span className="font-bold text-zinc-100">{ofi ? (ofi.kylesLambdaAvg * 1e4).toFixed(1) : '2.1'}e-4</span>
+                  <span className="font-bold text-[var(--color-text)]">{ofi ? (ofi.kylesLambdaAvg * 1e4).toFixed(1) : '2.1'}e-4</span>
                 </div>
               </div>
-              <div className="w-full bg-zinc-950/80 border border-zinc-800 h-1.5 rounded-full overflow-hidden p-0.5 shadow-inner">
+              <div className="w-full bg-[var(--color-panel)]/80 border border-[var(--color-border)] h-1.5 rounded-full overflow-hidden p-0.5 shadow-inner">
                 <div 
                   style={{ width: `${Math.min(100, Math.abs(ofi?.ofiRatio || 0.2) * 100)}%` }}
                   className={`h-full rounded-full transition-all duration-300 ${
@@ -689,8 +689,8 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
             </div>
 
             {/* 4. Hawkes Flash Crash Alert */}
-            <div className="bg-zinc-900/60 backdrop-blur-md p-2 rounded-sm border border-zinc-800/80 flex flex-col justify-between">
-              <div className="text-[8.5px] text-zinc-400 font-bold flex items-center justify-between">
+            <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] flex flex-col justify-between">
+              <div className="text-[8.5px] text-[var(--color-text-muted)] font-bold flex items-center justify-between">
                 <span>⚡ HAWKES RADAR</span>
                 <span className={hawkes?.hazardLevel.includes('CRITICAL') ? 'font-bold text-rose-400' : hawkes?.hazardLevel.includes('ELEVATED') ? 'text-amber-400' : 'text-emerald-400'}>
                   {hawkes?.hazardLevel ? hawkes.hazardLevel.split('_')[0] : 'NORMAL'}
@@ -700,12 +700,12 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
                 <div className={`text-xs font-black ${hawkes?.hazardLevel.includes('CRITICAL') ? 'text-rose-400' : hawkes?.hazardLevel.includes('ELEVATED') ? 'text-amber-400' : 'text-emerald-400'}`}>
                   λ: {hawkes ? hawkes.intensityLambda : '1.15'}
                 </div>
-                <div className="text-[8.5px] text-zinc-400 flex items-center justify-between mt-0.5">
+                <div className="text-[8.5px] text-[var(--color-text-muted)] flex items-center justify-between mt-0.5">
                   <span>Evaporation:</span>
-                  <span className="font-bold text-zinc-100">{hawkes ? `${hawkes.liquidityEvaporationPct}%` : '8%'}</span>
+                  <span className="font-bold text-[var(--color-text)]">{hawkes ? `${hawkes.liquidityEvaporationPct}%` : '8%'}</span>
                 </div>
               </div>
-              <div className="w-full bg-zinc-950/80 border border-zinc-800 h-1.5 rounded-full overflow-hidden p-0.5 shadow-inner">
+              <div className="w-full bg-[var(--color-panel)]/80 border border-[var(--color-border)] h-1.5 rounded-full overflow-hidden p-0.5 shadow-inner">
                 <div 
                   style={{ width: `${hawkes ? Math.min(100, hawkes.liquidityEvaporationPct) : 8}%` }}
                   className={`h-full rounded-full transition-all duration-300 ${
@@ -726,11 +726,11 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
       {activeTab === 'liquidation' && (
         <div className="space-y-2.5 animate-fadeIn">
           {/* Panduan Radar */}
-          <div className="bg-zinc-900/60 backdrop-blur-md p-2 rounded-sm border border-zinc-800/80 text-[8.5px] text-zinc-400 leading-relaxed">
-            <strong className="text-zinc-100 flex items-center gap-1 mb-1"><Flame size={10} className="text-zinc-400" /> Petunjuk: Klaster Likuidasi</strong>
+          <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] text-[8.5px] text-[var(--color-text-muted)] leading-relaxed">
+            <strong className="text-[var(--color-text)] flex items-center gap-1 mb-1"><Flame size={10} className="text-[var(--color-text-muted)]" /> Petunjuk: Klaster Likuidasi</strong>
             Memetakan titik-titik jebakan (*Liquidation Clusters*) tempat stop-loss ritel bertumpuk berdasarkan estimasi *leverage* (10x - 100x). Harga memiliki tendensi magnetis untuk menyapu klaster-klaster dengan nilai *Notional USD* tinggi sebelum melakukan pembalikan tren (Stop-Hunt).
           </div>
-          <div className="flex items-center justify-between text-[9px] pb-1 border-b border-zinc-800/80 text-zinc-400">
+          <div className="flex items-center justify-between text-[9px] pb-1 border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
             <span>Klaster Likuidasi Leverage (100x, 50x, 25x, 10x)</span>
             <span>Jarak & Volume Notional</span>
           </div>
@@ -750,7 +750,7 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
                     className={`p-2 rounded-sm border transition-all flex flex-col gap-1.5 cursor-pointer ${
                       isImm 
                         ? 'bg-rose-950/20 border-rose-500/30 hover:bg-rose-950/30' 
-                        : 'bg-zinc-900/40 border-zinc-800/80 hover:bg-zinc-800/40'
+                        : 'bg-[var(--color-panel)]/40 border-[var(--color-border)] hover:bg-[var(--color-bg)]/40'
                     }`}
                     onClick={() => onJumpToPrice && onJumpToPrice(c.price)}
                     title={`Klik untuk jump ke level $${formatPrice(c.price)}`}
@@ -763,10 +763,10 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
                         >
                           {c.leverageTier}
                         </span>
-                        <span className="font-bold text-zinc-100">
+                        <span className="font-bold text-[var(--color-text)]">
                           ${formatPrice(c.price)}
                         </span>
-                        <span className="text-[8px] uppercase tracking-wider text-zinc-400">
+                        <span className="text-[8px] uppercase tracking-wider text-[var(--color-text-muted)]">
                           {isShort ? '💥 Short Squeeze' : '💥 Long Flush'}
                         </span>
                       </div>
@@ -778,7 +778,7 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
                         <span className="text-amber-300/90 text-[8.5px] font-bold bg-amber-400/10 px-1 py-0.5 rounded-sm border border-amber-400/20">
                           {c.distanceTicks}T
                         </span>
-                        <span className="text-zinc-400 text-[8.5px]">
+                        <span className="text-[var(--color-text-muted)] text-[8.5px]">
                           ({c.distancePct >= 0 ? '+' : ''}{c.distancePct.toFixed(2)}% / {c.distanceBps} bps)
                         </span>
                         {isImm && (
@@ -790,7 +790,7 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
                     </div>
 
                     {/* Proportional Volume Bar */}
-                    <div className="w-full bg-zinc-950/80 border border-zinc-800 h-1.5 rounded-full overflow-hidden p-0.5 shadow-inner">
+                    <div className="w-full bg-[var(--color-panel)]/80 border border-[var(--color-border)] h-1.5 rounded-full overflow-hidden p-0.5 shadow-inner">
                       <div 
                         style={{ width: `${volPct}%` }}
                         className={`h-full rounded-full transition-all duration-300 ${
@@ -816,15 +816,15 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
       {activeTab === 'gravity' && (
         <div className="space-y-3 animate-fadeIn">
           {/* Panduan Radar */}
-          <div className="bg-zinc-900/60 backdrop-blur-md p-2 rounded-sm border border-zinc-800/80 text-[8.5px] text-zinc-400 leading-relaxed">
-            <strong className="text-zinc-100 flex items-center gap-1 mb-1"><Compass size={10} className="text-zinc-400" /> Petunjuk: Order Book Gravity & VPIN</strong>
+          <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] text-[8.5px] text-[var(--color-text-muted)] leading-relaxed">
+            <strong className="text-[var(--color-text)] flex items-center gap-1 mb-1"><Compass size={10} className="text-[var(--color-text-muted)]" /> Petunjuk: Order Book Gravity & VPIN</strong>
             Mengukur massa pasif di Limit Order Book. Bullish/Bearish Magnet mendeteksi tembok order (*Spoofing/Iceberg*) yang menarik harga. VPIN mendeteksi pergerakan diam-diam dari institusi sebelum volatilitas terjadi.
           </div>
           {/* Gravity Magnet Detailed Vector */}
-          <div className="bg-zinc-900/60 backdrop-blur-md p-2.5 rounded-sm border border-zinc-800/80 space-y-2">
+          <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2.5 rounded-sm border border-[var(--color-border)] space-y-2">
             <div className="flex items-center justify-between text-[9px]">
-              <span className="text-zinc-400 uppercase font-bold flex items-center gap-1">
-                <Compass size={12} className="text-zinc-400" />
+              <span className="text-[var(--color-text-muted)] uppercase font-bold flex items-center gap-1">
+                <Compass size={12} className="text-[var(--color-text-muted)]" />
                 Vektor Gravitasi Magnet Order Book (LOB Gravity)
               </span>
               <span style={{ color: magnetColor }} className="font-bold">
@@ -832,16 +832,16 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
               </span>
             </div>
 
-            <div className="flex items-center justify-between bg-zinc-950/80 p-2 rounded-sm border border-zinc-800/80">
+            <div className="flex items-center justify-between bg-[var(--color-panel)]/80 p-2 rounded-sm border border-[var(--color-border)]">
               <div>
-                <div className="text-[8.5px] text-zinc-400">TARGET HARGA MAGNET:</div>
+                <div className="text-[8.5px] text-[var(--color-text-muted)]">TARGET HARGA MAGNET:</div>
                 <div style={{ color: magnetColor }} className="text-sm font-black font-mono">
                   {gravity?.magnetPriceFormatted || '—'}
                 </div>
               </div>
               <div className="text-right font-mono">
-                <div className="text-[8.5px] text-zinc-400">JARAK TARGET:</div>
-                <div className="text-xs font-bold text-zinc-100">
+                <div className="text-[8.5px] text-[var(--color-text-muted)]">JARAK TARGET:</div>
+                <div className="text-xs font-bold text-[var(--color-text)]">
                   {magnetDistPct >= 0 ? '+' : ''}{magnetDistPct.toFixed(2)}% ({((magnetDistPct * currentPrice) / 100).toFixed(2)} pts)
                 </div>
               </div>
@@ -850,11 +850,11 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
             {/* Dominant Gravity Clusters */}
             {gravity && (gravity as any).dominantClusters && (gravity as any).dominantClusters.length > 0 && (
               <div className="space-y-1 pt-1">
-                <div className="text-[8px] uppercase tracking-wider text-zinc-400 font-bold">Klaster Penarik Terkuat (HVN Walls):</div>
+                <div className="text-[8px] uppercase tracking-wider text-[var(--color-text-muted)] font-bold">Klaster Penarik Terkuat (HVN Walls):</div>
                 <div className="grid grid-cols-2 gap-1.5">
                   {(gravity as any).dominantClusters.slice(0, 2).map((gc: any, i: number) => (
-                    <div key={i} className="bg-zinc-950/80 p-1.5 rounded-sm border border-zinc-800/80 flex items-center justify-between text-[8.5px]">
-                      <span className="text-zinc-100 font-bold">${formatPrice(gc.price)}</span>
+                    <div key={i} className="bg-[var(--color-panel)]/80 p-1.5 rounded-sm border border-[var(--color-border)] flex items-center justify-between text-[8.5px]">
+                      <span className="text-[var(--color-text)] font-bold">${formatPrice(gc.price)}</span>
                       <span style={{ color: gc.side === 'bid' ? palette.bull : palette.bear }}>
                         {gc.side.toUpperCase()} ({gc.pullWeight.toFixed(0)}%)
                       </span>
@@ -867,24 +867,24 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
 
           {/* VPIN & OFI Deep Stats */}
           <div className="grid grid-cols-2 gap-2 text-[9px]">
-            <div className="bg-zinc-900/60 backdrop-blur-md p-2 rounded-sm border border-zinc-800/80 space-y-1">
-              <div className="text-zinc-400 font-bold flex items-center justify-between">
+            <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] space-y-1">
+              <div className="text-[var(--color-text-muted)] font-bold flex items-center justify-between">
                 <span>VPIN TOXICITY ENGINE</span>
                 <span className={vpin && vpin.vpin >= 60 ? 'text-rose-400 font-bold' : 'text-cyan-300'}>{vpin?.vpin || 32}%</span>
               </div>
-              <p className="text-[8px] text-zinc-400 leading-tight">
+              <p className="text-[8px] text-[var(--color-text-muted)] leading-tight">
                 {vpin && vpin.vpin >= 60 
                   ? '⚠️ Toksisitas Order Flow tinggi! HFT & Institusi sedang agresif menyapu likuiditas.' 
                   : '🟢 Order Flow normal. Penyediaan limit order stabil tanpa tanda-tanda predatory toxicity.'}
               </p>
             </div>
 
-            <div className="bg-zinc-900/60 backdrop-blur-md p-2 rounded-sm border border-zinc-800/80 space-y-1">
-              <div className="text-zinc-400 font-bold flex items-center justify-between">
+            <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] space-y-1">
+              <div className="text-[var(--color-text-muted)] font-bold flex items-center justify-between">
                 <span>RESILIENSI LOB & IMPACT</span>
                 <span className="text-emerald-400 font-bold">{ofi?.marketResilience || 'Robust'}</span>
               </div>
-              <p className="text-[8px] text-zinc-400 leading-tight">
+              <p className="text-[8px] text-[var(--color-text-muted)] leading-tight">
                 Koefisien elastisitas Kyle's Lambda menunjukkan pasar memiliki kedalaman institusional yang cukup untuk menyerap volume besar.
               </p>
             </div>
@@ -896,14 +896,14 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
       {activeTab === 'hawkes' && (
         <div className="space-y-2.5 animate-fadeIn">
           {/* Panduan Radar */}
-          <div className="bg-zinc-900/60 backdrop-blur-md p-2 rounded-sm border border-zinc-800/80 text-[8.5px] text-zinc-400 leading-relaxed">
-            <strong className="text-zinc-100 flex items-center gap-1 mb-1"><Activity size={10} className="text-zinc-400" /> Petunjuk: Flash-Crash Hawkes Radar</strong>
+          <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] text-[8.5px] text-[var(--color-text-muted)] leading-relaxed">
+            <strong className="text-[var(--color-text)] flex items-center gap-1 mb-1"><Activity size={10} className="text-[var(--color-text-muted)]" /> Petunjuk: Flash-Crash Hawkes Radar</strong>
             Mendeteksi anomali penarikan massal likuiditas (*Liquidity Evaporation*) melalui model matematika *Self-Exciting Hawkes Process*. Jika status menjadi "CRITICAL" atau λ melonjak tajam, waspadai risiko *Flash Crash* (slippage ekstrem) karena *market maker* sedang mencabut *order* mereka.
           </div>
-          <div className="bg-zinc-900/60 backdrop-blur-md p-2.5 rounded-sm border border-zinc-800/80 space-y-2">
+          <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2.5 rounded-sm border border-[var(--color-border)] space-y-2">
             <div className="flex items-center justify-between text-[9px]">
-              <span className="text-zinc-400 uppercase font-bold flex items-center gap-1">
-                <Activity size={12} className="text-zinc-400" />
+              <span className="text-[var(--color-text-muted)] uppercase font-bold flex items-center gap-1">
+                <Activity size={12} className="text-[var(--color-text-muted)]" />
                 Hawkes Self-Exciting Process Early Warning Radar
               </span>
               <span 
@@ -916,28 +916,28 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
             </div>
 
             <div className={`grid ${isSideMode ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-4'} gap-2 text-[9px] text-center pt-1`}>
-              <div className="bg-zinc-950/80 p-2 rounded-sm border border-zinc-800/80">
-                <div className="text-zinc-400 text-[8px]">ARRIVAL INTENSITY (λ)</div>
-                <div className="text-xs font-bold text-zinc-100 mt-0.5">{hawkes?.intensityLambda || 1.15}</div>
+              <div className="bg-[var(--color-panel)]/80 p-2 rounded-sm border border-[var(--color-border)]">
+                <div className="text-[var(--color-text-muted)] text-[8px]">ARRIVAL INTENSITY (λ)</div>
+                <div className="text-xs font-bold text-[var(--color-text)] mt-0.5">{hawkes?.intensityLambda || 1.15}</div>
               </div>
-              <div className="bg-zinc-950/80 p-2 rounded-sm border border-zinc-800/80">
-                <div className="text-zinc-400 text-[8px]">BRANCHING RATIO (η)</div>
+              <div className="bg-[var(--color-panel)]/80 p-2 rounded-sm border border-[var(--color-border)]">
+                <div className="text-[var(--color-text-muted)] text-[8px]">BRANCHING RATIO (η)</div>
                 <div className="text-xs font-bold text-amber-400 mt-0.5">{hawkes?.branchingRatioEta || 0.42}</div>
               </div>
-              <div className="bg-zinc-950/80 p-2 rounded-sm border border-zinc-800/80">
-                <div className="text-zinc-400 text-[8px]">CANCEL CHURN (/SEC)</div>
+              <div className="bg-[var(--color-panel)]/80 p-2 rounded-sm border border-[var(--color-border)]">
+                <div className="text-[var(--color-text-muted)] text-[8px]">CANCEL CHURN (/SEC)</div>
                 <div className="text-xs font-bold text-emerald-400 mt-0.5">{hawkes?.cancellationVelocityPerSec || 14}/s</div>
               </div>
-              <div className="bg-zinc-950/80 p-2 rounded-sm border border-zinc-800/80">
-                <div className="text-zinc-400 text-[8px]">LOB EVAPORATION</div>
+              <div className="bg-[var(--color-panel)]/80 p-2 rounded-sm border border-[var(--color-border)]">
+                <div className="text-[var(--color-text-muted)] text-[8px]">LOB EVAPORATION</div>
                 <div className={`text-xs font-bold mt-0.5 ${hawkes && hawkes.liquidityEvaporationPct > 35 ? 'text-rose-400' : 'text-emerald-400'}`}>
                   {hawkes?.liquidityEvaporationPct || 8}%
                 </div>
               </div>
             </div>
 
-            <div className="bg-zinc-950/80 p-2 rounded-sm border border-zinc-800/80 text-[8.5px] text-zinc-400 space-y-1">
-              <div className="font-bold text-zinc-100 flex items-center gap-1">
+            <div className="bg-[var(--color-panel)]/80 p-2 rounded-sm border border-[var(--color-border)] text-[8.5px] text-[var(--color-text-muted)] space-y-1">
+              <div className="font-bold text-[var(--color-text)] flex items-center gap-1">
                 <Shield size={11} className="text-emerald-400" />
                 Penjelasan Kuantitatif Hawkes:
               </div>
@@ -953,27 +953,27 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
       {activeTab === 'execution' && (
         <div className="space-y-2.5 animate-fadeIn">
           {/* Panduan Radar */}
-          <div className="bg-zinc-900/60 backdrop-blur-md p-2 rounded-sm border border-zinc-800/80 text-[8.5px] text-zinc-400 leading-relaxed">
-            <strong className="text-zinc-100 flex items-center gap-1 mb-1"><Target size={10} className="text-zinc-400" /> Petunjuk: Optimal Execution & Arbitrage</strong>
+          <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] text-[8.5px] text-[var(--color-text-muted)] leading-relaxed">
+            <strong className="text-[var(--color-text)] flex items-center gap-1 mb-1"><Target size={10} className="text-[var(--color-text-muted)]" /> Petunjuk: Optimal Execution & Arbitrage</strong>
             Diadaptasi dari algoritma *Almgren-Chriss* untuk menghitung biaya slippage vs risiko volatilitas. Menampilkan konsolidasi kedalaman silang lintas-bursa (BBO) guna menemukan efisiensi rute order (*smart routing*) dan arbitrase latensi mikro.
           </div>
           {/* Almgren-Chriss Optimal Trajectory */}
           {almgren && (
-            <div className="bg-zinc-900/60 backdrop-blur-md p-2.5 rounded-sm border border-zinc-800/80 space-y-1.5">
+            <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2.5 rounded-sm border border-[var(--color-border)] space-y-1.5">
               <div className="flex items-center justify-between text-[9px]">
-                <span className="text-zinc-400 uppercase font-bold flex items-center gap-1">
-                  <Target size={12} className="text-zinc-400" />
+                <span className="text-[var(--color-text-muted)] uppercase font-bold flex items-center gap-1">
+                  <Target size={12} className="text-[var(--color-text-muted)]" />
                   Almgren-Chriss Optimal Liquidation Trajectory
                 </span>
                 <span className="text-emerald-400 font-bold">{formatM(almgren.totalNotionalUsd)} Notional</span>
               </div>
               <div className={`grid ${isSideMode ? 'grid-cols-1' : 'grid-cols-2'} gap-2 text-[9px]`}>
-                <div className="bg-zinc-950/80 p-1.5 rounded-sm border border-zinc-800/80 flex justify-between">
-                  <span className="text-zinc-400">Expected Execution Cost:</span>
+                <div className="bg-[var(--color-panel)]/80 p-1.5 rounded-sm border border-[var(--color-border)] flex justify-between">
+                  <span className="text-[var(--color-text-muted)]">Expected Execution Cost:</span>
                   <span className="font-bold text-amber-400">${almgren.expectedCostUsd}</span>
                 </div>
-                <div className="bg-zinc-950/80 p-1.5 rounded-sm border border-zinc-800/80 flex justify-between">
-                  <span className="text-zinc-400">Variance Market Risk:</span>
+                <div className="bg-[var(--color-panel)]/80 p-1.5 rounded-sm border border-[var(--color-border)] flex justify-between">
+                  <span className="text-[var(--color-text-muted)]">Variance Market Risk:</span>
                   <span className="font-bold text-rose-400">${almgren.varianceRiskUsd}</span>
                 </div>
               </div>
@@ -982,19 +982,19 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
 
           {/* Cross-Exchange Arbitrage & BBO */}
           {matrix && (
-            <div className="bg-zinc-900/60 backdrop-blur-md p-2.5 rounded-sm border border-zinc-800/80 space-y-1.5">
+            <div className="bg-[var(--color-panel)]/60 backdrop-blur-md p-2.5 rounded-sm border border-[var(--color-border)] space-y-1.5">
               <div className="flex items-center justify-between text-[9px]">
-                <span className="text-zinc-400 uppercase font-bold flex items-center gap-1">
-                  <Scale size={12} className="text-zinc-400" />
+                <span className="text-[var(--color-text-muted)] uppercase font-bold flex items-center gap-1">
+                  <Scale size={12} className="text-[var(--color-text-muted)]" />
                   Consolidated Cross-Exchange BBO & Latency
                 </span>
                 <span className="text-emerald-400 font-bold">{matrix.consolidatedSpreadBps} bps Spread</span>
               </div>
-              <div className="flex items-center justify-between bg-zinc-950/80 p-2 rounded-sm border border-zinc-800/80 text-[9px]">
+              <div className="flex items-center justify-between bg-[var(--color-panel)]/80 p-2 rounded-sm border border-[var(--color-border)] text-[9px]">
                 <div>
-                  <span className="text-zinc-400">BBO: </span>
+                  <span className="text-[var(--color-text-muted)]">BBO: </span>
                   <span style={{ color: palette.bull }} className="font-bold">${matrix.consolidatedBestBid}</span>
-                  <span className="text-zinc-400"> / </span>
+                  <span className="text-[var(--color-text-muted)]"> / </span>
                   <span style={{ color: palette.bear }} className="font-bold">${matrix.consolidatedBestAsk}</span>
                 </div>
                 <div className="text-right text-emerald-400 font-bold text-[8.5px]">
@@ -1007,9 +1007,9 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
       )}
 
       {/* 4. BOTTOM FOOTER BAR */}
-      <div className={`flex ${isSideMode ? 'flex-col items-start gap-1.5' : 'items-center justify-between'} pt-1 border-t border-zinc-800/80 text-[8.5px] text-zinc-400`}>
+      <div className={`flex ${isSideMode ? 'flex-col items-start gap-1.5' : 'items-center justify-between'} pt-1 border-t border-[var(--color-border)] text-[8.5px] text-[var(--color-text-muted)]`}>
         <div className="flex items-center gap-1.5">
-          <span className="font-bold text-zinc-100 tracking-wide">𝙈𝙤𝙪𝙣𝙩𝘼𝙡𝙜𝙤 Liquidity Heatmap Radar Bar</span>
+          <span className="font-bold text-[var(--color-text)] tracking-wide">𝙈𝙤𝙪𝙣𝙩𝘼𝙡𝙜𝙤 Liquidity Heatmap Radar Bar</span>
           {copiedPrice && (
             <span className="text-emerald-400 font-bold animate-fadeIn">● Disalin ${formatPrice(copiedPrice)}</span>
           )}

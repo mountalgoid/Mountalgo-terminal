@@ -512,7 +512,7 @@ export default function DrawingLayerManagerModal({
                               {/* Tool Icon */}
                               <div
                                 style={{ backgroundColor: `${drawing.color}20`, color: drawing.color }}
-                                className="p-1 rounded border border-white/10 shrink-0"
+                                className="p-1 rounded border border-[var(--color-border)]/30 shrink-0"
                               >
                                 <ToolIcon size={13} />
                               </div>

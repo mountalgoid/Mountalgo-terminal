@@ -241,11 +241,11 @@ export function LeftVolumeProfileGuideModal({ isOpen, onClose }: Props) {
                   Sesuai hukum distribusi normal statistik pasar (*Market Profile Auction Theory*), <strong>Value Area</strong> mencakup 70% total volume perdagangan:
                 </p>
                 <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
-                  <div className="p-2 rounded bg-black/30 border border-emerald-500/20">
+                  <div className="p-2 rounded bg-[var(--color-bg)]/30 border border-emerald-500/20">
                     <strong className="text-emerald-300 block">VAH (Value Area High):</strong>
                     Batas atas harga wajar. Penolakan di atas VAH mengindikasikan harga *overbought* (mahal).
                   </div>
-                  <div className="p-2 rounded bg-black/30 border border-emerald-500/20">
+                  <div className="p-2 rounded bg-[var(--color-bg)]/30 border border-emerald-500/20">
                     <strong className="text-emerald-300 block">VAL (Value Area Low):</strong>
                     Batas bawah harga wajar. Penolakan di bawah VAL mengindikasikan harga *oversold* (murah).
                   </div>
@@ -328,7 +328,7 @@ export function LeftVolumeProfileGuideModal({ isOpen, onClose }: Props) {
                 <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">
                   Ketika Anda melihat <strong>Dinding Likuiditas Tebal (Liquidity Wall) pada Heatmap</strong> berada tepat di level harga yang sama dengan <strong>Point of Control (POC)</strong> atau batas <strong>VAH/VAL</strong> pada Left Volume Profile, ini adalah konfirmasi institusional tingkat tertinggi.
                 </p>
-                <div className="p-2.5 rounded-lg bg-black/40 border border-amber-500/30 text-[11px] text-amber-200 font-mono">
+                <div className="p-2.5 rounded-lg bg-[var(--color-bg)]/40 border border-amber-500/30 text-[11px] text-amber-200 font-mono">
                   🎯 Sinyal: Level tersebut memiliki riwayat transaksi terpadat di masa lalu DAN sekaligus dijaga oleh modal limit order aktif institusi saat ini.
                 </div>
               </div>
@@ -354,7 +354,7 @@ export function LeftVolumeProfileGuideModal({ isOpen, onClose }: Props) {
                 <p className="text-xs text-[var(--color-text-muted)]">
                   Ketika harga menembus keluar dari Value Area (di atas VAH atau di bawah VAL) namun gagal mempertahankan momentum karena volume pasar menipis:
                 </p>
-                <div className="bg-black/30 p-2.5 rounded text-[11px] space-y-1 text-[var(--color-text-muted)]">
+                <div className="bg-[var(--color-bg)]/30 p-2.5 rounded text-[11px] space-y-1 text-[var(--color-text-muted)]">
                   <div><strong>Kondisi:</strong> Harga reject di luar VAL, candle ditutup kembali masuk ke dalam Value Area.</div>
                   <div><strong>Entri:</strong> Buy ketika harga kembali menyeberangi VAL ke atas.</div>
                   <div><strong>Target:</strong> Ambil profit bertahap di POC (Point of Control) dan VAH.</div>
@@ -374,7 +374,7 @@ export function LeftVolumeProfileGuideModal({ isOpen, onClose }: Props) {
                 <p className="text-xs text-[var(--color-text-muted)]">
                   Ketika harga menembus VAH atau VAL disertai lonjakan volume delta agresif dan langsung memasuki zona Low Volume Node (LVN):
                 </p>
-                <div className="bg-black/30 p-2.5 rounded text-[11px] space-y-1 text-[var(--color-text-muted)]">
+                <div className="bg-[var(--color-bg)]/30 p-2.5 rounded text-[11px] space-y-1 text-[var(--color-text-muted)]">
                   <div><strong>Kondisi:</strong> Candle breakout bervolume besar ditutup di atas VAH, dan Heatmap menunjukkan dinding resistensi di atasnya telah terlahap (*absorbed*).</div>
                   <div><strong>Aksi:</strong> Masuk posisi Long mengikuti arah breakout. Harga akan bergerak sangat kencang melintasi LVN menuju HVN berikutnya.</div>
                   <div><strong>Stop Loss:</strong> Tepat di bawah level VAH yang ditembus (re-test buffer).</div>
@@ -393,7 +393,7 @@ export function LeftVolumeProfileGuideModal({ isOpen, onClose }: Props) {
                 <p className="text-xs text-[var(--color-text-muted)]">
                   Level POC dari sesi atau rentang sebelumnya yang belum pernah disentuh (*Naked POC*) menyimpan likuiditas tertahan yang sangat besar:
                 </p>
-                <div className="bg-black/30 p-2.5 rounded text-[11px] space-y-1 text-[var(--color-text-muted)]">
+                <div className="bg-[var(--color-bg)]/30 p-2.5 rounded text-[11px] space-y-1 text-[var(--color-text-muted)]">
                   <div><strong>Setup:</strong> Pantau garis ray POC yang memanjang ke masa depan. Saat harga mendekatinya, perhatikan apakah limit wall di Heatmap menyerap pesanan market order (*absorption nodes*).</div>
                   <div><strong>Eksekusi:</strong> Lakukan entri reaksi bounce dengan target kembali ke level ekstrim sebelumnya.</div>
                 </div>

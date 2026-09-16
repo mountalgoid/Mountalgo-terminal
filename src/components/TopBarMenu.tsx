@@ -249,7 +249,7 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
           {isZoomDropdownOpen && (() => {
             const res = detectScreenResolution();
             return (
-              <div className="absolute top-full right-0 mt-1 w-56 bg-zinc-950/95 border border-zinc-800 rounded-2xl shadow-2xl backdrop-blur-xl p-2 z-[10005] font-mono text-xs animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute top-full right-0 mt-1 w-56 bg-[var(--color-panel)]/95 border border-[var(--color-border)] rounded-2xl shadow-2xl backdrop-blur-xl p-2 z-[10005] font-mono text-xs animate-in fade-in zoom-in-95 duration-150">
                 {/* Auto Resolution Detector Info Box */}
                 <div 
                   style={{ backgroundColor: `${palette.bull}15`, borderColor: `${palette.bull}35` }}
@@ -287,7 +287,7 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
                   </button>
                 </div>
 
-                <div className="text-[10px] text-zinc-400 px-1 py-0.5 font-bold border-b border-zinc-800/80 mb-1 flex items-center justify-between">
+                <div className="text-[10px] text-zinc-400 px-1 py-0.5 font-bold border-b border-[var(--color-border)]/80 mb-1 flex items-center justify-between">
                   <span>PRESET ZOOM MANUAL</span>
                   <span className="text-[9px] font-bold" style={{ color: palette.bull }}>Ctrl+Scroll</span>
                 </div>
@@ -303,14 +303,14 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
                       className={`px-2 py-1 rounded-lg text-center text-xs transition-all cursor-pointer ${
                         globalZoom === preset
                           ? 'font-bold border shadow-sm'
-                          : 'text-zinc-300 bg-zinc-900/60 hover:bg-zinc-800 hover:text-white border border-zinc-800/60'
+                          : 'text-[var(--color-text)] bg-[var(--color-panel)]/60 hover:bg-[var(--color-bg)] hover:text-white border border-[var(--color-border)]/60'
                       }`}
                     >
                       {preset}%
                     </button>
                   ))}
                 </div>
-                <div className="border-t border-zinc-800/80 mt-1.5 pt-1.5 flex flex-col gap-1">
+                <div className="border-t border-[var(--color-border)]/80 mt-1.5 pt-1.5 flex flex-col gap-1">
                   <button
                     onClick={() => {
                       window.dispatchEvent(new CustomEvent('mountalgo-auto-center'));
@@ -330,7 +330,7 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
                       resetZoom();
                       setIsZoomDropdownOpen(false);
                     }}
-                    className="w-full text-center py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-amber-400 font-bold text-[10.5px] transition-colors cursor-pointer flex items-center justify-center gap-1 border border-zinc-800"
+                    className="w-full text-center py-1 rounded-lg bg-[var(--color-panel)] hover:bg-[var(--color-bg)] text-amber-400 font-bold text-[10.5px] transition-colors cursor-pointer flex items-center justify-center gap-1 border border-[var(--color-border)]"
                   >
                     <RotateCw size={10} />
                     Reset Zoom (100%)
@@ -467,7 +467,7 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
                 right: Math.min(menuPos.right, window.innerWidth - 272),
               }}
               ref={portalMenuRef}
-              className="fixed w-64 sm:w-72 rounded-2xl border border-white/15 bg-[#04060e]/95 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-dropdown-ultimate overflow-hidden text-xs sm:text-sm animate-in slide-in-from-top-2 fade-in duration-150 flex flex-col max-h-[calc(100vh-60px)] sm:max-h-[calc(100vh-80px)]"
+              className="fixed w-64 sm:w-72 rounded-2xl border border-[var(--color-border)]/30 bg-[var(--color-panel)]/95 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-dropdown-ultimate overflow-hidden text-xs sm:text-sm animate-in slide-in-from-top-2 fade-in duration-150 flex flex-col max-h-[calc(100vh-60px)] sm:max-h-[calc(100vh-80px)]"
             >
               <div className="p-1 sm:p-1.5 space-y-0.5 flex flex-col overflow-y-auto max-h-[calc(100vh-70px)] sm:max-h-[calc(100vh-90px)] custom-scrollbar">
                 <button

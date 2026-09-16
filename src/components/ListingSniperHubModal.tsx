@@ -54,7 +54,7 @@ export const ListingSniperHubModal: React.FC<Props> = ({
     <div className="fixed inset-0 z-[10002] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
       <div className="w-full max-w-4xl bg-gradient-to-br from-zinc-950 via-zinc-900 to-emerald-950/40 border border-emerald-500/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-emerald-500/20 bg-zinc-950/80 flex items-center justify-between gap-3 shrink-0">
+        <div className="p-4 sm:p-5 border-b border-emerald-500/20 bg-[var(--color-panel)]/80 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-400">
               <Flame size={22} className="animate-pulse" />
@@ -68,7 +68,7 @@ export const ListingSniperHubModal: React.FC<Props> = ({
                   REALTIME SCANNER
                 </span>
               </div>
-              <p className="text-xs font-mono text-zinc-400 mt-0.5">
+              <p className="text-xs font-mono text-[var(--color-text-muted)] mt-0.5">
                 Deteksi otomatis token rilis baru MEXC, Binance, & Bybit dengan Dynamic Timer & 1-Click Snipe
               </p>
             </div>
@@ -84,7 +84,7 @@ export const ListingSniperHubModal: React.FC<Props> = ({
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              className="p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-[var(--color-text-muted)] hover:text-white transition-colors cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -92,7 +92,7 @@ export const ListingSniperHubModal: React.FC<Props> = ({
         </div>
 
         {/* Broker Selector Tabs */}
-        <div className="px-4 pt-3 pb-1 bg-zinc-950/90 border-b border-zinc-800 flex items-center gap-2 shrink-0">
+        <div className="px-4 pt-3 pb-1 bg-[var(--color-panel)]/90 border-b border-[var(--color-border)] flex items-center gap-2 shrink-0">
           {(['all', 'mexc', 'binance', 'bybit'] as const).map((b) => (
             <button
               key={b}
@@ -100,7 +100,7 @@ export const ListingSniperHubModal: React.FC<Props> = ({
               className={`px-3 py-1.5 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 selectedBroker === b
                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 shadow'
-                  : 'bg-zinc-900/80 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+                  : 'bg-[var(--color-panel)]/80 text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)]'
               }`}
             >
               {b === 'all' ? <Layers size={13} /> : <Flame size={13} />}
@@ -115,26 +115,26 @@ export const ListingSniperHubModal: React.FC<Props> = ({
         </div>
 
         {/* Global Stats Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-zinc-950/60 border-b border-zinc-800/80 text-xs font-mono">
-          <div className="p-2 rounded-xl bg-zinc-900/60 border border-zinc-800/80">
-            <div className="text-[10px] text-zinc-400 uppercase">Total Token Rilis (48h)</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-[var(--color-panel)]/60 border-b border-[var(--color-border)] text-xs font-mono">
+          <div className="p-2 rounded-xl bg-[var(--color-panel)]/60 border border-[var(--color-border)]">
+            <div className="text-[10px] text-[var(--color-text-muted)] uppercase">Total Token Rilis (48h)</div>
             <div className="text-base font-bold text-white">{listings.length}</div>
           </div>
-          <div className="p-2 rounded-xl bg-zinc-900/60 border border-emerald-500/30">
+          <div className="p-2 rounded-xl bg-[var(--color-panel)]/60 border border-emerald-500/30">
             <div className="text-[10px] text-emerald-400 uppercase">Rilis &lt; 5 Menit</div>
             <div className="text-base font-bold text-emerald-400">
               {listings.filter(i => (Date.now() - i.firstSeenAt) < 300000).length}
             </div>
           </div>
-          <div className="p-2 rounded-xl bg-zinc-900/60 border border-cyan-500/30">
+          <div className="p-2 rounded-xl bg-[var(--color-panel)]/60 border border-cyan-500/30">
             <div className="text-[10px] text-cyan-400 uppercase">Rilis &lt; 1 Jam</div>
             <div className="text-base font-bold text-cyan-400">
               {listings.filter(i => (Date.now() - i.firstSeenAt) < 3600000).length}
             </div>
           </div>
-          <div className="p-2 rounded-xl bg-zinc-900/60 border border-amber-500/30 flex items-center justify-between">
+          <div className="p-2 rounded-xl bg-[var(--color-panel)]/60 border border-amber-500/30 flex items-center justify-between">
             <div>
-              <div className="text-[10px] text-zinc-400 uppercase">Default Snipe Alloc</div>
+              <div className="text-[10px] text-[var(--color-text-muted)] uppercase">Default Snipe Alloc</div>
               <div className="text-sm font-bold text-amber-300">${snipeAmount} USD</div>
             </div>
             <div className="flex gap-1">
@@ -171,7 +171,7 @@ export const ListingSniperHubModal: React.FC<Props> = ({
                   className={`p-3.5 rounded-xl border backdrop-blur-md transition-all ${
                     isVeryNew
                       ? 'bg-gradient-to-r from-emerald-950/40 via-zinc-900/90 to-teal-950/30 border-emerald-500/50 shadow-lg'
-                      : 'bg-zinc-900/60 border-zinc-800/80 hover:border-zinc-700'
+                      : 'bg-[var(--color-panel)]/60 border-[var(--color-border)] hover:border-[var(--color-border)]'
                   }`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -184,7 +184,7 @@ export const ListingSniperHubModal: React.FC<Props> = ({
                         <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-amber-300 border border-amber-500/30 font-mono font-bold">
                           {brokerLabel}
                         </span>
-                        <span className="text-xs text-zinc-400 font-mono">
+                        <span className="text-xs text-[var(--color-text-muted)] font-mono">
                           ({coin.type?.toUpperCase() || 'SPOT'})
                         </span>
                         {/* Dynamic Live Timer Badge */}
@@ -193,9 +193,9 @@ export const ListingSniperHubModal: React.FC<Props> = ({
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-3 text-xs font-mono text-zinc-400">
+                      <div className="flex items-center gap-3 text-xs font-mono text-[var(--color-text-muted)]">
                         <span>Harga: <strong className="text-white">${coin.price?.toFixed(coin.precision || 4) || 'N/A'}</strong></span>
-                        <span>Volume 24h: <strong className="text-zinc-200">${(coin.quoteVolume24h || 0).toLocaleString()}</strong></span>
+                        <span>Volume 24h: <strong className="text-[var(--color-text)]">${(coin.quoteVolume24h || 0).toLocaleString()}</strong></span>
                         {coin.maxLeverage && (
                           <span className="text-amber-300 font-semibold">Max {coin.maxLeverage}x</span>
                         )}
@@ -213,7 +213,7 @@ export const ListingSniperHubModal: React.FC<Props> = ({
                           } catch {}
                           onClose();
                         }}
-                        className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 font-mono font-bold text-xs transition-colors cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-[var(--color-text)] border border-[var(--color-border)] font-mono font-bold text-xs transition-colors cursor-pointer"
                       >
                         Chart View
                       </button>
@@ -234,17 +234,17 @@ export const ListingSniperHubModal: React.FC<Props> = ({
 
                   {/* Volume Flow & Slippage Guard Details */}
                   {coin.volumeFlow && (
-                    <div className="mt-2.5 pt-2 border-t border-zinc-800/80 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-mono">
-                      <div className="flex items-center justify-between px-2 py-1 rounded bg-zinc-950/60">
-                        <span className="text-zinc-400">Order Pressure:</span>
+                    <div className="mt-2.5 pt-2 border-t border-[var(--color-border)] grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-mono">
+                      <div className="flex items-center justify-between px-2 py-1 rounded bg-[var(--color-panel)]/60">
+                        <span className="text-[var(--color-text-muted)]">Order Pressure:</span>
                         <span className="font-bold text-emerald-400">{coin.volumeFlow.pressure}</span>
                       </div>
-                      <div className="flex items-center justify-between px-2 py-1 rounded bg-zinc-950/60">
-                        <span className="text-zinc-400">Vol Spike:</span>
+                      <div className="flex items-center justify-between px-2 py-1 rounded bg-[var(--color-panel)]/60">
+                        <span className="text-[var(--color-text-muted)]">Vol Spike:</span>
                         <span className="font-bold text-amber-300">{coin.volumeFlow.volumeAcceleration5m}x</span>
                       </div>
-                      <div className="flex items-center justify-between px-2 py-1 rounded bg-zinc-950/60 col-span-2">
-                        <span className="text-zinc-400">Slippage Guard:</span>
+                      <div className="flex items-center justify-between px-2 py-1 rounded bg-[var(--color-panel)]/60 col-span-2">
+                        <span className="text-[var(--color-text-muted)]">Slippage Guard:</span>
                         <span className="font-bold text-teal-300">
                           Max ${coin.slippageGuard?.maxOrderCapUsd || 2500} | {coin.slippageGuard?.suggestedAction || 'SAFE'}
                         </span>

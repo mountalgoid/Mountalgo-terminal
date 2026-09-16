@@ -19,7 +19,7 @@ const CompactHotkeyHud: React.FC = () => {
     <motion.div 
       drag
       dragMomentum={false}
-      className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 px-2 py-0.5 rounded-full shadow-2xl select-none cursor-grab active:cursor-grabbing border border-white/10 bg-black/40 backdrop-blur-xl group"
+      className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 px-2 py-0.5 rounded-full shadow-2xl select-none cursor-grab active:cursor-grabbing border border-[var(--color-border)]/30 bg-[var(--color-bg)]/40 backdrop-blur-xl group"
       style={{
         boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
       }}
@@ -35,7 +35,7 @@ const CompactHotkeyHud: React.FC = () => {
         {hotkeys.map((hk, i) => (
           <div key={i} className="flex items-center gap-1">
             <span 
-              className="px-0.5 py-0.5 rounded text-[7.5px] font-black min-w-[12px] text-center leading-none bg-white/10 border border-white/5 text-gray-300"
+              className="px-0.5 py-0.5 rounded text-[7.5px] font-black min-w-[12px] text-center leading-none bg-[var(--color-bg)]/10 border border-[var(--color-border)]/20 text-[var(--color-text)]"
             >
               {hk.keys.join('+')}
             </span>

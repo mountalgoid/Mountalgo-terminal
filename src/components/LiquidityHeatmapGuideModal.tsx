@@ -15,30 +15,30 @@ export function LiquidityHeatmapGuideModal({ isOpen, onClose }: Props) {
   return (
     <div className="fixed top-[60px] left-4 right-4 sm:left-auto bottom-4 z-[200] flex flex-col justify-start pointer-events-none animate-fadeIn">
       <div 
-        className="bg-zinc-950/85 backdrop-blur-2xl rounded-2xl shadow-[0_0_35px_rgba(8,145,178,0.2)] w-full sm:w-[540px] md:w-[600px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto border border-cyan-900/40 relative"
+        className="bg-[var(--color-panel)]/85 backdrop-blur-2xl rounded-2xl shadow-[0_0_35px_rgba(0,0,0,0.2)] w-full sm:w-[540px] md:w-[600px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto border border-[var(--color-border)]/40 relative"
       >
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-amber-500/5 pointer-events-none" />
         {/* Header */}
-        <div className="relative p-4 border-b border-cyan-900/30 flex items-center justify-between bg-zinc-900/40 backdrop-blur-md">
+        <div className="relative p-4 border-b border-[var(--color-border)]/30 flex items-center justify-between bg-[var(--color-panel)]/40 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-500/20 rounded-lg border border-amber-500/30">
               <BookOpen size={20} className="text-amber-400" />
             </div>
             <div>
               <h2 className="font-bold text-white text-lg">Panduan Lengkap & Strategi: Institutional Liquidity Heatmap</h2>
-              <p className="text-xs text-zinc-400">Bookmap Engine & Order Flow Profiler</p>
+              <p className="text-xs text-[var(--color-text-muted)]">Bookmap Engine & Order Flow Profiler</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-zinc-400 hover:text-white p-2 rounded-lg hover:bg-cyan-900/20 cursor-pointer transition-colors"
+            className="text-[var(--color-text-muted)] hover:text-white p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="relative flex-1 overflow-y-auto p-0 bg-transparent custom-scrollbar text-sm leading-relaxed text-zinc-200">
+        <div className="relative flex-1 overflow-y-auto p-0 bg-transparent custom-scrollbar text-sm leading-relaxed text-[var(--color-text)]">
           
           <div className="p-6 space-y-8">
             {/* Intro */}
@@ -376,7 +376,7 @@ export function LiquidityHeatmapGuideModal({ isOpen, onClose }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="relative p-4 border-t border-cyan-900/30 bg-zinc-900/40 backdrop-blur-md flex justify-end">
+        <div className="relative p-4 border-t border-[var(--color-border)]/30 bg-[var(--color-panel)]/40 backdrop-blur-md flex justify-end">
           <button
             onClick={onClose}
             className="px-6 py-2 rounded-lg font-bold text-white shadow-[0_0_15px_rgba(8,145,178,0.4)] bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 transition-all hover:scale-105 active:scale-95 cursor-pointer border border-cyan-400/30"

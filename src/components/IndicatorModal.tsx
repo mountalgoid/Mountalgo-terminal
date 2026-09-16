@@ -126,7 +126,7 @@ export default function IndicatorModal({
     ? 'bg-gradient-to-br from-zinc-950 via-amber-950/25 to-zinc-950 border-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.06)]'
     : isPurple
     ? 'bg-gradient-to-br from-zinc-950 via-purple-950/25 to-zinc-950 border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.06)]'
-    : 'bg-gradient-to-br from-zinc-950 via-zinc-900/90 to-zinc-950 border-zinc-800/80';
+    : 'bg-gradient-to-br from-[var(--color-panel)] via-[var(--color-panel)]/90 to-[var(--color-panel)] border-[var(--color-border)]';
 
   const accentTextClass = isEmerald
     ? 'text-emerald-400'
@@ -150,7 +150,7 @@ export default function IndicatorModal({
     ? 'border-amber-500/30'
     : isPurple
     ? 'border-purple-500/30'
-    : 'border-zinc-800/80';
+    : 'border-[var(--color-border)]';
 
   useEffect(() => {
     setLocalSettings((prev) => {
@@ -385,12 +385,12 @@ export default function IndicatorModal({
         onClose={() => setShowIcdCandlesGuide(false)}
       />
       <div 
-        className="bg-zinc-950/80 backdrop-blur-2xl rounded-2xl shadow-[0_0_30px_rgba(8,145,178,0.2)] w-full sm:w-[480px] md:w-[540px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto border relative"
+        className="bg-[var(--color-panel)]/80 backdrop-blur-2xl rounded-2xl shadow-[0_0_30px_rgba(0,0,0,0.2)] w-full sm:w-[480px] md:w-[540px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto border relative"
         style={{ borderColor: `${palette.bull}40` }}
       >
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 pointer-events-none" />
         {/* Modal Header */}
-        <div className="relative p-3.5 sm:p-4 border-b border-cyan-900/30 flex items-center justify-between bg-zinc-900/40 backdrop-blur-md">
+        <div className="relative p-3.5 sm:p-4 border-b border-[var(--color-border)]/30 flex items-center justify-between bg-[var(--color-panel)]/40 backdrop-blur-md">
           <div className="flex items-center gap-2.5">
             <div>
               <span className="font-bold text-[var(--color-text)] text-sm sm:text-base flex items-center gap-1.5">
@@ -410,7 +410,7 @@ export default function IndicatorModal({
         </div>
 
         {/* Toolbar: Strategy Presets & Search */}
-        <div className="relative p-3 bg-zinc-950/40 border-b border-cyan-900/20 flex flex-col sm:flex-row gap-2.5 items-center justify-between">
+        <div className="relative p-3 bg-[var(--color-panel)]/40 border-b border-[var(--color-border)]/20 flex flex-col sm:flex-row gap-2.5 items-center justify-between">
           {/* Strategy Preset Dropdown */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <span className="text-[11px] text-[var(--color-text-muted)] font-mono uppercase shrink-0">Preset:</span>
@@ -423,7 +423,7 @@ export default function IndicatorModal({
                     e.target.value = "";
                   }
                 }}
-                className="bg-zinc-950/60 border border-cyan-900/30 rounded-lg px-2.5 py-1.5 text-xs text-[var(--color-text)] font-semibold outline-none cursor-pointer hover:border-cyan-500/50 transition-colors min-w-[170px]"
+                className="bg-[var(--color-panel)]/60 border border-[var(--color-border)]/30 rounded-lg px-2.5 py-1.5 text-xs text-[var(--color-text)] font-semibold outline-none cursor-pointer hover:border-cyan-500/50 transition-colors min-w-[170px]"
               >
                 <option value="" disabled>Pilih Preset Strategi...</option>
                 <option value="scalp">⚡ Scalping (M1 / M5)</option>
@@ -434,7 +434,7 @@ export default function IndicatorModal({
               <button
                 type="button"
                 onClick={() => applyPreset('default')}
-                className="p-1.5 rounded-lg bg-zinc-950/60 hover:bg-cyan-900/20 text-[var(--color-text-muted)] hover:text-white border border-cyan-900/30 cursor-pointer shrink-0 transition-colors"
+                className="p-1.5 rounded-lg bg-[var(--color-panel)]/60 hover:bg-white/5 text-[var(--color-text-muted)] hover:text-white border border-[var(--color-border)]/30 cursor-pointer shrink-0 transition-colors"
                 title="Reset Indikator ke Default"
               >
                 <RotateCcw size={13} />
@@ -450,13 +450,13 @@ export default function IndicatorModal({
               placeholder="Cari indikator..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-2.5 py-1.5 bg-zinc-950/60 border border-cyan-900/30 rounded-lg text-xs text-[var(--color-text)] focus:outline-none focus:border-cyan-500/50"
+              className="w-full pl-8 pr-2.5 py-1.5 bg-[var(--color-panel)]/60 border border-[var(--color-border)]/30 rounded-lg text-xs text-[var(--color-text)] focus:outline-none focus:border-cyan-500/50"
             />
           </div>
         </div>
 
         {/* Category Tabs */}
-        <div className="relative flex border-b border-cyan-900/20 bg-zinc-950/40 px-3 gap-1 overflow-x-auto scrollbar-thin">
+        <div className="relative flex border-b border-[var(--color-border)]/20 bg-[var(--color-panel)]/40 px-3 gap-1 overflow-x-auto scrollbar-thin">
           {[
             { id: 'all', label: 'Semua Indikator' },
             { id: 'trend', label: 'Trend & Moving Average' },
@@ -490,8 +490,8 @@ export default function IndicatorModal({
                 key={ind.key}
                 className={`rounded-lg border transition-all ${
                   active
-                    ? 'bg-zinc-900/60 border-cyan-500/50'
-                    : 'bg-zinc-950/40 border-zinc-800 hover:border-cyan-900/50'
+                    ? 'bg-[var(--color-panel)]/60 border-cyan-500/50'
+                    : 'bg-[var(--color-panel)]/40 border-[var(--color-border)] hover:border-[var(--color-border)]/50'
                 }`}
                 style={active ? { borderColor: `${palette.bull}70`, backgroundColor: `${palette.bull}10` } : {}}
               >
@@ -623,7 +623,7 @@ export default function IndicatorModal({
 
                 {/* Detailed Configuration Drawer */}
                 {isExpanded && ind.configKey && (
-                  <div className="p-3 bg-zinc-900/60 border-t border-cyan-900/30 space-y-3 animate-fadeIn text-xs rounded-b-xl">
+                  <div className="p-3 bg-[var(--color-panel)]/60 border-t border-[var(--color-border)]/30 space-y-3 animate-fadeIn text-xs rounded-b-xl">
                     {/* Volume Profile VPVR Config */}
                     {ind.configKey === 'volumeProfileConfig' && localSettings.volumeProfileConfig && (
                       <div className="space-y-3">
@@ -779,7 +779,7 @@ export default function IndicatorModal({
                       <div className={`backdrop-blur-2xl border rounded-md p-3.5 space-y-3.5 shadow-2xl max-w-full text-xs text-white ${dynamicBgClass}`}>
                         <button
                           onClick={() => setShowLiquidityGuide(true)}
-                          className="w-full h-7 px-3 rounded-md text-xs font-bold text-white bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-800/80 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+                          className="w-full h-7 px-3 rounded-md text-xs font-bold text-white bg-[var(--color-panel)]/80 hover:bg-[var(--color-panel)] border border-[var(--color-border)] flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
                         >
                           <BookOpen size={13} className="text-white" />
                           <span className="text-white">📖 Panduan Lengkap & Strategi Trading Liquidity Heatmap</span>
@@ -794,13 +794,13 @@ export default function IndicatorModal({
                                   timeframeMode: e.target.value as any,
                                 })
                               }
-                              className="w-full h-7 bg-zinc-950/90 border border-zinc-800/80 rounded-md px-2 text-white font-semibold text-xs focus:outline-none focus:border-zinc-500 cursor-pointer"
+                              className="w-full h-7 bg-[var(--color-panel)]/90 border border-[var(--color-border)] rounded-md px-2 text-white font-semibold text-xs focus:outline-none focus:border-[var(--color-border)] cursor-pointer"
                             >
-                              <option value="tick" className="bg-zinc-950 text-white">⚡ Per Tick (1T Realtime)</option>
-                              <option value="10t" className="bg-zinc-950 text-white">⚡ 10 Ticks Agregasi</option>
-                              <option value="50t" className="bg-zinc-950 text-white">⚡ 50 Ticks Micro-Swing</option>
-                              <option value="100t" className="bg-zinc-950 text-white">⚡ 100 Ticks Sub-Session</option>
-                              <option value="candle" className="bg-zinc-950 text-white">🕯️ Candle Bar Timeframe</option>
+                              <option value="tick" className="bg-[var(--color-panel)] text-white">⚡ Per Tick (1T Realtime)</option>
+                              <option value="10t" className="bg-[var(--color-panel)] text-white">⚡ 10 Ticks Agregasi</option>
+                              <option value="50t" className="bg-[var(--color-panel)] text-white">⚡ 50 Ticks Micro-Swing</option>
+                              <option value="100t" className="bg-[var(--color-panel)] text-white">⚡ 100 Ticks Sub-Session</option>
+                              <option value="candle" className="bg-[var(--color-panel)] text-white">🕯️ Candle Bar Timeframe</option>
                             </select>
                           </div>
                           <div>
@@ -812,9 +812,9 @@ export default function IndicatorModal({
                                   colorMode: e.target.value as any,
                                 })
                               }
-                              className="w-full h-7 bg-zinc-950/90 border border-zinc-800/80 rounded-md px-2 text-white font-medium text-xs focus:outline-none focus:border-zinc-500 cursor-pointer"
+                              className="w-full h-7 bg-[var(--color-panel)]/90 border border-[var(--color-border)] rounded-md px-2 text-white font-medium text-xs focus:outline-none focus:border-[var(--color-border)] cursor-pointer"
                             >
-                              <option value="theme" className="bg-zinc-950 text-white">Sinkron Tema Terminal ({theme})</option>
+                              <option value="theme" className="bg-[var(--color-panel)] text-white">Sinkron Tema Terminal ({theme})</option>
                             </select>
                           </div>
                           <div>
@@ -835,7 +835,7 @@ export default function IndicatorModal({
                                   intensity: parseFloat(e.target.value) || 1.0,
                                 })
                               }
-                              className="w-full accent-white h-1.5 bg-zinc-900 rounded-md cursor-pointer mt-1"
+                              className="w-full accent-white h-1.5 bg-[var(--color-panel)] rounded-md cursor-pointer mt-1"
                             />
                           </div>
                           <div>
@@ -856,12 +856,12 @@ export default function IndicatorModal({
                                   opacity: parseFloat(e.target.value) || 0.7,
                                 })
                               }
-                              className="w-full accent-white h-1.5 bg-zinc-900 rounded-md cursor-pointer mt-1"
+                              className="w-full accent-white h-1.5 bg-[var(--color-panel)] rounded-md cursor-pointer mt-1"
                             />
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2.5 border-t border-zinc-800/60">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2.5 border-t border-[var(--color-border)]/60">
                           <div>
                             <label className="text-zinc-400 block mb-1 text-[11px]">Resolusi (Bins):</label>
                             <input
@@ -875,7 +875,7 @@ export default function IndicatorModal({
                                   depthBins: Number(e.target.value) || 84,
                                 })
                               }
-                              className="w-full h-7 bg-zinc-950 border border-zinc-800 rounded-md px-2 text-white font-mono text-xs focus:outline-none focus:border-zinc-500"
+                              className="w-full h-7 bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md px-2 text-white font-mono text-xs focus:outline-none focus:border-[var(--color-border)]"
                             />
                           </div>
                           <div>
@@ -891,7 +891,7 @@ export default function IndicatorModal({
                                   wallThreshold: parseFloat(e.target.value) || 2.0,
                                 })
                               }
-                              className="w-full h-7 bg-zinc-950 border border-zinc-800 rounded-md px-2 text-white font-mono text-xs focus:outline-none focus:border-zinc-500"
+                              className="w-full h-7 bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md px-2 text-white font-mono text-xs focus:outline-none focus:border-[var(--color-border)]"
                             />
                           </div>
                           <div>
@@ -908,7 +908,7 @@ export default function IndicatorModal({
                                   minNotionalFilter: parseFloat(e.target.value) || 0,
                                 })
                               }
-                              className="w-full h-7 bg-zinc-950 border border-zinc-800 rounded-md px-2 text-white font-mono text-xs focus:outline-none focus:border-zinc-500"
+                              className="w-full h-7 bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md px-2 text-white font-mono text-xs focus:outline-none focus:border-[var(--color-border)]"
                             />
                           </div>
                           <div>
@@ -924,13 +924,13 @@ export default function IndicatorModal({
                                   simulatedTradeSize: parseFloat(e.target.value) || 250000,
                                 })
                               }
-                              className="w-full h-7 bg-zinc-950 border border-zinc-800 rounded-md px-2 text-white font-mono text-xs focus:outline-none focus:border-zinc-500"
+                              className="w-full h-7 bg-[var(--color-panel)] border border-[var(--color-border)] rounded-md px-2 text-white font-mono text-xs focus:outline-none focus:border-[var(--color-border)]"
                             />
                           </div>
                         </div>
 
-                        <div className="space-y-2 pt-2.5 border-t border-zinc-800/60">
-                          <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/60 p-2 rounded-md border border-zinc-800/50 hover:bg-zinc-900/60 transition-all">
+                        <div className="space-y-2 pt-2.5 border-t border-[var(--color-border)]/60">
+                          <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/60 p-2 rounded-md border border-[var(--color-border)]/50 hover:bg-[var(--color-panel)]/60 transition-all">
                             <input
                               type="checkbox"
                               checked={!!localSettings.liquidityHeatmapConfig.cleanMode}
@@ -939,13 +939,13 @@ export default function IndicatorModal({
                                   cleanMode: e.target.checked,
                                 })
                               }
-                              className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                              className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                             />
                             <span className="text-white text-xs font-semibold">✨ Mode Rapi / Clean View (Sembunyikan label & visual clutter berlebih)</span>
                           </label>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/60 backdrop-blur-md p-2 rounded-sm border border-zinc-800/80 hover:bg-zinc-900/60 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] hover:bg-[var(--color-panel)]/60 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showVolumeBubbles)}
@@ -954,12 +954,12 @@ export default function IndicatorModal({
                                     showVolumeBubbles: e.target.checked,
                                   })
                                 }
-                                className="rounded-sm bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded-sm bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white font-medium">Split 3D Volume Bubbles (Buy/Sell)</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/60 backdrop-blur-md p-2 rounded-sm border border-zinc-800/80 hover:bg-zinc-900/60 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] hover:bg-[var(--color-panel)]/60 transition-all">
                               <input
                                 type="checkbox"
                                 checked={localSettings.liquidityHeatmapConfig.showWhaleBubbles ?? true}
@@ -968,7 +968,7 @@ export default function IndicatorModal({
                                     showWhaleBubbles: e.target.checked,
                                   })
                                 }
-                                className="rounded-sm bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded-sm bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="flex items-center gap-1.5 font-bold text-white">
                                 <span>🐋</span>
@@ -978,7 +978,7 @@ export default function IndicatorModal({
                           </div>
 
                           {Boolean(localSettings.liquidityHeatmapConfig.showVolumeBubbles) && (
-                             <div className="flex flex-col gap-2 p-2.5 bg-zinc-950/80 border border-zinc-800/80 rounded-sm text-xs">
+                             <div className="flex flex-col gap-2 p-2.5 bg-[var(--color-panel)]/80 border border-[var(--color-border)] rounded-sm text-xs">
                               <div className="flex items-center justify-between">
                                 <span className="text-zinc-400 font-medium">Kalibrasi Ukuran Bubble:</span>
                                 <span className="font-mono text-white font-bold">
@@ -996,7 +996,7 @@ export default function IndicatorModal({
                                     bubbleScale: Number(e.target.value) / 100,
                                   })
                                 }
-                                className="w-full accent-white cursor-pointer h-1.5 bg-zinc-900 rounded-sm"
+                                className="w-full accent-white cursor-pointer h-1.5 bg-[var(--color-panel)] rounded-sm"
                               />
                               <div className="flex items-center justify-between text-[11px] text-zinc-400">
                                 <span>Mode Skalasi:</span>
@@ -1007,7 +1007,7 @@ export default function IndicatorModal({
                                       bubbleSizeMode: e.target.value as any,
                                     })
                                   }
-                                  className="h-6 bg-zinc-950 border border-zinc-800 rounded-sm px-2 text-white text-xs focus:outline-none cursor-pointer"
+                                  className="h-6 bg-[var(--color-panel)] border border-[var(--color-border)] rounded-sm px-2 text-white text-xs focus:outline-none cursor-pointer"
                                 >
                                   <option value="adaptive">🌟 Adaptif Proporsional</option>
                                   <option value="ultra_accurate_tick">⚡ Presisi 1-Tick</option>
@@ -1018,7 +1018,7 @@ export default function IndicatorModal({
                           )}
 
                            {(localSettings.liquidityHeatmapConfig.showWhaleBubbles ?? true) && (
-                            <div className="flex flex-col gap-2 p-2.5 bg-zinc-950/80 border border-zinc-800/80 rounded-sm text-xs space-y-1">
+                            <div className="flex flex-col gap-2 p-2.5 bg-[var(--color-panel)]/80 border border-[var(--color-border)] rounded-sm text-xs space-y-1">
                               <div className="flex items-center justify-between">
                                 <span className="text-zinc-400 font-medium">Sensitivitas Ambang Volume Whale:</span>
                                 <span className="font-mono text-white font-bold">
@@ -1036,7 +1036,7 @@ export default function IndicatorModal({
                                     whaleThresholdMultiplier: Number(e.target.value) / 10,
                                   })
                                 }
-                                className="w-full accent-white cursor-pointer h-1.5 bg-zinc-900 rounded-sm"
+                                className="w-full accent-white cursor-pointer h-1.5 bg-[var(--color-panel)] rounded-sm"
                               />
 
                               <div className="flex items-center justify-between flex-wrap gap-1">
@@ -1048,7 +1048,7 @@ export default function IndicatorModal({
                                       whaleMinNotionalUsd: Number(e.target.value),
                                     })
                                   }
-                                  className="h-6 bg-zinc-950 border border-zinc-800 rounded-sm px-2 text-white text-xs focus:outline-none cursor-pointer"
+                                  className="h-6 bg-[var(--color-panel)] border border-[var(--color-border)] rounded-sm px-2 text-white text-xs focus:outline-none cursor-pointer"
                                 >
                                   <option value="0">Semua Kluster (0 USD)</option>
                                   <option value="50000">&gt; $50K USD</option>
@@ -1059,7 +1059,7 @@ export default function IndicatorModal({
                                 </select>
                               </div>
 
-                              <div className="pt-2 border-t border-zinc-800/40 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <div className="pt-2 border-t border-[var(--color-border)]/40 grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <label className="flex items-center gap-2 cursor-pointer text-white">
                                   <input
                                     type="checkbox"
@@ -1069,7 +1069,7 @@ export default function IndicatorModal({
                                         showWhaleHorizontalLines: e.target.checked,
                                       })
                                     }
-                                    className="rounded-sm bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                    className="rounded-sm bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                                   />
                                   <span className="text-white text-[11px] font-medium">Garis Level Whale</span>
                                 </label>
@@ -1083,7 +1083,7 @@ export default function IndicatorModal({
                                         whaleLineStyle: e.target.value as 'dashed' | 'solid' | 'dotted',
                                       })
                                     }
-                                    className="h-6 bg-zinc-950 border border-zinc-800 rounded-sm px-2 text-white text-[11px] focus:outline-none cursor-pointer"
+                                    className="h-6 bg-[var(--color-panel)] border border-[var(--color-border)] rounded-sm px-2 text-white text-[11px] focus:outline-none cursor-pointer"
                                   >
                                     <option value="dashed">Dashed</option>
                                     <option value="solid">Solid</option>
@@ -1095,8 +1095,8 @@ export default function IndicatorModal({
                           )}
 
                           {/* Grid Toggles Section */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-2.5 border-t border-zinc-800/60 text-xs">
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-2.5 border-t border-[var(--color-border)]/60 text-xs">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showMicroPriceTrail)}
@@ -1105,12 +1105,12 @@ export default function IndicatorModal({
                                     showMicroPriceTrail: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="font-semibold text-white">Sub-Tick Micro Price Trail</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showRightDomLadder)}
@@ -1119,12 +1119,12 @@ export default function IndicatorModal({
                                     showRightDomLadder: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">Right DOM Depth Ladder & Spread</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showLeftVolumeProfile)}
@@ -1133,12 +1133,12 @@ export default function IndicatorModal({
                                     showLeftVolumeProfile: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="font-semibold text-white">Left Volume Profile (VPVR)</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showVolumeDelta)}
@@ -1147,12 +1147,12 @@ export default function IndicatorModal({
                                     showVolumeDelta: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">📊 Volume Delta Bar (Buy/Sell)</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showSpoofingAndIceberg)}
@@ -1161,12 +1161,12 @@ export default function IndicatorModal({
                                     showSpoofingAndIceberg: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">⚠️ Spoofing & 🧊 Iceberg Detection</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showAbsorptionNodes)}
@@ -1175,12 +1175,12 @@ export default function IndicatorModal({
                                     showAbsorptionNodes: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">💎 Liquidity Absorption Nodes</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.autoNormalizeSpectrum)}
@@ -1189,12 +1189,12 @@ export default function IndicatorModal({
                                     autoNormalizeSpectrum: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">⚡ Dynamic Spectrum (Z-Score)</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showLiquidityGravity)}
@@ -1203,12 +1203,12 @@ export default function IndicatorModal({
                                     showLiquidityGravity: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">🧲 Liquidity Gravity Vector</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showVpinToxicity)}
@@ -1217,12 +1217,12 @@ export default function IndicatorModal({
                                     showVpinToxicity: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">⚡ Flow Toxicity (VPIN)</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showCvdDivergence)}
@@ -1231,12 +1231,12 @@ export default function IndicatorModal({
                                     showCvdDivergence: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">🔥 CVD Divergence Beams</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showLiquidityVacuums)}
@@ -1245,12 +1245,12 @@ export default function IndicatorModal({
                                     showLiquidityVacuums: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">⚠️ Liquidity Vacuum Radar</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showOfiAndLambda)}
@@ -1259,12 +1259,12 @@ export default function IndicatorModal({
                                     showOfiAndLambda: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">📊 OFI & Kyle's Lambda Index</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showAgingDecay)}
@@ -1273,12 +1273,12 @@ export default function IndicatorModal({
                                     showAgingDecay: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">⏳ Resting Limit Half-Life Aging</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showLayeringDetector)}
@@ -1287,12 +1287,12 @@ export default function IndicatorModal({
                                     showLayeringDetector: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">🛡️ Multi-Tier Layering Detector</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showSweepPredictor)}
@@ -1301,12 +1301,12 @@ export default function IndicatorModal({
                                     showSweepPredictor: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">🎯 Liquidity Sweep Predictor</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showSlippageSimulator)}
@@ -1315,12 +1315,12 @@ export default function IndicatorModal({
                                     showSlippageSimulator: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">📉 Pre-Trade Slippage Simulator</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showCrosshairInspector)}
@@ -1329,12 +1329,12 @@ export default function IndicatorModal({
                                     showCrosshairInspector: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">🔍 Crosshair FIFO Queue Inspector</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showGexGammaOverlay)}
@@ -1343,12 +1343,12 @@ export default function IndicatorModal({
                                     showGexGammaOverlay: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">📈 Option Gamma Exposure (GEX)</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showHawkesFlashCrashWarning)}
@@ -1357,12 +1357,12 @@ export default function IndicatorModal({
                                     showHawkesFlashCrashWarning: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">⚡ Hawkes Flash-Crash Early Warning</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showAlmgrenChrissTrajectory)}
@@ -1371,12 +1371,12 @@ export default function IndicatorModal({
                                     showAlmgrenChrissTrajectory: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">🎯 Almgren-Chriss Trajectory</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showCrossExchangeMatrix)}
@@ -1385,12 +1385,12 @@ export default function IndicatorModal({
                                     showCrossExchangeMatrix: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">🌐 Cross-Exchange Arbitrage Matrix</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showLiquidationRadar)}
@@ -1399,12 +1399,12 @@ export default function IndicatorModal({
                                     showLiquidationRadar: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">💥 Liquidation Cascade Radar</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-zinc-950/40 p-2 rounded-md border border-zinc-800/40 hover:bg-zinc-900/40 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showSubTickVector)}
@@ -1413,7 +1413,7 @@ export default function IndicatorModal({
                                     showSubTickVector: e.target.checked,
                                   })
                                 }
-                                className="rounded bg-zinc-950 border-zinc-800 text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">⚡ Sub-Tick Price Action Vector</span>
                             </label>

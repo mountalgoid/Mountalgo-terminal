@@ -96,7 +96,7 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
           className={`flex items-center gap-0.5 sm:gap-1 px-1 sm:px-2 py-0.5 rounded-md sm:rounded-lg text-[9px] sm:text-[10px] font-mono font-bold transition-all cursor-pointer border ${
             isCurrentFocus
               ? ''
-              : 'bg-white/5 text-[var(--color-text-muted)] border-white/10 hover:text-[var(--color-text)]'
+              : 'bg-[var(--color-bg)]/5 text-[var(--color-text-muted)] border-[var(--color-border)]/30 hover:text-[var(--color-text)]'
           }`}
           title="Klik untuk memfokuskan keyboard hotkeys ke chart ini"
         >
@@ -127,7 +127,7 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
           <TrendingUp size={11} className="stroke-[2.5]" />
           <span>BUY</span>
           <span className="font-mono text-[10px] sm:text-[11px] opacity-90 hidden sm:inline">{formatPriceDisplay(currentPrice)}</span>
-          <span className="ml-0.5 sm:ml-1 text-[8px] sm:text-[9px] font-mono px-0.5 sm:px-1 py-0.2 rounded bg-black/40 border border-white/10 opacity-75 group-hover:opacity-100">
+          <span className="ml-0.5 sm:ml-1 text-[8px] sm:text-[9px] font-mono px-0.5 sm:px-1 py-0.2 rounded bg-[var(--color-bg)]/40 border border-[var(--color-border)]/30 opacity-75 group-hover:opacity-100">
             {hotkeyMode === 'shift' ? '⇧B' : 'B'}
           </span>
         </button>
@@ -149,7 +149,7 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
           <TrendingDown size={11} className="stroke-[2.5]" />
           <span>SELL</span>
           <span className="font-mono text-[10px] sm:text-[11px] opacity-90 hidden sm:inline">{formatPriceDisplay(currentPrice)}</span>
-          <span className="ml-0.5 sm:ml-1 text-[8px] sm:text-[9px] font-mono px-0.5 sm:px-1 py-0.2 rounded bg-black/40 border border-white/10 opacity-75 group-hover:opacity-100">
+          <span className="ml-0.5 sm:ml-1 text-[8px] sm:text-[9px] font-mono px-0.5 sm:px-1 py-0.2 rounded bg-[var(--color-bg)]/40 border border-[var(--color-border)]/30 opacity-75 group-hover:opacity-100">
             {hotkeyMode === 'shift' ? '⇧S' : 'S'}
           </span>
         </button>
@@ -171,7 +171,7 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
               className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold transition-all cursor-pointer border ${
                 isSelected 
                   ? ''
-                  : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
+                  : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]/5'
               }`}
               title={`Preset Volume ${idx + 1} (${vol} ${isForex ? 'Lot' : ''}) - Tekan angka ${idx + 1}`}
             >

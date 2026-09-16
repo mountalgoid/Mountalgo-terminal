@@ -204,7 +204,7 @@ const ChartTradePanel = React.memo(function ChartTradePanel({ symbol, currentPri
       {toastMessage && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 animate-bounce">
           <div style={{ backgroundColor: `${toastMessage.side === 'BUY' ? palette.bull : palette.bear}90` }} 
-               className="px-3 py-1 rounded-full border border-white/20 text-[var(--color-text)] text-xs font-bold shadow-[0_0_10px_rgba(0,0,0,0.5)] backdrop-blur-md">
+               className="px-3 py-1 rounded-full border border-[var(--color-border)]/40 text-[var(--color-text)] text-xs font-bold shadow-[0_0_10px_rgba(0,0,0,0.5)] backdrop-blur-md">
             {toastMessage.orderType} {toastMessage.side} EXECUTED
             <div className="text-[9px] text-center opacity-80">
               {toastMessage.size} {toastMessage.symbol}
@@ -218,7 +218,7 @@ const ChartTradePanel = React.memo(function ChartTradePanel({ symbol, currentPri
         <div className="relative flex-1 min-w-0">
           <button
             onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-            className="w-full flex items-center justify-between gap-1.5 px-2 py-1 rounded bg-[var(--color-bg)] border border-[var(--color-border)] hover:border-white/20 transition-all text-left cursor-pointer"
+            className="w-full flex items-center justify-between gap-1.5 px-2 py-1 rounded bg-[var(--color-bg)] border border-[var(--color-border)] hover:border-[var(--color-border)]/40 transition-all text-left cursor-pointer"
             title="Klik untuk mengganti akun broker aktif"
           >
             <div className="flex items-center gap-1.5 min-w-0">
@@ -300,7 +300,7 @@ const ChartTradePanel = React.memo(function ChartTradePanel({ symbol, currentPri
         {/* Quick Open Account Manager Modal Button */}
         <button
           onClick={() => setIsAccountModalOpen(true)}
-          className="p-1.5 rounded bg-[var(--color-bg)] border border-[var(--color-border)] hover:border-white/30 text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer shrink-0"
+          className="p-1.5 rounded bg-[var(--color-bg)] border border-[var(--color-border)] hover:border-[var(--color-border)]/50 text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer shrink-0"
           title="Buka Pengaturan Kelola Akun Broker Lengkap"
         >
           <Settings2 size={13} style={{ color: palette.bull }} />
@@ -1271,7 +1271,7 @@ const ChartTradePanel = React.memo(function ChartTradePanel({ symbol, currentPri
                       backgroundColor: isCurrent ? `${palette.bull}10` : 'var(--color-panel)',
                     }}
                     className={`p-2.5 rounded-xl border flex flex-col gap-1.5 transition-all ${
-                      isCurrent ? 'ring-1 ring-[var(--color-bull)]/50' : 'hover:border-white/20'
+                      isCurrent ? 'ring-1 ring-[var(--color-bull)]/50' : 'hover:border-[var(--color-border)]/40'
                     }`}
                   >
                     <div className="flex items-center justify-between">

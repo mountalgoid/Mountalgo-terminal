@@ -398,7 +398,7 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
         </div>
 
         {/* View Switcher Tabs */}
-        <div className="flex items-center justify-between px-3 sm:px-5 py-2 sm:py-2.5 bg-black/20 border-b border-[var(--color-border)] gap-2 overflow-x-auto hide-scrollbar">
+        <div className="flex items-center justify-between px-3 sm:px-5 py-2 sm:py-2.5 bg-[var(--color-bg)]/20 border-b border-[var(--color-border)] gap-2 overflow-x-auto hide-scrollbar">
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => { setViewTab('list'); resetForm(); }}
@@ -721,7 +721,7 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
               {resettingId && (
                 <div 
                   style={{ borderColor: `${palette.poc}40` }}
-                  className="p-2.5 sm:p-3 bg-black/40 border rounded-lg sm:rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 animate-in fade-in"
+                  className="p-2.5 sm:p-3 bg-[var(--color-bg)]/40 border rounded-lg sm:rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 animate-in fade-in"
                 >
                   <div className="flex items-center gap-2 text-xs font-bold" style={{ color: palette.poc }}>
                     <DollarSign size={15} />
@@ -826,7 +826,7 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
 
               {/* Mode Real vs Demo Toggle */}
               {selectedBroker !== 'DEMO' && (
-                <div className="flex items-center justify-between p-3 bg-black/20 border border-[var(--color-border)] rounded-xl">
+                <div className="flex items-center justify-between p-3 bg-[var(--color-bg)]/20 border border-[var(--color-border)] rounded-xl">
                   <div>
                     <span className="text-xs font-bold text-[var(--color-text)] block">Tipe Lingkungan Akun</span>
                     <span className="text-[11px] text-[var(--color-text-muted)]">Gunakan Akun Real atau Simulasi Demo untuk broker ini</span>
@@ -889,7 +889,7 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
               </div>
 
               {/* Advanced Risk Guard Settings */}
-              <div className="p-3.5 bg-black/20 border border-[var(--color-border)] rounded-xl space-y-3">
+              <div className="p-3.5 bg-[var(--color-bg)]/20 border border-[var(--color-border)] rounded-xl space-y-3">
                 <div className="flex items-center gap-2 text-xs font-bold" style={{ color: palette.poc }}>
                   <ShieldCheck size={15} />
                   <span>Pengaturan Risk Guard & Proteksi Akun</span>
@@ -920,7 +920,7 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
               </div>
 
               {/* Advanced Copy Trading Settings */}
-              <div className="p-3.5 bg-black/20 border border-[var(--color-border)] rounded-xl space-y-3">
+              <div className="p-3.5 bg-[var(--color-bg)]/20 border border-[var(--color-border)] rounded-xl space-y-3">
                 <div className="flex items-center gap-2 text-xs font-bold" style={{ color: palette.poc }}>
                   <Zap size={15} />
                   <span>Master / Slave Copy Trading Mirroring</span>
@@ -952,7 +952,7 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
 
               {/* Broker-Specific Credentials */}
               {(selectedBroker === 'BINANCE' || selectedBroker === 'BYBIT' || selectedBroker === 'MEXC') && (
-                <div className="space-y-3 p-3.5 bg-black/20 border border-[var(--color-border)] rounded-xl">
+                <div className="space-y-3 p-3.5 bg-[var(--color-bg)]/20 border border-[var(--color-border)] rounded-xl">
                   <div className="flex items-center gap-2 text-xs font-bold" style={{ color: palette.bull }}>
                     <Key size={14} />
                     <span>Kredensial API {selectedBroker}</span>
@@ -1076,7 +1076,7 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[var(--color-text-muted)]">IP Gateway Server Egress:</span>
                         <div className="flex items-center gap-1.5">
-                          <code className="font-mono bg-black/40 px-2 py-0.5 rounded border border-[var(--color-border)] text-zinc-200 text-[10px]">
+                          <code className="font-mono bg-[var(--color-bg)]/40 px-2 py-0.5 rounded border border-[var(--color-border)] text-[var(--color-text)] text-[10px]">
                             {serverIpInfo?.ip || 'Mendeteksi IP Gateway...'}
                           </code>
                           <button
@@ -1098,7 +1098,7 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
               )}
 
               {(selectedBroker === 'MT5' || selectedBroker === 'MT4') && (
-                <div className="space-y-3 p-3.5 bg-black/20 border border-[var(--color-border)] rounded-xl">
+                <div className="space-y-3 p-3.5 bg-[var(--color-bg)]/20 border border-[var(--color-border)] rounded-xl">
                   <div className="flex items-center gap-2 text-xs font-bold" style={{ color: palette.bull }}>
                     <Server size={14} />
                     <span>Kredensial Server {selectedBroker} (MetaTrader)</span>

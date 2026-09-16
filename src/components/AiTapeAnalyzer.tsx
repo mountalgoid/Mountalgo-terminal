@@ -44,7 +44,7 @@ export function AiTapeAnalyzer({ tapeData, symbol, timeframe }: AiTapeAnalyzerPr
   }, [analyzeTape, lastAnalyzedAt]);
 
   return (
-    <div className="bg-zinc-950/80 border border-emerald-500/30 rounded-lg p-3 backdrop-blur-md shadow-lg shadow-emerald-950/20">
+    <div className="bg-[var(--color-panel)]/80 border border-emerald-500/30 rounded-lg p-3 backdrop-blur-md shadow-lg shadow-black/20">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <div className="p-1 bg-emerald-500/20 rounded">
@@ -55,7 +55,7 @@ export function AiTapeAnalyzer({ tapeData, symbol, timeframe }: AiTapeAnalyzerPr
         <button 
           onClick={analyzeTape}
           disabled={isAnalyzing}
-          className="p-1 hover:bg-zinc-800 rounded transition-colors disabled:opacity-50"
+          className="p-1 hover:bg-[var(--color-bg)] rounded transition-colors disabled:opacity-50"
         >
           {isAnalyzing ? (
             <Loader2 className="w-3 h-3 text-emerald-400 animate-spin" />

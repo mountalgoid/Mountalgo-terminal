@@ -45,7 +45,7 @@ export function CircuitBreakerModal({ isOpen, onClose, equity, drawdown }: Circu
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
       {/* Heavy Blur Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-[32px] animate-in fade-in duration-700" />
+      <div className="absolute inset-0 bg-[var(--color-bg)]/60 backdrop-blur-[32px] animate-in fade-in duration-700" />
       
       {/* Danger Overlay */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,0,50,0.1)_0%,rgba(0,0,0,0.8)_100%)] pointer-events-none" />
@@ -113,7 +113,7 @@ export function CircuitBreakerModal({ isOpen, onClose, equity, drawdown }: Circu
                 placeholder="Enter Authorization Code (APEX)"
                 value={unlockCode}
                 onChange={e => setUnlockCode(e.target.value)}
-                className="flex-1 bg-black/50 border border-rose-900/40 rounded-lg px-4 font-mono text-rose-500 focus:outline-none focus:border-rose-500/50 transition-colors"
+                className="flex-1 bg-[var(--color-bg)]/50 border border-rose-900/40 rounded-lg px-4 font-mono text-rose-500 focus:outline-none focus:border-rose-500/50 transition-colors"
                 disabled={countdown > 0}
               />
               <button

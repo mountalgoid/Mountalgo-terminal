@@ -11248,8 +11248,8 @@ export default function CustomChartWidget({
                 <span>BUY MKT</span>
               </button>
 
-              <div className="flex items-center gap-1 bg-zinc-900 border border-zinc-700 px-1.5 py-0.5 rounded">
-                <span className="text-[10px] font-mono text-zinc-400">LOT:</span>
+              <div className="flex items-center gap-1 bg-[var(--color-panel)] border border-[var(--color-border)] px-1.5 py-0.5 rounded">
+                <span className="text-[10px] font-mono text-[var(--color-text-muted)]">LOT:</span>
                 {[0.01, 0.1, 0.5, 1.0].map((size) => (
                   <button
                     key={size}
@@ -11257,7 +11257,7 @@ export default function CustomChartWidget({
                     className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition-colors ${
                       scalperLotSize === size
                         ? 'bg-cyan-500 text-black'
-                        : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
+                        : 'text-zinc-300 hover:text-white hover:bg-[var(--color-bg)]'
                     }`}
                   >
                     {size}
@@ -11280,8 +11280,8 @@ export default function CustomChartWidget({
                 <span>SELL MKT</span>
               </button>
 
-              <div className="pl-1 border-l border-zinc-700 flex flex-col items-center">
-                <span className="text-[8px] font-mono text-zinc-400">SPREAD</span>
+              <div className="pl-1 border-l border-[var(--color-border)] flex flex-col items-center">
+                <span className="text-[8px] font-mono text-[var(--color-text-muted)]">SPREAD</span>
                 <span className="text-[9px] font-mono font-bold text-amber-400">0.2 pips</span>
               </div>
             </div>

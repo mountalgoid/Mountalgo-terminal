@@ -188,7 +188,7 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header Bar */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-white/10 bg-gradient-to-r from-cyan-950/40 via-transparent to-blue-950/40">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-[var(--color-border)]/30 bg-gradient-to-r from-cyan-950/40 via-transparent to-blue-950/40">
           <div className="flex items-center gap-3">
             <div className="relative">
               <MountAlgoLogo size="sm" showGlow className="w-8 h-8" />
@@ -215,7 +215,7 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
 
           {/* Right Live Context Badge & Close Button */}
           <div className="flex items-center gap-2.5">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/50 border border-white/10 text-xs font-mono">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--color-bg)]/50 border border-[var(--color-border)]/30 text-xs font-mono">
               <span className="font-black text-cyan-300">{activeSymbol}</span>
               <span className="text-zinc-500">·</span>
               <span className="text-white font-bold">${currentPrice ? currentPrice.toLocaleString() : 'N/A'}</span>
@@ -226,7 +226,7 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
 
             <button
               onClick={() => setMessages([messages[0]])}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-[var(--color-border)]/30 text-zinc-400 hover:text-white transition-colors cursor-pointer"
               title="Bersihkan Percakapan"
             >
               <RotateCcw size={14} />
@@ -234,7 +234,7 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
 
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 border border-white/10 hover:border-rose-500/40 text-zinc-400 hover:text-rose-300 transition-colors cursor-pointer"
+              className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 border border-[var(--color-border)]/30 hover:border-rose-500/40 text-zinc-400 hover:text-rose-300 transition-colors cursor-pointer"
               title="Tutup Modal"
             >
               <X size={16} />
@@ -243,7 +243,7 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
         </div>
 
         {/* Quick Suggestion Chips Bar */}
-        <div className="px-4 sm:px-6 py-2 bg-black/40 border-b border-white/10 flex items-center gap-2 overflow-x-auto hide-scrollbar">
+        <div className="px-4 sm:px-6 py-2 bg-[var(--color-bg)]/40 border-b border-[var(--color-border)]/30 flex items-center gap-2 overflow-x-auto hide-scrollbar">
           <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider font-bold shrink-0">
             Quick Prompts:
           </span>
@@ -252,7 +252,7 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
               key={idx}
               onClick={() => handleSendMessage(item.prompt)}
               disabled={isLoading}
-              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-cyan-500/20 hover:border-cyan-500/40 border border-white/10 text-[11px] font-mono text-zinc-300 hover:text-cyan-300 transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5"
+              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-cyan-500/20 hover:border-cyan-500/40 border border-[var(--color-border)]/30 text-[11px] font-mono text-zinc-300 hover:text-cyan-300 transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5"
             >
               <Sparkles size={11} className="text-cyan-400" />
               <span>{item.label}</span>
@@ -279,7 +279,7 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
                 className={`max-w-[85%] sm:max-w-[78%] rounded-2xl p-4 text-xs font-sans leading-relaxed backdrop-blur-md transition-all ${
                   msg.sender === 'user'
                     ? 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white rounded-tr-none shadow-lg'
-                    : 'bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/10 text-zinc-200 rounded-tl-none shadow-xl'
+                    : 'bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-[var(--color-border)]/30 text-[var(--color-text)] rounded-tl-none shadow-xl'
                 }`}
               >
                 {/* Content with simple Markdown parser */}
@@ -289,8 +289,8 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
 
                 {/* Structured Trade Setup Card if generated */}
                 {msg.tradeSetup && (
-                  <div className="mt-3.5 p-3 rounded-xl bg-black/60 border border-cyan-500/30 text-xs font-mono space-y-2">
-                    <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+                  <div className="mt-3.5 p-3 rounded-xl bg-[var(--color-bg)]/60 border border-cyan-500/30 text-xs font-mono space-y-2">
+                    <div className="flex items-center justify-between border-b border-[var(--color-border)]/30 pb-1.5">
                       <div className="flex items-center gap-1.5">
                         <span className={`px-2 py-0.5 rounded font-black text-[10px] ${
                           msg.tradeSetup.direction === 'BUY' 
@@ -352,7 +352,7 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
 
               {/* User Avatar */}
               {msg.sender === 'user' && (
-                <div className="w-8 h-8 rounded-xl bg-zinc-800 border border-white/10 flex items-center justify-center text-white shrink-0">
+                <div className="w-8 h-8 rounded-xl bg-zinc-800 border border-[var(--color-border)]/30 flex items-center justify-center text-white shrink-0">
                   <User size={16} />
                 </div>
               )}
@@ -365,7 +365,7 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center text-white shrink-0">
                 <Bot size={18} />
               </div>
-              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-2 text-xs font-mono text-cyan-300">
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-[var(--color-border)]/30 flex items-center gap-2 text-xs font-mono text-cyan-300">
                 <div className="flex gap-1">
                   <span className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: '0ms' }} />
                   <span className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -380,7 +380,7 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
         </div>
 
         {/* Input Bar */}
-        <div className="p-3 sm:p-4 bg-black/60 border-t border-white/10">
+        <div className="p-3 sm:p-4 bg-[var(--color-bg)]/60 border-t border-[var(--color-border)]/30">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -396,7 +396,7 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
                 onChange={(e) => setInputPrompt(e.target.value)}
                 placeholder={`Tanyakan analisis setup, order flow, atau kalender berita untuk ${activeSymbol}...`}
                 disabled={isLoading}
-                className="w-full bg-white/[0.05] border border-white/15 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-xs font-mono text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-all backdrop-blur-md pr-10"
+                className="w-full bg-white/[0.05] border border-[var(--color-border)]/40 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-xs font-mono text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-all backdrop-blur-md pr-10"
               />
             </div>
 

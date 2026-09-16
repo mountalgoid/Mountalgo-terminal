@@ -187,7 +187,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header Banner */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-white/10 bg-gradient-to-r from-cyan-950/40 via-transparent to-blue-950/30">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-[var(--color-border)]/30 bg-gradient-to-r from-cyan-950/40 via-transparent to-blue-950/30">
           <div className="flex items-center gap-3">
             <MountAlgoLogo size="sm" showGlow className="w-7 h-7" />
             <div>
@@ -214,7 +214,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                 fetchCalendar();
               }}
               disabled={isLoadingNews || isLoadingEvents}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-500/40 text-zinc-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 text-xs font-mono disabled:opacity-50"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-[var(--color-border)]/30 hover:border-cyan-500/40 text-zinc-300 hover:text-white transition-all cursor-pointer flex items-center gap-1.5 text-xs font-mono disabled:opacity-50"
               title="Perbarui Data Sekarang"
             >
               <RefreshCw size={14} className={`${isLoadingNews || isLoadingEvents ? 'animate-spin text-cyan-400' : ''}`} />
@@ -223,7 +223,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
 
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 border border-white/10 hover:border-rose-500/40 text-zinc-400 hover:text-rose-300 transition-colors cursor-pointer"
+              className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 border border-[var(--color-border)]/30 hover:border-rose-500/40 text-zinc-400 hover:text-rose-300 transition-colors cursor-pointer"
               title="Tutup (Esc)"
             >
               <X size={16} />
@@ -232,9 +232,9 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
         </div>
 
         {/* Tab Navigation & Live High-Impact Alert Bar */}
-        <div className="px-4 sm:px-6 py-2.5 bg-black/40 border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
+        <div className="px-4 sm:px-6 py-2.5 bg-[var(--color-bg)]/40 border-b border-[var(--color-border)]/30 flex flex-wrap items-center justify-between gap-3">
           {/* Tabs */}
-          <div className="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-white/10 backdrop-blur-md">
+          <div className="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-[var(--color-border)]/30 backdrop-blur-md">
             <button
               onClick={() => setActiveTab('news')}
               className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold font-mono transition-all cursor-pointer ${
@@ -245,7 +245,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
             >
               <Newspaper size={14} />
               <span>News Feeds Realtime</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-black/40 text-cyan-200">
+              <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-[var(--color-bg)]/40 text-cyan-200">
                 {news.length}
               </span>
             </button>
@@ -305,7 +305,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                       className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                         newsCategory === cat
                           ? 'bg-cyan-500 text-black shadow-md'
-                          : 'bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10'
+                          : 'bg-white/5 hover:bg-white/10 text-zinc-300 border border-[var(--color-border)]/30'
                       }`}
                     >
                       {cat}
@@ -315,7 +315,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
 
                 <div className="flex items-center gap-2">
                   {/* Sentiment Filter */}
-                  <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-white/10 text-xs font-mono">
+                  <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-[var(--color-border)]/30 text-xs font-mono">
                     <button
                       onClick={() => setNewsSentiment('ALL')}
                       className={`px-2 py-0.5 rounded ${newsSentiment === 'ALL' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-zinc-400'}`}
@@ -344,7 +344,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                       placeholder="Cari berita..."
                       value={newsSearch}
                       onChange={(e) => setNewsSearch(e.target.value)}
-                      className="bg-black/50 border border-white/10 rounded-lg pl-7 pr-3 py-1 text-xs font-mono text-white placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/50 w-36 sm:w-48"
+                      className="bg-[var(--color-bg)]/50 border border-[var(--color-border)]/30 rounded-lg pl-7 pr-3 py-1 text-xs font-mono text-white placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/50 w-36 sm:w-48"
                     />
                   </div>
                 </div>
@@ -372,7 +372,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                     return (
                       <div
                         key={item.id}
-                        className="group relative p-4 rounded-xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/10 hover:border-cyan-500/40 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 flex flex-col justify-between backdrop-blur-md"
+                        className="group relative p-4 rounded-xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-[var(--color-border)]/30 hover:border-cyan-500/40 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 flex flex-col justify-between backdrop-blur-md"
                       >
                         <div>
                           {/* Metadata row */}
@@ -468,10 +468,10 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
           {activeTab === 'calendar' && (
             <div className="space-y-4">
               {/* Filter controls */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-white/10">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-[var(--color-border)]/30">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono text-zinc-400 font-bold">Filter Dampak:</span>
-                  <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-white/10 text-xs font-mono">
+                  <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-[var(--color-border)]/30 text-xs font-mono">
                     <button
                       onClick={() => setCalendarImpact('ALL')}
                       className={`px-2.5 py-1 rounded ${calendarImpact === 'ALL' ? 'bg-cyan-500 text-black font-bold' : 'text-zinc-400 hover:text-white'}`}
@@ -490,7 +490,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
 
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono text-zinc-400 font-bold">Mata Uang:</span>
-                  <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-white/10 text-xs font-mono">
+                  <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-[var(--color-border)]/30 text-xs font-mono">
                     {['ALL', 'USD', 'EUR', 'GBP'].map(curr => (
                       <button
                         key={curr}
@@ -513,10 +513,10 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                   </span>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/40 backdrop-blur-md">
+                <div className="overflow-x-auto rounded-xl border border-[var(--color-border)]/30 bg-[var(--color-bg)]/40 backdrop-blur-md">
                   <table className="w-full text-left text-xs font-mono">
                     <thead>
-                      <tr className="border-b border-white/10 bg-white/5 text-[10px] text-zinc-400 uppercase tracking-wider">
+                      <tr className="border-b border-[var(--color-border)]/30 bg-white/5 text-[10px] text-zinc-400 uppercase tracking-wider">
                         <th className="py-3 px-3">Waktu & Tanggal</th>
                         <th className="py-3 px-3">Negara</th>
                         <th className="py-3 px-3">Dampak</th>

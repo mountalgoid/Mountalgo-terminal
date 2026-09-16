@@ -224,7 +224,7 @@ export default function HoldPriceTraderMenu({
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 animate-in fade-in duration-150 select-none">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[var(--color-bg)]/60 backdrop-blur-sm p-3 animate-in fade-in duration-150 select-none">
       <div 
         style={{
           borderColor: `${palette.bull}80`,
@@ -370,7 +370,7 @@ export default function HoldPriceTraderMenu({
                       <ArrowUpRight size={15} />
                       <span>MARKET BUY</span>
                     </div>
-                    <span className="text-[9px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded text-emerald-300">
+                    <span className="text-[9px] font-mono font-bold bg-[var(--color-bg)]/40 px-1.5 py-0.5 rounded text-emerald-300">
                       Instan
                     </span>
                   </button>
@@ -384,7 +384,7 @@ export default function HoldPriceTraderMenu({
                       <ArrowDownRight size={15} />
                       <span>MARKET SELL</span>
                     </div>
-                    <span className="text-[9px] font-mono font-bold bg-black/40 px-1.5 py-0.5 rounded text-rose-300">
+                    <span className="text-[9px] font-mono font-bold bg-[var(--color-bg)]/40 px-1.5 py-0.5 rounded text-rose-300">
                       Instan
                     </span>
                   </button>

@@ -101,7 +101,7 @@ export default function TopDrawingMenu({
             className="fixed z-[99999] w-[calc(100vw-16px)] sm:w-80 max-h-[70vh] sm:max-h-[82vh] rounded-2xl border shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col overflow-hidden text-gray-200"
           >
             {/* Header & Pin Guide Banner */}
-            <div className="p-2.5 sm:p-3 border-b border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent">
+            <div className="p-2.5 sm:p-3 border-b border-[var(--color-border)]/30 bg-gradient-to-b from-white/[0.04] to-transparent">
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-white">
                   <Pin size={13} style={{ color: currentPalette.bull, fill: currentPalette.bull }} />
@@ -117,7 +117,7 @@ export default function TopDrawingMenu({
                   <button
                     onClick={handleResetPinned}
                     title="Reset ke pin default (Trendline, Ray, Horizontal, Fibonacci, Rectangle, Long)"
-                    className="text-[10px] text-gray-400 hover:text-cyan-300 p-1 rounded hover:bg-white/10 flex items-center gap-1 transition-colors cursor-pointer"
+                    className="text-[10px] text-[var(--color-text-muted)] hover:text-cyan-300 p-1 rounded hover:bg-white/10 flex items-center gap-1 transition-colors cursor-pointer"
                   >
                     <RotateCcw size={10} />
                     <span className="text-[9px]">Reset</span>
@@ -126,7 +126,7 @@ export default function TopDrawingMenu({
               </div>
 
               {/* Explanatory Pin Instructions */}
-              <div className="text-[10.5px] text-gray-300 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 mb-2 leading-relaxed flex items-center gap-1.5">
+              <div className="text-[10.5px] text-gray-300 bg-white/5 border border-[var(--color-border)]/30 rounded-lg px-2 py-1.5 mb-2 leading-relaxed flex items-center gap-1.5">
                 <span className="text-cyan-300 font-bold">📌 Petunjuk:</span>
                 <span>Klik ikon pin <strong className="text-white">Pin</strong> di kanan alat untuk pasang/lepas dari Toolbar Melayang.</span>
               </div>
@@ -144,7 +144,7 @@ export default function TopDrawingMenu({
                   className={`w-full flex items-center justify-between px-2.5 py-1.5 mb-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
                     showFloatingDrawingBar
                       ? 'hover:brightness-125'
-                      : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white'
+                      : 'bg-white/5 border-[var(--color-border)]/30 text-gray-300 hover:bg-white/10 hover:text-white'
                   }`}
                   title={showFloatingDrawingBar ? 'Sembunyikan Bar Drawing Melayang pada Canvas' : 'Tampilkan Bar Drawing Melayang pada Canvas'}
                 >
@@ -159,7 +159,7 @@ export default function TopDrawingMenu({
                       borderColor: `${currentPalette.bull}60`
                     } : {}}
                     className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1 ${
-                      showFloatingDrawingBar ? 'border' : 'bg-gray-800 text-gray-400 border border-white/10'
+                      showFloatingDrawingBar ? 'border' : 'bg-gray-800 text-[var(--color-text-muted)] border border-[var(--color-border)]/30'
                     }`}
                   >
                     {showFloatingDrawingBar ? <Eye size={11} /> : <EyeOff size={11} />}
@@ -171,7 +171,7 @@ export default function TopDrawingMenu({
               {/* Search Bar & Filter Tabs */}
               <div className="flex flex-col gap-1.5">
                 <div className="relative">
-                  <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
                   <input
                     type="text"
                     value={searchQuery ?? ''}
@@ -182,7 +182,7 @@ export default function TopDrawingMenu({
                   {searchQuery && (
                     <button 
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-xs px-1"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)] hover:text-white text-xs px-1"
                     >
                       ×
                     </button>
@@ -196,7 +196,7 @@ export default function TopDrawingMenu({
                     className={`flex-1 text-[10px] py-0.5 rounded text-center font-medium transition-colors cursor-pointer ${
                       filterMode === 'all'
                         ? 'border font-bold'
-                        : 'bg-white/5 text-gray-400 hover:text-white'
+                        : 'bg-white/5 text-[var(--color-text-muted)] hover:text-white'
                     }`}
                   >
                     Semua Alat
@@ -207,7 +207,7 @@ export default function TopDrawingMenu({
                     className={`flex-1 text-[10px] py-0.5 rounded text-center font-medium transition-colors cursor-pointer flex items-center justify-center gap-1 ${
                       filterMode === 'pinned'
                         ? 'border font-bold'
-                        : 'bg-white/5 text-gray-400 hover:text-white'
+                        : 'bg-white/5 text-[var(--color-text-muted)] hover:text-white'
                     }`}
                   >
                     <Pin size={10} style={filterMode === 'pinned' ? { fill: currentPalette.bull } : {}} />
@@ -220,7 +220,7 @@ export default function TopDrawingMenu({
             {/* Tool List with Enhanced Clear Pin Buttons */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-1.5 divide-y divide-white/5">
               {filteredGroups.length === 0 ? (
-                <div className="p-6 text-center text-xs text-gray-400">
+                <div className="p-6 text-center text-xs text-[var(--color-text-muted)]">
                   Tidak ada alat gambar yang cocok dengan pencarian "{searchQuery}".
                 </div>
               ) : (
@@ -264,13 +264,13 @@ export default function TopDrawingMenu({
                                     {tool.name}
                                   </span>
                                   {tool.shortcut && (
-                                    <span className="text-[9px] px-1 py-0.2 rounded bg-black/40 text-gray-400 font-mono">
+                                    <span className="text-[9px] px-1 py-0.2 rounded bg-[var(--color-bg)]/40 text-[var(--color-text-muted)] font-mono">
                                       {tool.shortcut}
                                     </span>
                                   )}
                                 </div>
                                 {tool.description && (
-                                  <span className="text-[9.5px] text-gray-400 truncate font-normal">
+                                  <span className="text-[9.5px] text-[var(--color-text-muted)] truncate font-normal">
                                     {tool.description}
                                   </span>
                                 )}
@@ -289,14 +289,14 @@ export default function TopDrawingMenu({
                               className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border transition-all cursor-pointer ${
                                 isPinned
                                   ? 'font-bold'
-                                  : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/15 hover:text-white hover:border-white/30'
+                                  : 'bg-white/5 text-[var(--color-text-muted)] border-[var(--color-border)]/30 hover:bg-white/15 hover:text-white hover:border-white/30'
                               }`}
                               title={isPinned ? `Lepas sematan (Unpin) "${tool.name}" dari Toolbar Melayang` : `Sematkan (Pin) "${tool.name}" ke Toolbar Melayang`}
                             >
                               <Pin 
                                 size={11} 
                                 style={isPinned ? { color: currentPalette.bull, fill: currentPalette.bull } : {}}
-                                className={`transition-transform ${isPinned ? 'rotate-45' : 'text-gray-400 group-hover:text-gray-200'}`} 
+                                className={`transition-transform ${isPinned ? 'rotate-45' : 'text-[var(--color-text-muted)] group-hover:text-gray-200'}`} 
                               />
                               <span className="text-[9.5px] hidden sm:inline">
                                 {isPinned ? 'Ter-Pin' : 'Pin'}

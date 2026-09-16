@@ -38,7 +38,7 @@ export function RiskDashboard({ settings, currentDrawdown, isRiskExceeded, balan
   return (
     <div className={`panel-material rounded-xl overflow-hidden shadow-[0_0_25px_rgba(8,145,178,0.15)] relative ${volatilityGlow ? `volatility-glow-${volatilityGlow}` : ''}`}>
       <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 pointer-events-none" />
-      <div className="relative bg-zinc-900/40 p-4 border-b border-cyan-900/30 flex items-center justify-between backdrop-blur-md">
+      <div className="relative bg-[var(--color-panel)]/40 p-4 border-b border-[var(--color-border)]/30 flex items-center justify-between backdrop-blur-md">
         <div className="flex items-center gap-3">
           <ShieldAlert className={`w-5 h-5 ${isRiskExceeded ? 'text-rose-500 animate-pulse' : 'text-emerald-500'}`} />
           <h2 className="text-sm font-bold text-zinc-100 uppercase tracking-widest">Hedge Fund Risk Manager</h2>

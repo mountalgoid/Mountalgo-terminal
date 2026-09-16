@@ -137,7 +137,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
 
   return (
     <div 
-      className="h-full flex flex-col bg-zinc-950/80 backdrop-blur-xl border-l border-cyan-900/40 select-none text-xs font-mono relative shadow-[0_0_25px_rgba(8,145,178,0.1)] chart-layer-vp-ladder shrink-0 transition-all duration-150"
+      className="h-full flex flex-col bg-[var(--color-panel)]/80 backdrop-blur-xl border-l border-[var(--color-border)]/40 select-none text-xs font-mono relative shadow-[0_0_25px_rgba(0,0,0,0.15)] chart-layer-vp-ladder shrink-0 transition-all duration-150"
       style={{ width: isCompact ? 'min(350px, 100vw)' : 'min(520px, 100vw)', maxWidth: '100%' }}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -149,9 +149,9 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
         });
       }}
     >
-      <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
       {/* 1. Header Toolbar */}
-      <div className="relative bg-zinc-900/40 backdrop-blur-md px-2 sm:px-3 py-1.5 sm:py-2 border-b border-cyan-900/30 flex items-center justify-between gap-1 shadow-sm">
+      <div className="relative bg-[var(--color-panel)]/40 backdrop-blur-md px-2 sm:px-3 py-1.5 sm:py-2 border-b border-[var(--color-border)]/30 flex items-center justify-between gap-1 shadow-sm">
         <div className="flex items-center gap-1.5 min-w-0">
           <TableProperties size={14} style={{ color: pocColor }} />
           <div className="flex items-center gap-1.5">
@@ -164,7 +164,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
           </div>
 
           {/* Real-time Spread Badge */}
-          <div className="hidden sm:flex items-center gap-1 bg-black/40 px-2 py-0.5 rounded text-[9.5px] text-[var(--color-text-muted)] border border-cyan-900/30">
+          <div className="hidden sm:flex items-center gap-1 bg-[var(--color-bg)]/40 px-2 py-0.5 rounded text-[9.5px] text-[var(--color-text-muted)] border border-[var(--color-border)]/30">
             <span className="text-[var(--color-text-muted)]">Spread:</span>
             <span className="`text-[${palette.poc}]` font-bold">{domData.spread.toFixed(domData.priceStep >= 0.01 ? 2 : 4)}</span>
           </div>
@@ -245,7 +245,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
       </div>
 
       {/* 2. Wall Explanation Banner / Summary Bar */}
-      <div className="relative bg-zinc-950/40 px-3 py-1.5 border-b border-cyan-900/20 flex items-center justify-between gap-2 text-[10px] font-sans">
+      <div className="relative bg-[var(--color-panel)]/40 px-3 py-1.5 border-b border-[var(--color-border)]/20 flex items-center justify-between gap-2 text-[10px] font-sans">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
           {domData.highBidWall && (
             <div 
@@ -372,7 +372,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
       )}
 
       {/* 4. Table Column Headers with Expanded Spacing */}
-      <div className="bg-zinc-950/60 border-b border-cyan-900/20 grid text-[10px] font-bold text-[var(--color-text-muted)] tracking-wider py-1.5 px-1.5 text-center items-center shadow-xs"
+      <div className="bg-[var(--color-panel)]/60 border-b border-[var(--color-border)]/20 grid text-[10px] font-bold text-[var(--color-text-muted)] tracking-wider py-1.5 px-1.5 text-center items-center shadow-xs"
         style={{
           gridTemplateColumns: `
             ${columns.showBuySellSentiment ? '36px ' : ''}
@@ -427,14 +427,14 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
             <div
               key={idx}
               data-current-price={isCurrentPrice ? 'true' : 'false'}
-              className={`grid text-[11px] items-center text-center py-1 px-1.5 min-h-[26px] hover:bg-cyan-900/20 transition-colors relative ${
+              className={`grid text-[11px] items-center text-center py-1 px-1.5 min-h-[26px] hover:bg-white/5 transition-colors relative ${
                 isCurrentPrice
-                  ? 'bg-cyan-900/30 ring-1 `ring-[${palette.poc}]` shadow-[0_0_10px_rgba(8,145,178,0.3)] z-10 font-bold'
+                  ? 'bg-[var(--color-bg)]/60 ring-1 `ring-[${palette.poc}]` shadow-[0_0_10px_rgba(8,145,178,0.3)] z-10 font-bold'
                   : isPoc 
                   ? '`bg-[${palette.poc}15]`' 
                   : idx % 2 === 0 
                   ? 'bg-transparent' 
-                  : 'bg-zinc-900/20'
+                  : 'bg-[var(--color-bg)]/20'
               }`}
               style={{
                 gridTemplateColumns: `
@@ -731,7 +731,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
       </div>
 
       {/* 6. Bottom Order Flow Summary Bar */}
-      <div className="relative bg-zinc-950/60 border-t border-cyan-900/30 px-3 py-2 flex items-center justify-between text-[10.5px] text-[var(--color-text)] font-sans shadow-sm backdrop-blur-md">
+      <div className="relative bg-[var(--color-panel)]/60 border-t border-[var(--color-border)]/30 px-3 py-2 flex items-center justify-between text-[10.5px] text-[var(--color-text)] font-sans shadow-sm backdrop-blur-md">
         <div className="flex items-center gap-2">
           <span>(poc): <strong className="font-mono font-bold" style={{ color: pocColor }}>${domData.pocPrice.toFixed(domData.priceStep >= 0.01 ? 2 : 4)}</strong></span>
           <span className="text-[var(--color-text-muted)]">|</span>
@@ -758,7 +758,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
         <div
           ref={menuRef}
           style={{ top: contextMenu.y, left: contextMenu.x }}
-          className="absolute z-50 w-56 bg-zinc-950/95 backdrop-blur-xl border border-cyan-900/40 rounded-xl shadow-[0_0_20px_rgba(8,145,178,0.2)] py-1 text-xs text-[var(--color-text)] font-sans divide-y divide-cyan-900/20"
+          className="absolute z-50 w-56 bg-[var(--color-panel)]/95 backdrop-blur-xl border border-[var(--color-border)]/40 rounded-xl shadow-[0_0_20px_rgba(8,145,178,0.2)] py-1 text-xs text-[var(--color-text)] font-sans divide-y divide-cyan-900/20"
         >
           <div className="px-3 py-1.5 font-bold text-[11px] `text-[${palette.poc}]` flex items-center justify-between">
             <span>DOM Column Settings</span>
@@ -768,7 +768,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
           <div className="py-1 space-y-0.5">
             <button
               onClick={() => toggleColumn('showBuySellSentiment')}
-              className="w-full text-left px-3 py-1 hover:bg-cyan-900/30 flex items-center justify-between cursor-pointer text-white"
+              className="w-full text-left px-3 py-1 hover:bg-[var(--color-bg)]/60 flex items-center justify-between cursor-pointer text-white"
             >
               <span>Buy/Sell Sentiment</span>
               {columns.showBuySellSentiment && <Check size={13} className="text-emerald-400" />}
@@ -776,7 +776,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
 
             <button
               onClick={() => toggleColumn('showImbalancePct')}
-              className="w-full text-left px-3 py-1 hover:bg-cyan-900/30 flex items-center justify-between cursor-pointer text-white"
+              className="w-full text-left px-3 py-1 hover:bg-[var(--color-bg)]/60 flex items-center justify-between cursor-pointer text-white"
             >
               <span>Imbalance, %</span>
               {columns.showImbalancePct && <Check size={13} className="text-emerald-400" />}
@@ -784,7 +784,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
 
             <button
               onClick={() => toggleColumn('showBids')}
-              className="w-full text-left px-3 py-1 hover:bg-cyan-900/30 flex items-center justify-between cursor-pointer text-white"
+              className="w-full text-left px-3 py-1 hover:bg-[var(--color-bg)]/60 flex items-center justify-between cursor-pointer text-white"
             >
               <span>Bids Liquidity</span>
               {columns.showBids && <Check size={13} className="text-emerald-400" />}
@@ -792,7 +792,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
 
             <button
               onClick={() => toggleColumn('showPrice')}
-              className="w-full text-left px-3 py-1 hover:bg-cyan-900/30 flex items-center justify-between cursor-pointer text-white"
+              className="w-full text-left px-3 py-1 hover:bg-[var(--color-bg)]/60 flex items-center justify-between cursor-pointer text-white"
             >
               <span>Price Scale</span>
               {columns.showPrice && <Check size={13} className="text-emerald-400" />}
@@ -800,7 +800,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
 
             <button
               onClick={() => toggleColumn('showAsks')}
-              className="w-full text-left px-3 py-1 hover:bg-cyan-900/30 flex items-center justify-between cursor-pointer text-white"
+              className="w-full text-left px-3 py-1 hover:bg-[var(--color-bg)]/60 flex items-center justify-between cursor-pointer text-white"
             >
               <span>Asks Liquidity</span>
               {columns.showAsks && <Check size={13} className="text-emerald-400" />}
@@ -808,7 +808,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
 
             <button
               onClick={() => toggleColumn('showBuySellVolume')}
-              className="w-full text-left px-3 py-1 hover:bg-cyan-900/30 flex items-center justify-between cursor-pointer text-white"
+              className="w-full text-left px-3 py-1 hover:bg-[var(--color-bg)]/60 flex items-center justify-between cursor-pointer text-white"
             >
               <span>Volume Profile</span>
               {columns.showBuySellVolume && <Check size={13} className="text-emerald-400" />}
@@ -816,7 +816,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
 
             <button
               onClick={() => toggleColumn('showTrades')}
-              className="w-full text-left px-3 py-1 hover:bg-cyan-900/30 flex items-center justify-between cursor-pointer text-white"
+              className="w-full text-left px-3 py-1 hover:bg-[var(--color-bg)]/60 flex items-center justify-between cursor-pointer text-white"
             >
               <span>Trades Count</span>
               {columns.showTrades && <Check size={13} className="text-emerald-400" />}
@@ -824,7 +824,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
 
             <button
               onClick={() => toggleColumn('showDelta')}
-              className="w-full text-left px-3 py-1 hover:bg-cyan-900/30 flex items-center justify-between cursor-pointer text-white"
+              className="w-full text-left px-3 py-1 hover:bg-[var(--color-bg)]/60 flex items-center justify-between cursor-pointer text-white"
             >
               <span>Delta Profile</span>
               {columns.showDelta && <Check size={13} className="text-emerald-400" />}
@@ -832,7 +832,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
 
             <button
               onClick={() => toggleColumn('showCumulativeDelta')}
-              className="w-full text-left px-3 py-1 hover:bg-cyan-900/30 flex items-center justify-between cursor-pointer text-white"
+              className="w-full text-left px-3 py-1 hover:bg-[var(--color-bg)]/60 flex items-center justify-between cursor-pointer text-white"
             >
               <span>Cumulative Delta</span>
               {columns.showCumulativeDelta && <Check size={13} className="text-emerald-400" />}
