@@ -419,7 +419,7 @@ export const MtfMatrixHud: React.FC<MtfMatrixHudProps> = React.memo(({
             className="fixed top-16 sm:top-20 right-2 sm:right-4 z-dropdown-ultimate w-[95vw] sm:w-[420px] max-h-[85vh] rounded-xl border flex flex-col overflow-hidden text-[var(--color-text)]"
           >
             {/* Header */}
-            <div className="px-3.5 pt-3 pb-2 border-b border-[var(--color-border)]/60 bg-[var(--color-panel)]/95 flex-shrink-0">
+            <div className="px-3.5 pt-3 pb-2 border-b border-white/10 bg-[var(--color-panel)]/80 backdrop-blur-xl shadow-2xl shadow-black/30 flex-shrink-0">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
                   <Gauge size={14} style={{ color: palette.bull }} />

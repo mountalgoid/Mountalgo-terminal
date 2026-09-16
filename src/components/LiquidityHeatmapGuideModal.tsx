@@ -19,7 +19,7 @@ export function LiquidityHeatmapGuideModal({ isOpen, onClose }: Props) {
       >
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-amber-500/5 pointer-events-none" />
         {/* Header */}
-        <div className="relative p-4 border-b border-[var(--color-border)]/30 flex items-center justify-between bg-[var(--color-panel)]/40 backdrop-blur-md">
+        <div className="relative p-4 border-b border-[var(--color-border)]/30 flex items-center justify-between bg-[var(--color-panel)]/40 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-amber-500/20 rounded-lg border border-amber-500/30">
               <BookOpen size={20} className="text-amber-400" />
@@ -376,7 +376,7 @@ export function LiquidityHeatmapGuideModal({ isOpen, onClose }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="relative p-4 border-t border-[var(--color-border)]/30 bg-[var(--color-panel)]/40 backdrop-blur-md flex justify-end">
+        <div className="relative p-4 border-t border-[var(--color-border)]/30 bg-[var(--color-panel)]/40 backdrop-blur-xl flex justify-end">
           <button
             onClick={onClose}
             className="px-6 py-2 rounded-lg font-bold text-white shadow-[0_0_15px_rgba(8,145,178,0.4)] bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 transition-all hover:scale-105 active:scale-95 cursor-pointer border border-cyan-400/30"

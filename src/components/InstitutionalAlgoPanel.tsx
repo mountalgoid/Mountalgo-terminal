@@ -28,7 +28,7 @@ const InstitutionalAlgoPanel = React.memo(function InstitutionalAlgoPanel({
   };
 
   return (
-    <div className="bg-[var(--color-card)] rounded-xl border border-[var(--color-border)] p-3.5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+    <div className="bg-[var(--color-panel)]/80 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl shadow-black/30 p-3.5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
       <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2">
         <div className="flex items-center gap-2">
           {orderType === 'TWAP' && <Clock size={14} className="text-amber-400" />}

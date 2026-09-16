@@ -44,7 +44,7 @@ export function AiTapeAnalyzer({ tapeData, symbol, timeframe }: AiTapeAnalyzerPr
   }, [analyzeTape, lastAnalyzedAt]);
 
   return (
-    <div className="bg-[var(--color-panel)]/80 border border-emerald-500/30 rounded-lg p-3 backdrop-blur-md shadow-lg shadow-black/20">
+    <div className="bg-[var(--color-panel)]/70 backdrop-blur-xl border border-emerald-500/30 rounded-xl p-3 shadow-2xl shadow-black/30 shadow-lg shadow-black/20">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <div className="p-1 bg-emerald-500/20 rounded">

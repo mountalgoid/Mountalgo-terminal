@@ -51,7 +51,7 @@ export const ListingSniperHubModal: React.FC<Props> = ({
     : allListings.filter(item => (item.broker || 'mexc').toLowerCase() === selectedBroker.toLowerCase());
 
   return (
-    <div className="fixed inset-0 z-[10002] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[10002] bg-black/80 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
       <div className="w-full max-w-4xl bg-gradient-to-br from-zinc-950 via-zinc-900 to-emerald-950/40 border border-emerald-500/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-emerald-500/20 bg-[var(--color-panel)]/80 flex items-center justify-between gap-3 shrink-0">
@@ -168,7 +168,7 @@ export const ListingSniperHubModal: React.FC<Props> = ({
               return (
                 <div
                   key={`${coin.broker || 'mexc'}-${coin.symbol}`}
-                  className={`p-3.5 rounded-xl border backdrop-blur-md transition-all ${
+                  className={`p-3.5 rounded-xl border backdrop-blur-xl transition-all ${
                     isVeryNew
                       ? 'bg-gradient-to-r from-emerald-950/40 via-zinc-900/90 to-teal-950/30 border-emerald-500/50 shadow-lg'
                       : 'bg-[var(--color-panel)]/60 border-[var(--color-border)] hover:border-[var(--color-border)]'

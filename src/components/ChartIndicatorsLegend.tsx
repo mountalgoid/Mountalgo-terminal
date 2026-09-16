@@ -361,7 +361,7 @@ export const ChartIndicatorsLegend: React.FC<ChartIndicatorsLegendProps> = ({
       <div className={`absolute top-12 left-3 z-30 pointer-events-auto ${className}`}>
         <button
           onClick={() => onOpenWizardTools()}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--color-panel)]/60 hover:bg-[var(--color-panel)]/80 border border-[var(--color-border)]/30 hover:border-cyan-500/40 backdrop-blur-md text-[10px] font-mono text-zinc-400 hover:text-cyan-300 transition-all shadow-lg group cursor-pointer"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--color-panel)]/60 hover:bg-[var(--color-panel)]/80 border border-[var(--color-border)]/30 hover:border-cyan-500/40 backdrop-blur-xl text-[10px] font-mono text-zinc-400 hover:text-cyan-300 transition-all shadow-lg group cursor-pointer"
         >
           <Sliders size={12} className="text-cyan-400 group-hover:rotate-45 transition-transform" />
           <span>+ Hubungkan Wizard Tools</span>
@@ -376,7 +376,7 @@ export const ChartIndicatorsLegend: React.FC<ChartIndicatorsLegendProps> = ({
       <div className="flex items-center gap-1.5">
         <div 
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--color-panel)]/60 hover:bg-[var(--color-panel)]/80 border border-[var(--color-border)]/30 hover:border-white/20 backdrop-blur-md text-[9.5px] font-bold text-zinc-300 hover:text-white transition-colors cursor-pointer shadow-md"
+          className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--color-panel)]/60 hover:bg-[var(--color-panel)]/80 border border-[var(--color-border)]/30 hover:border-white/20 backdrop-blur-xl text-[9.5px] font-bold text-zinc-300 hover:text-white transition-colors cursor-pointer shadow-md"
         >
           <Sliders size={11} className="text-cyan-400" />
           <span>Wizard Tools ({activeItems.length})</span>
@@ -386,7 +386,7 @@ export const ChartIndicatorsLegend: React.FC<ChartIndicatorsLegendProps> = ({
         <button
           onClick={() => onOpenWizardTools()}
           title="Buka Wizard Tools Modal"
-          className="p-1 rounded bg-[var(--color-panel)]/60 hover:bg-[var(--color-panel)]/80 border border-[var(--color-border)]/30 hover:border-cyan-500/40 text-zinc-400 hover:text-cyan-300 backdrop-blur-md transition-all cursor-pointer shadow-md"
+          className="p-1 rounded bg-[var(--color-panel)]/60 hover:bg-[var(--color-panel)]/80 border border-[var(--color-border)]/30 hover:border-cyan-500/40 text-zinc-400 hover:text-cyan-300 backdrop-blur-xl transition-all cursor-pointer shadow-md"
         >
           <Plus size={11} />
         </button>
@@ -398,7 +398,7 @@ export const ChartIndicatorsLegend: React.FC<ChartIndicatorsLegendProps> = ({
           {activeItems.map((item) => (
             <div
               key={item.key}
-              className="group flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--color-panel)]/65 hover:bg-[var(--color-panel)]/85 border border-[var(--color-border)]/20 hover:border-white/20 backdrop-blur-md text-[10px] text-zinc-300 shadow transition-all duration-150"
+              className="group flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--color-panel)]/65 hover:bg-[var(--color-panel)]/85 border border-[var(--color-border)]/20 hover:border-white/20 backdrop-blur-xl text-[10px] text-zinc-300 shadow transition-all duration-150"
             >
               {/* Indicator Color Dot / Icon */}
               <div className="flex items-center shrink-0">

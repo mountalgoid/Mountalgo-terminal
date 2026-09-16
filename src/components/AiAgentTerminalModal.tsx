@@ -276,7 +276,7 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
 
               {/* Message Bubble */}
               <div
-                className={`max-w-[85%] sm:max-w-[78%] rounded-2xl p-4 text-xs font-sans leading-relaxed backdrop-blur-md transition-all ${
+                className={`max-w-[85%] sm:max-w-[78%] rounded-2xl p-4 text-xs font-sans leading-relaxed backdrop-blur-xl transition-all ${
                   msg.sender === 'user'
                     ? 'bg-gradient-to-br from-cyan-600 to-blue-700 text-white rounded-tr-none shadow-lg'
                     : 'bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-[var(--color-border)]/30 text-[var(--color-text)] rounded-tl-none shadow-xl'
@@ -396,7 +396,7 @@ Pilih topik cepat di bawah atau ketikkan pertanyaan Anda.`,
                 onChange={(e) => setInputPrompt(e.target.value)}
                 placeholder={`Tanyakan analisis setup, order flow, atau kalender berita untuk ${activeSymbol}...`}
                 disabled={isLoading}
-                className="w-full bg-white/[0.05] border border-[var(--color-border)]/40 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-xs font-mono text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-all backdrop-blur-md pr-10"
+                className="w-full bg-white/[0.05] border border-[var(--color-border)]/40 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-xs font-mono text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-all backdrop-blur-xl pr-10"
               />
             </div>
 

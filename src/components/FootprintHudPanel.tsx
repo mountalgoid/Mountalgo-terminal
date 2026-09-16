@@ -84,7 +84,7 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
     // Vertical side dock minimized state (Left or Right)
     if (position === 'left' || position === 'right') {
       return (
-        <div className={`bg-[var(--color-panel)]/95 backdrop-blur-md text-[var(--color-text)] font-sans text-xs select-none shadow-2xl flex flex-col items-center justify-between py-2.5 px-1 border-[var(--color-border)] z-20 shrink-0 ${
+        <div className={`bg-[var(--color-panel)]/80 backdrop-blur-xl text-[var(--color-text)] font-sans text-xs select-none shadow-2xl shadow-black/30 flex flex-col items-center justify-between py-2.5 px-1 border-[var(--color-border)] z-20 shrink-0 ${
           position === 'left' ? 'border-r w-11 sm:w-12 h-full' : 'border-l w-11 sm:w-12 h-full'
         }`}>
           {/* Top Control */}
@@ -148,7 +148,7 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
 
     // Horizontal top or bottom minimized state
     return (
-      <div className={`bg-[var(--color-panel)]/95 backdrop-blur-md text-[var(--color-text)] font-sans text-xs select-none shadow-2xl flex items-center justify-between px-3 py-1.5 border-[var(--color-border)] chart-layer-indicators-hud ${
+      <div className={`bg-[var(--color-panel)]/80 backdrop-blur-xl text-[var(--color-text)] font-sans text-xs select-none shadow-2xl shadow-black/30 flex items-center justify-between px-3 py-1.5 border-[var(--color-border)] chart-layer-indicators-hud ${
         position === 'bottom' ? 'border-t w-full' : 'border-b w-full'
       }`}>
         <div className="flex items-center gap-3 font-mono text-[10.5px] overflow-x-auto no-scrollbar">

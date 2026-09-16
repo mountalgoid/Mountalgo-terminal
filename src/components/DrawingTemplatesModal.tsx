@@ -120,7 +120,7 @@ export default function DrawingTemplatesModal({
           borderColor: `${palette.bull}50`,
           boxShadow: `0 20px 60px -10px rgba(0,0,0,0.8), 0 0 0 1px ${palette.bull}30`,
         }}
-        className="w-full sm:w-[480px] md:w-[540px] h-full sm:h-[calc(100vh-80px)] pointer-events-auto sm:rounded-2xl border border-[var(--color-border)] bg-[var(--color-panel)] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 text-[var(--color-text)]"
+        className="w-full sm:w-[480px] md:w-[540px] h-full sm:h-[calc(100vh-80px)] pointer-events-auto sm:rounded-2xl border border-white/10 bg-[var(--color-panel)]/80 backdrop-blur-xl flex flex-col overflow-hidden shadow-2xl shadow-black/30 animate-in zoom-in-95 duration-150 text-[var(--color-text)]"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-b border-[var(--color-border)] bg-[var(--color-panel-header)]">

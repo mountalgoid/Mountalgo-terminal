@@ -366,9 +366,9 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
   };
 
   return (
-    <div className="fixed inset-0 z-modal-ultimate flex items-center justify-center bg-black/85 backdrop-blur-md p-1.5 sm:p-3 md:p-4 animate-in fade-in duration-150 select-none">
+    <div className="fixed inset-0 z-modal-ultimate flex items-center justify-center bg-black/85 backdrop-blur-xl p-1.5 sm:p-3 md:p-4 animate-in fade-in duration-150 select-none">
       <div 
-        className="bg-[var(--color-panel)] rounded-xl sm:rounded-2xl w-full max-w-3xl max-h-[95vh] sm:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden border"
+        className="bg-[var(--color-panel)]/80 backdrop-blur-xl rounded-xl sm:rounded-2xl w-full max-w-3xl max-h-[95vh] sm:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden border"
         style={{ borderColor: `${palette.bull}70`, boxShadow: `0 20px 60px -10px rgba(0,0,0,0.8), 0 0 20px ${palette.bull}20` }}
       >
         {/* Header */}

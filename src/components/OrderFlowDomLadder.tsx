@@ -137,7 +137,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
 
   return (
     <div 
-      className="h-full flex flex-col bg-[var(--color-panel)]/80 backdrop-blur-xl border-l border-[var(--color-border)]/40 select-none text-xs font-mono relative shadow-[0_0_25px_rgba(0,0,0,0.15)] chart-layer-vp-ladder shrink-0 transition-all duration-150"
+      className="h-full flex flex-col bg-[var(--color-panel)]/70 backdrop-blur-xl border-l border-white/10 select-none text-xs font-mono relative shadow-2xl shadow-black/30 chart-layer-vp-ladder shrink-0 transition-all duration-150 shrink-0 transition-all duration-150"
       style={{ width: isCompact ? 'min(350px, 100vw)' : 'min(520px, 100vw)', maxWidth: '100%' }}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -151,7 +151,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
     >
       <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
       {/* 1. Header Toolbar */}
-      <div className="relative bg-[var(--color-panel)]/40 backdrop-blur-md px-2 sm:px-3 py-1.5 sm:py-2 border-b border-[var(--color-border)]/30 flex items-center justify-between gap-1 shadow-sm">
+      <div className="relative bg-[var(--color-panel)]/40 backdrop-blur-xl px-2 sm:px-3 py-1.5 sm:py-2 border-b border-[var(--color-border)]/30 flex items-center justify-between gap-1 shadow-sm">
         <div className="flex items-center gap-1.5 min-w-0">
           <TableProperties size={14} style={{ color: pocColor }} />
           <div className="flex items-center gap-1.5">
@@ -731,7 +731,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
       </div>
 
       {/* 6. Bottom Order Flow Summary Bar */}
-      <div className="relative bg-[var(--color-panel)]/60 border-t border-[var(--color-border)]/30 px-3 py-2 flex items-center justify-between text-[10.5px] text-[var(--color-text)] font-sans shadow-sm backdrop-blur-md">
+      <div className="relative bg-[var(--color-panel)]/60 border-t border-[var(--color-border)]/30 px-3 py-2 flex items-center justify-between text-[10.5px] text-[var(--color-text)] font-sans shadow-sm backdrop-blur-xl">
         <div className="flex items-center gap-2">
           <span>(poc): <strong className="font-mono font-bold" style={{ color: pocColor }}>${domData.pocPrice.toFixed(domData.priceStep >= 0.01 ? 2 : 4)}</strong></span>
           <span className="text-[var(--color-text-muted)]">|</span>

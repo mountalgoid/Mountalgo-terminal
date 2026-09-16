@@ -385,12 +385,12 @@ export default function IndicatorModal({
         onClose={() => setShowIcdCandlesGuide(false)}
       />
       <div 
-        className="bg-[var(--color-panel)]/80 backdrop-blur-2xl rounded-2xl shadow-[0_0_30px_rgba(0,0,0,0.2)] w-full sm:w-[480px] md:w-[540px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto border relative"
+        className="bg-[var(--color-panel)]/80 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/30 border-white/10 w-full sm:w-[480px] md:w-[540px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto border relative"
         style={{ borderColor: `${palette.bull}40` }}
       >
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 pointer-events-none" />
         {/* Modal Header */}
-        <div className="relative p-3.5 sm:p-4 border-b border-[var(--color-border)]/30 flex items-center justify-between bg-[var(--color-panel)]/40 backdrop-blur-md">
+        <div className="relative p-3.5 sm:p-4 border-b border-[var(--color-border)]/30 flex items-center justify-between bg-[var(--color-panel)]/40 backdrop-blur-xl">
           <div className="flex items-center gap-2.5">
             <div>
               <span className="font-bold text-[var(--color-text)] text-sm sm:text-base flex items-center gap-1.5">
@@ -945,7 +945,7 @@ export default function IndicatorModal({
                           </label>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] hover:bg-[var(--color-panel)]/60 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/60 backdrop-blur-xl p-2 rounded-sm border border-[var(--color-border)] hover:bg-[var(--color-panel)]/60 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showVolumeBubbles)}
@@ -959,7 +959,7 @@ export default function IndicatorModal({
                               <span className="text-white font-medium">Split 3D Volume Bubbles (Buy/Sell)</span>
                             </label>
 
-                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/60 backdrop-blur-md p-2 rounded-sm border border-[var(--color-border)] hover:bg-[var(--color-panel)]/60 transition-all">
+                            <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/60 backdrop-blur-xl p-2 rounded-sm border border-[var(--color-border)] hover:bg-[var(--color-panel)]/60 transition-all">
                               <input
                                 type="checkbox"
                                 checked={localSettings.liquidityHeatmapConfig.showWhaleBubbles ?? true}

@@ -16,7 +16,7 @@ export function LiveGlobalTickerTape() {
   const { palette } = useTheme();
   
   return (
-    <div className="w-full bg-[var(--color-panel)] border-b border-[var(--color-border)] overflow-hidden flex items-center h-6 sm:h-7 font-mono text-[9px] sm:text-[10px] select-none">
+    <div className="w-full bg-[var(--color-panel)]/80 backdrop-blur-xl border-b border-white/10 shadow-2xl shadow-black/30 overflow-hidden flex items-center h-6 sm:h-7 font-mono text-[9px] sm:text-[10px] select-none">
       <div className="flex animate-[marquee_40s_linear_infinite] whitespace-nowrap items-center">
         {[...TICKERS, ...TICKERS, ...TICKERS].map((t, i) => {
           const isUp = t.change >= 0;

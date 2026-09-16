@@ -234,7 +234,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
         {/* Tab Navigation & Live High-Impact Alert Bar */}
         <div className="px-4 sm:px-6 py-2.5 bg-[var(--color-bg)]/40 border-b border-[var(--color-border)]/30 flex flex-wrap items-center justify-between gap-3">
           {/* Tabs */}
-          <div className="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-[var(--color-border)]/30 backdrop-blur-md">
+          <div className="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-[var(--color-border)]/30 backdrop-blur-xl">
             <button
               onClick={() => setActiveTab('news')}
               className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold font-mono transition-all cursor-pointer ${
@@ -372,7 +372,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                     return (
                       <div
                         key={item.id}
-                        className="group relative p-4 rounded-xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-[var(--color-border)]/30 hover:border-cyan-500/40 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 flex flex-col justify-between backdrop-blur-md"
+                        className="group relative p-4 rounded-xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-[var(--color-border)]/30 hover:border-cyan-500/40 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 flex flex-col justify-between backdrop-blur-xl"
                       >
                         <div>
                           {/* Metadata row */}
@@ -513,7 +513,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                   </span>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-[var(--color-border)]/30 bg-[var(--color-bg)]/40 backdrop-blur-md">
+                <div className="overflow-x-auto rounded-xl border border-[var(--color-border)]/30 bg-[var(--color-bg)]/40 backdrop-blur-xl">
                   <table className="w-full text-left text-xs font-mono">
                     <thead>
                       <tr className="border-b border-[var(--color-border)]/30 bg-white/5 text-[10px] text-zinc-400 uppercase tracking-wider">

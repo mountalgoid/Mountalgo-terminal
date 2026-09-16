@@ -214,7 +214,7 @@ const ChartTradePanel = React.memo(function ChartTradePanel({ symbol, currentPri
       )}
 
       {/* Account Info & Broker Switcher Header Bar */}
-      <div className="bg-[var(--color-panel)] border-b border-[var(--color-border)] p-1.5 flex items-center justify-between gap-1.5 relative">
+      <div className="bg-[var(--color-panel)]/80 backdrop-blur-xl border-b border-white/10 shadow-2xl shadow-black/30 p-1.5 flex items-center justify-between gap-1.5 relative">
         <div className="relative flex-1 min-w-0">
           <button
             onClick={() => setShowAccountDropdown(!showAccountDropdown)}
@@ -308,7 +308,7 @@ const ChartTradePanel = React.memo(function ChartTradePanel({ symbol, currentPri
       </div>
 
       {/* Tabs - Mobile optimized */}
-      <div className="flex bg-[var(--color-panel)] border-b border-[var(--color-border)] p-0.5 sm:p-1 gap-0.5 sm:gap-1 overflow-x-auto hide-scrollbar">
+      <div className="flex bg-[var(--color-panel)]/80 backdrop-blur-xl border-b border-white/10 p-0.5 sm:p-1 gap-0.5 sm:gap-1 overflow-x-auto hide-scrollbar">
         {[
           { id: 'trade', icon: Zap, label: 'Trade' },
           { id: 'pending', icon: Clock, label: `Pending (${pendingOrders.length})` },

@@ -83,7 +83,7 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
         borderColor: isCurrentFocus ? `${palette.bull}70` : 'var(--color-border)',
         boxShadow: isCurrentFocus ? `0 0 15px -3px ${palette.bull}20` : 'none',
       }}
-      className={`bg-[var(--color-panel)]/95 backdrop-blur-md border rounded-lg sm:rounded-xl px-1.5 sm:px-3 py-1 sm:py-1.5 flex flex-wrap items-center justify-between gap-1 sm:gap-1.5 md:gap-2 text-[10px] sm:text-xs transition-all select-none relative tap-fix ${className}`}
+      className={`bg-[var(--color-panel)]/80 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/30 rounded-lg sm:rounded-xl px-1.5 sm:px-3 py-1 sm:py-1.5 flex flex-wrap items-center justify-between gap-1 sm:gap-1.5 md:gap-2 text-[10px] sm:text-xs transition-all select-none relative tap-fix ${className}`}
     >      {/* 1. Left: Focus Indicator & Symbol */}
       <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
         <button

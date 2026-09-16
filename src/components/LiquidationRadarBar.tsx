@@ -214,7 +214,7 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
         className={`fixed z-[9600] cursor-grab active:cursor-grabbing select-none group ${minimizedFixedPosition} !important`}
         onDoubleClick={() => setActiveMinimized(false)}
       >
-        <div className={`relative flex items-center bg-[var(--color-panel)]/85 backdrop-blur-2xl border ${accentBorderClass} rounded-sm p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.8)] transition-all duration-300 hover:scale-105 active:scale-95 group overflow-hidden`}>
+        <div className={`relative flex items-center bg-[var(--color-panel)]/80 backdrop-blur-xl border border-white/10 ${accentBorderClass} rounded-sm p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.8)] transition-all duration-300 hover:scale-105 active:scale-95 group overflow-hidden`}>
           
           {/* Flash Pulse Radar Effect */}
           <div className="absolute inset-0 pointer-events-none">
