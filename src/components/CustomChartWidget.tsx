@@ -6407,7 +6407,9 @@ export default function CustomChartWidget({
         ctx.font = 'bold 9px monospace';
         const badgeW = Math.max(52, Math.min(chartWidth - 8, ctx.measureText(timeStr).width + 12));
         const badgeH = 16;
-        const badgeY = fullHeight - 19;
+        // Draw in the time axis area (below the chart) so it's always visible
+        // regardless of sub-windows (Volume/RSI/MACD) or position overlays
+        const badgeY = fullHeight + 2;
         // Centered under the crosshair, clamped inside the chart area
         let badgeX = crosshairRef.current.x - badgeW / 2;
         if (badgeX < 2) badgeX = 2;
@@ -6428,13 +6430,13 @@ export default function CustomChartWidget({
         ctx.textAlign = 'center';
         ctx.fillText(timeStr, badgeX + badgeW / 2, badgeY + 11);
 
-        // Dashed connector along the bottom edge from the crosshair to the badge
-        ctx.strokeStyle = `${currentPalette.bull}30`;
+        // Dashed connector from crosshair bottom to time badge
+        ctx.strokeStyle = `${currentPalette.bull}50`;
         ctx.lineWidth = 1;
         ctx.setLineDash([2, 3]);
         ctx.beginPath();
-        ctx.moveTo(crosshairRef.current.x, fullHeight - 1);
-        ctx.lineTo(badgeX + badgeW / 2, fullHeight - 1);
+        ctx.moveTo(crosshairRef.current.x, fullHeight);
+        ctx.lineTo(badgeX + badgeW / 2, fullHeight + 2);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.textAlign = 'left';
