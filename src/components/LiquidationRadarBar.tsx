@@ -189,8 +189,8 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
 
   // Position CSS mapping
   const positionClasses = {
-    'bottom-left': 'bottom-6 left-12 max-w-[620px]',
-    'bottom-right': 'bottom-6 right-20 max-w-[620px]',
+    'bottom-left': 'bottom-16 left-12 max-w-[620px]',
+    'bottom-right': 'bottom-16 right-20 max-w-[620px]',
     'top-left': 'top-20 left-12 max-w-[620px]',
     'top-right': 'top-20 right-20 max-w-[620px]',
     'docked-bottom': 'bottom-0 left-0 right-0 max-w-full rounded-none border-x-0 border-b-0',

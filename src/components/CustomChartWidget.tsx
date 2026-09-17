@@ -98,6 +98,7 @@ import SymbolSelectorModal, { COMPREHENSIVE_MARKET_PAIRS } from './SymbolSelecto
 import { LiquidationRadarBar } from './LiquidationRadarBar';
 import ChartIndicatorsLegend from './ChartIndicatorsLegend';
 import MountAlgoLogo from './MountAlgoLogo';
+import { getStoredTimezone, formatTimeInTimezone } from '../utils/timezone';
 import { LiquidityHeatmapGuideModal } from './LiquidityHeatmapGuideModal';
 import FootprintSettingsModal from './FootprintSettingsModal';
 import { CircuitBreakerModal } from './CircuitBreakerModal';
@@ -462,16 +463,41 @@ export default function CustomChartWidget({
     }
   }, [activeAccount?.broker, activeSymbol, handleSelectSymbol]);
 
-  // Listen to cross-component symbol switch events
+  // Keep activeSymbol in sync if initialSymbol prop changes from parent
+  useEffect(() => {
+    if (initialSymbol && initialSymbol !== activeSymbol) {
+      setActiveSymbol(initialSymbol);
+      localStorage.setItem(`mountalgo_symbol_${id}`, initialSymbol);
+      localStorage.setItem('mountalgo_symbol', initialSymbol);
+    }
+  }, [initialSymbol, id]);
+
+  // Listen to cross-component symbol switch events (with chart targeting safety)
   useEffect(() => {
     const onSymChanged = (e: any) => {
-      if (e.detail && e.detail !== activeSymbol) {
-        handleSelectSymbol(e.detail);
+      const targetSym = typeof e.detail === 'string' ? e.detail : e.detail?.symbol;
+      const targetChartId = typeof e.detail === 'object' ? e.detail?.chartId : undefined;
+
+      if (!targetSym) return;
+
+      // Only change symbol if:
+      // 1. Explicitly targeted to this chart ID, OR
+      // 2. Global chart symbol sync is enabled (chartSyncSymbol), OR
+      // 3. This chart is currently focused
+      if (
+        (targetChartId && targetChartId === id) ||
+        chartSyncSymbol ||
+        focusedChartId === id ||
+        !focusedChartId
+      ) {
+        if (targetSym !== activeSymbol) {
+          handleSelectSymbol(targetSym);
+        }
       }
     };
     window.addEventListener('mountalgo_symbol_changed', onSymChanged);
     return () => window.removeEventListener('mountalgo_symbol_changed', onSymChanged);
-  }, [activeSymbol, handleSelectSymbol]);
+  }, [activeSymbol, chartSyncSymbol, focusedChartId, id, handleSelectSymbol]);
 
   const handleSelectTimeframe = useCallback((newTf: ChartTimeframe) => {
     if (newTf !== timeframe) {
@@ -1541,18 +1567,9 @@ export default function CustomChartWidget({
       } catch (e) {}
     };
 
-    const handleExternalSymbolChange = (e: any) => {
-      const sym = e.detail;
-      if (sym && typeof sym === 'string') {
-        handleSelectSymbol(sym);
-      }
-    };
-
     window.addEventListener('mountalgo:apply-ai-trade-setup', handleApplyAiTradeSetup);
-    window.addEventListener('mountalgo_symbol_changed', handleExternalSymbolChange);
     return () => {
       window.removeEventListener('mountalgo:apply-ai-trade-setup', handleApplyAiTradeSetup);
-      window.removeEventListener('mountalgo_symbol_changed', handleExternalSymbolChange);
     };
   }, [activeSymbol, candles, currentPalette, handleSelectSymbol]);
 
@@ -1774,8 +1791,11 @@ export default function CustomChartWidget({
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
 
   // Crosshair & Hover info
+  const [activeTimezone, setActiveTimezone] = useState<string>(() => getStoredTimezone());
   const [useLocalTime, setUseLocalTime] = useState<boolean>(() => localStorage.getItem('mountalgo_timezone') === 'LOCAL');
   const [showNewsMarkers, setShowNewsMarkers] = useState<boolean>(() => localStorage.getItem('mountalgo_show_news_markers') !== 'false');
+  const [newsFilterImpact, setNewsFilterImpact] = useState<'ALL' | 'HIGH' | 'MEDIUM' | 'LOW'>(() => (localStorage.getItem('mountalgo_news_filter_impact') as any) || 'ALL');
+  const [filterByInstrumentOnly, setFilterByInstrumentOnly] = useState<boolean>(() => localStorage.getItem('mountalgo_news_instrument_only') === 'true');
 
   useEffect(() => {
     const handleToggle = (e: Event) => {
@@ -1784,37 +1804,63 @@ export default function CustomChartWidget({
         setShowNewsMarkers(customEvent.detail);
       }
     };
+    const handleTzChange = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setActiveTimezone(customEvent.detail);
+        setUseLocalTime(customEvent.detail === 'LOCAL');
+      } else {
+        setActiveTimezone(getStoredTimezone());
+      }
+    };
+
     window.addEventListener('mountalgo_news_markers_toggled', handleToggle);
-    return () => window.removeEventListener('mountalgo_news_markers_toggled', handleToggle);
+    window.addEventListener('mountalgo_timezone_changed', handleTzChange);
+    return () => {
+      window.removeEventListener('mountalgo_news_markers_toggled', handleToggle);
+      window.removeEventListener('mountalgo_timezone_changed', handleTzChange);
+    };
+  }, []);
+
+  const getCurrenciesForSymbol = useCallback((symbol: string): string[] => {
+    if (!symbol) return ['USD'];
+    const clean = symbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+    if (clean.includes('XAU') || clean.includes('GOLD')) return ['USD', 'XAU', 'GOLD'];
+    if (clean.includes('XAG') || clean.includes('SILVER')) return ['USD', 'XAG', 'SILVER'];
+    if (clean.includes('BTC') || clean.includes('ETH') || clean.includes('CRYPTO')) return ['USD', 'BTC', 'ETH', 'CRYPTO'];
+    if (clean.includes('US30') || clean.includes('NAS') || clean.includes('SPX') || clean.includes('DJI') || clean.includes('GER')) return ['USD', 'US', 'EUR'];
+
+    // Handle standard 6-char forex pairs without crypto quote suffixes
+    if (clean.length === 6 && !clean.endsWith('USDT') && !clean.endsWith('USDC') && !clean.endsWith('PERP')) {
+      return [clean.slice(0, 3), clean.slice(3, 6)];
+    }
+
+    // Handle crypto/futures pairs with common quote suffixes
+    let base = clean;
+    if (clean.endsWith('USDT')) base = clean.slice(0, -4);
+    else if (clean.endsWith('USDC')) base = clean.slice(0, -4);
+    else if (clean.endsWith('BUSD')) base = clean.slice(0, -4);
+    else if (clean.endsWith('PERP')) base = clean.slice(0, -4);
+    else if (clean.endsWith('USD')) base = clean.slice(0, -3);
+
+    return Array.from(new Set(['USD', base, clean])).filter(Boolean);
   }, []);
   
-  const formatCrosshairTime = (timestamp: number, isLocal: boolean, tf: string) => {
-    const d = new Date(timestamp);
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    const dateStr = isLocal 
-      ? `${d.getDate()} ${months[d.getMonth()]} '${d.getFullYear().toString().slice(2)}`
-      : `${d.getUTCDate()} ${months[d.getUTCMonth()]} '${d.getUTCFullYear().toString().slice(2)}`;
-      
-    const timeStr = isLocal
-      ? `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
-      : `${d.getUTCHours().toString().padStart(2, '0')}:${d.getUTCMinutes().toString().padStart(2, '0')}`;
-    
-    const secStr = isLocal
-      ? d.getSeconds().toString().padStart(2, '0')
-      : d.getUTCSeconds().toString().padStart(2, '0');
+  const formatCrosshairTime = useCallback((timestamp: number, isLocal: boolean, tf: string, explicitTz?: string) => {
+    const tzToUse = explicitTz || activeTimezone || getStoredTimezone();
+    const formatted = formatTimeInTimezone(timestamp, tzToUse);
 
     if (['tick', '1T', '10T', '50T', '100T', '1s'].includes(tf)) {
-      return `${dateStr}  ${timeStr}:${secStr} (${tf === 'tick' ? '1T' : tf})`;
+      return `${formatted.dateStr}  ${formatted.timeWithSecsStr} (${tf === 'tick' ? '1T' : tf})`;
     }
 
-    // Always show timeframe label consistently for all intervals
     if (['1D', '1W', '1M', '3M', '1Y'].includes(tf)) {
-      return `${dateStr}  (${tf})`;
+      return `${formatted.dateStr}  (${tf})`;
     }
       
-    return `${dateStr}  ${timeStr} (${tf})`;
-  };
+    return `${formatted.dateStr}, ${formatted.timeStr} ${formatted.tzAbbr} (${tf})`;
+  }, [activeTimezone]);
 
   const formatGridTime = (timestamp: number, isLocal: boolean) => {
     const d = new Date(timestamp);
@@ -6415,9 +6461,9 @@ export default function CustomChartWidget({
 
     // 16. Interactive Crosshair & Tooltip Badges (TradingView Style)
     if (crosshairRef.current.active && crosshairRef.current.x >= 0 && crosshairRef.current.x <= chartWidth && crosshairRef.current.y >= 0 && crosshairRef.current.y <= fullHeight) {
+      const crosshairTime = getTimeFromX(crosshairRef.current.x);
       const candleSlotFromRight = Math.floor((chartWidth - crosshairRef.current.x) / totalCandleSlot);
       const hoveredIdx = Math.max(0, Math.min(candles.length - 1, endIndex - 1 - candleSlotFromRight));
-      const targetCandle = candles[hoveredIdx];
 
       ctx.save();
       ctx.setLineDash([3, 3]);
@@ -6437,12 +6483,11 @@ export default function CustomChartWidget({
       ctx.stroke();
       ctx.restore();
 
-      // Time Badge — positioned exactly at bar center above time axis labels
-      const tbTimeStr = formatCrosshairTime(targetCandle.time, useLocalTime, timeframe);
-      const tbBarX = getX(hoveredIdx);
+      // Time Badge — aligned 1:1 with crosshair vertical line across current/past/future time anchor
+      const tbTimeStr = formatCrosshairTime(crosshairTime, useLocalTime, timeframe);
       ctx.font = '10px monospace';
       const tbTextW = ctx.measureText(tbTimeStr).width + 14;
-      const tbClampedX = Math.max(tbTextW / 2, Math.min(chartWidth - tbTextW / 2, tbBarX));
+      const tbClampedX = Math.max(tbTextW / 2, Math.min(chartWidth - tbTextW / 2, crosshairRef.current.x));
       ctx.save();
       ctx.fillStyle = '#0369a1';
       ctx.beginPath();
@@ -7485,30 +7530,65 @@ export default function CustomChartWidget({
           ? Math.abs(utils.getX(candles.length - 1) - utils.getX(candles.length - 2)) 
           : 14;
         const isMicroTimeframe = ['tick', '1T', '10T', '50T', '100T', '1s', '1m', '3m', '5m'].includes(timeframe);
-        // Render Optimization: Cap future projection lines to maximum 15 bars to the right for micro-timeframe focus
         const maxFutureBars = isMicroTimeframe ? 15 : 30;
         const maxFutureX = lastCandleX + (maxFutureBars * candleSlot);
 
-        chartNewsEvents.forEach((evt) => {
-          const evtX = utils.getXFromTime(evt.timestamp);
-          // Only draw if visible within chart horizontal viewport
-          if (!isFinite(evtX) || evtX < -60 || evtX > utils.chartWidth + 60) return;
+        // Filter events by Impact & Active Instrument Symbol
+        const activeCurrencies = getCurrenciesForSymbol(activeSymbol);
+        const filteredEvents = chartNewsEvents.filter((evt) => {
+          if (newsFilterImpact !== 'ALL' && evt.impact !== newsFilterImpact) return false;
+          if (filterByInstrumentOnly) {
+            const evtCurr = evt.currency?.toUpperCase() || 'USD';
+            const isMatch = activeCurrencies.some(c => evtCurr.includes(c) || c.includes(evtCurr) || evtCurr === 'GLOBAL');
+            if (!isMatch) return false;
+          }
+          return true;
+        });
 
-          // Capped forward projection: skip drawing if event bar is more than 15 bars into empty future canvas
+        // 1. Group / Cluster events that lie on or near the same X coordinate (within 14px)
+        const clusters: Array<{
+          x: number;
+          events: ChartNewsEconomicEvent[];
+        }> = [];
+
+        filteredEvents.forEach((evt) => {
+          const evtX = utils.getXFromTime(evt.timestamp);
+          if (!isFinite(evtX) || evtX < -60 || evtX > utils.chartWidth + 60) return;
           if (evtX > maxFutureX) return;
 
-          const isHighImpact = evt.impact === 'HIGH';
-          const isHovered = hoveredNewsEventId === evt.id;
-          const diffMs = evt.timestamp - nowMs;
-          const isPast = diffMs <= 0;
+          const existingCluster = clusters.find((c) => Math.abs(c.x - evtX) < 14);
+          if (existingCluster) {
+            existingCluster.events.push(evt);
+          } else {
+            clusters.push({ x: evtX, events: [evt] });
+          }
+        });
 
-          // Impact-based color palette
-          const baseColor = isHighImpact ? '#f43f5e' : evt.impact === 'MEDIUM' ? '#f59e0b' : '#06b6d4';
-          const glowColor = isHighImpact ? 'rgba(244, 63, 94, 0.4)' : 'rgba(245, 158, 11, 0.35)';
+        // 2. Render each cluster with Volatility Range Shading & Minimalist Pin
+        clusters.forEach((cluster) => {
+          const evtX = cluster.x;
+          const isMulti = cluster.events.length > 1;
+          const primaryEvt = cluster.events[0];
+          const hasHighImpact = cluster.events.some((e) => e.impact === 'HIGH');
+          const isHovered = cluster.events.some((e) => e.id === hoveredNewsEventId);
+
+          const baseColor = hasHighImpact ? '#f43f5e' : cluster.events.some((e) => e.impact === 'MEDIUM') ? '#f59e0b' : '#06b6d4';
+          const glowColor = hasHighImpact ? 'rgba(244, 63, 94, 0.4)' : 'rgba(245, 158, 11, 0.35)';
 
           ctx.save();
 
-          // 1. Refined Solid Vertical Event Line through chart bar
+          // A. Expected Volatility Range Shading Zone (Subtle vertical glow for High Impact events)
+          if (hasHighImpact) {
+            const zoneWidth = Math.max(16, candleSlot * 2.5);
+            const grad = ctx.createLinearGradient(evtX - zoneWidth / 2, 0, evtX + zoneWidth / 2, 0);
+            grad.addColorStop(0, 'rgba(244, 63, 94, 0.0)');
+            grad.addColorStop(0.5, 'rgba(244, 63, 94, 0.12)');
+            grad.addColorStop(1, 'rgba(244, 63, 94, 0.0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(evtX - zoneWidth / 2, 0, zoneWidth, utils.chartHeight);
+          }
+
+          // B. Refined Solid Vertical Event Line through chart bar
           ctx.setLineDash([]); // Clean solid line
           ctx.strokeStyle = isHovered ? baseColor : `${baseColor}66`;
           ctx.lineWidth = isHovered ? 1.5 : 1;
@@ -7517,22 +7597,24 @@ export default function CustomChartWidget({
           ctx.lineTo(evtX, utils.chartHeight - 4);
           ctx.stroke();
 
-          // 2. Minimalist Refined Icon Pin at bottom axis
-          const pinRadius = isHovered ? 13 : 10;
+          // C. Minimalist Refined Icon Pin / Cluster Pin at bottom axis
+          const pinRadius = isHovered ? 14 : 11;
           const pinY = Math.max(pinRadius + 4, utils.chartHeight - pinRadius - 8);
 
-          // Register Hit Box for mouse click, tap & hover interactions
-          newsMarkersHitBoxesRef.current.push({
-            id: evt.id,
-            x1: evtX - 16,
-            y1: pinY - 16,
-            x2: evtX + 16,
-            y2: pinY + 16,
-            event: evt,
+          // Register Hit Box for mouse click & touch interactions
+          cluster.events.forEach((evt) => {
+            newsMarkersHitBoxesRef.current.push({
+              id: evt.id,
+              x1: evtX - 16,
+              y1: pinY - 16,
+              x2: evtX + 16,
+              y2: pinY + 16,
+              event: evt,
+            });
           });
 
           // Glow effects for high impact or hovered events
-          if (isHovered || (isHighImpact && !isPast)) {
+          if (isHovered || hasHighImpact) {
             ctx.shadowBlur = isHovered ? 18 : 10;
             ctx.shadowColor = glowColor;
           }
@@ -7546,17 +7628,24 @@ export default function CustomChartWidget({
           ctx.fill();
           ctx.stroke();
 
-          // Icon symbol / flag inside pin
+          // Icon symbol or cluster number inside pin
           ctx.shadowBlur = 0;
-          ctx.font = isHovered ? '12px sans-serif' : '10px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(evt.flag || (isHighImpact ? '🔥' : '⚡'), evtX, pinY);
 
-          // 3. Rich Touch & Hover Detail Floating Tooltip
+          if (isMulti) {
+            ctx.font = 'bold 9.5px monospace';
+            ctx.fillStyle = '#fde68a';
+            ctx.fillText(`${cluster.events.length}+`, evtX, pinY);
+          } else {
+            ctx.font = isHovered ? '12px sans-serif' : '10px sans-serif';
+            ctx.fillText(primaryEvt.flag || (hasHighImpact ? '🔥' : '⚡'), evtX, pinY);
+          }
+
+          // D. Rich Touch & Hover Detail Floating Tooltip
           if (isHovered) {
-            const tipWidth = 210;
-            const tipHeight = 58;
+            const tipWidth = 220;
+            const tipHeight = isMulti ? 24 + cluster.events.length * 26 : 58;
             const tipX = Math.max(10, Math.min(utils.chartWidth - tipWidth - 10, evtX - tipWidth / 2));
             const tipY = Math.max(10, pinY - tipHeight - 12);
 
@@ -7574,29 +7663,44 @@ export default function CustomChartWidget({
             ctx.fill();
             ctx.stroke();
 
-            // Event Title & Currency
             ctx.shadowBlur = 0;
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 10px sans-serif';
-            ctx.textAlign = 'left';
-            const title = evt.event.length > 24 ? evt.event.substring(0, 24) + '...' : evt.event;
-            ctx.fillText(`${evt.flag || '⚡'} ${evt.currency} - ${title}`, tipX + 8, tipY + 14);
+            if (isMulti) {
+              ctx.fillStyle = '#38bdf8';
+              ctx.font = 'bold 10px monospace';
+              ctx.textAlign = 'left';
+              ctx.fillText(`⚡ ${cluster.events.length} EVENT CLUSTER TERHUBUNG`, tipX + 8, tipY + 14);
 
-            // Impact & Forecast Info
-            ctx.font = 'bold 8.5px monospace';
-            ctx.fillStyle = baseColor;
-            const impactTag = `${evt.impact} IMPACT`;
-            ctx.fillText(impactTag, tipX + 8, tipY + 28);
+              cluster.events.forEach((evt, idx) => {
+                const subY = tipY + 30 + idx * 24;
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 9px sans-serif';
+                const title = evt.event.length > 22 ? evt.event.substring(0, 22) + '...' : evt.event;
+                ctx.fillText(`${evt.flag || '⚡'} ${evt.currency} - ${title}`, tipX + 8, subY);
 
-            ctx.font = '8.5px monospace';
-            ctx.fillStyle = '#cbd5e1';
-            const fcastVal = evt.forecast && evt.forecast !== '-' ? `Prakiraan: ${evt.forecast}` : 'Makro Event';
-            ctx.fillText(fcastVal, tipX + 80, tipY + 28);
+                ctx.font = '8px monospace';
+                ctx.fillStyle = evt.impact === 'HIGH' ? '#f43f5e' : '#f59e0b';
+                ctx.fillText(`${evt.impact} IMPACT`, tipX + 8, subY + 11);
+              });
+            } else {
+              ctx.fillStyle = '#ffffff';
+              ctx.font = 'bold 10px sans-serif';
+              ctx.textAlign = 'left';
+              const title = primaryEvt.event.length > 24 ? primaryEvt.event.substring(0, 24) + '...' : primaryEvt.event;
+              ctx.fillText(`${primaryEvt.flag || '⚡'} ${primaryEvt.currency} - ${title}`, tipX + 8, tipY + 14);
 
-            // Action hint
-            ctx.font = '8px monospace';
-            ctx.fillStyle = '#38bdf8';
-            ctx.fillText(`Sentuh / Klik untuk Detail & AI Agent ➔`, tipX + 8, tipY + 44);
+              ctx.font = 'bold 8.5px monospace';
+              ctx.fillStyle = baseColor;
+              ctx.fillText(`${primaryEvt.impact} IMPACT`, tipX + 8, tipY + 28);
+
+              ctx.font = '8.5px monospace';
+              ctx.fillStyle = '#cbd5e1';
+              const fcastVal = primaryEvt.forecast && primaryEvt.forecast !== '-' ? `Prakiraan: ${primaryEvt.forecast}` : 'Makro Event';
+              ctx.fillText(fcastVal, tipX + 80, tipY + 28);
+
+              ctx.font = '8px monospace';
+              ctx.fillStyle = '#38bdf8';
+              ctx.fillText(`Sentuh / Klik untuk Detail & AI Agent ➔`, tipX + 8, tipY + 44);
+            }
           }
 
           ctx.restore();
@@ -8413,6 +8517,9 @@ export default function CustomChartWidget({
       );
       if (hitNews) {
         if (aiLongPressTimerRef.current) clearTimeout(aiLongPressTimerRef.current);
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try { navigator.vibrate(10); } catch (e) {}
+        }
         setSelectedNewsEventModal(hitNews.event);
         tradingAudio.play('PRESET');
         return;
@@ -8866,7 +8973,7 @@ export default function CustomChartWidget({
         updateCrosshair(mouseX, mouseY, true);
 
         const { chartWidth, totalCandleSlot, safeOffset } = utils;
-        const posFromRight = (chartWidth - mouseX) / totalCandleSlot;
+        const posFromRight = (chartWidth - mouseX - utils.candleWidth / 2) / totalCandleSlot;
         const hoveredIdx = Math.round((candles.length - 1 - safeOffset) - posFromRight);
 
         if (hoveredIdx >= 0 && hoveredIdx < candles.length) {
@@ -8875,22 +8982,26 @@ export default function CustomChartWidget({
             if (prev && prev.time === targetCandle.time) return prev;
             return targetCandle;
           });
-          if (chartSyncCrosshair) {
-            const priceY = utils.getPriceFromY(mouseY);
-            if (
-              !globalCrosshair ||
-              !globalCrosshair.active ||
-              globalCrosshair.time !== targetCandle.time ||
-              globalCrosshair.sourceChartId !== id ||
-              Math.abs((globalCrosshair.price || 0) - priceY) >= (priceY * 0.0001)
-            ) {
-              setGlobalCrosshair({
-                active: true,
-                time: targetCandle.time,
-                price: priceY,
-                sourceChartId: id,
-              });
-            }
+        } else {
+          setHoveredCandle(null);
+        }
+
+        if (chartSyncCrosshair) {
+          const priceY = utils.getPriceFromY(mouseY);
+          const crosshairTime = utils.getTimeFromX(mouseX);
+          if (
+            !globalCrosshair ||
+            !globalCrosshair.active ||
+            Math.abs((globalCrosshair.time || 0) - crosshairTime) > 100 ||
+            globalCrosshair.sourceChartId !== id ||
+            Math.abs((globalCrosshair.price || 0) - priceY) >= (priceY * 0.0001)
+          ) {
+            setGlobalCrosshair({
+              active: true,
+              time: crosshairTime,
+              price: priceY,
+              sourceChartId: id,
+            });
           }
         }
 
@@ -9412,7 +9523,8 @@ export default function CustomChartWidget({
         const orderType = isLimit ? 'LIMIT' : 'STOP';
         const presets = (marketInfo.assetClass === 'Forex') ? volumePresets.forex : volumePresets.crypto;
         const rawOrderSize = drag.size || presets[activePresetIndex] || (marketInfo.assetClass === 'Forex' ? 0.1 : 100);
-        const orderSize = marketInfo.assetClass === 'Forex' ? rawOrderSize : Number((rawOrderSize / currentPrice).toFixed(4));
+        const safeCurrentPrice = (currentPrice && !isNaN(currentPrice) && currentPrice > 0) ? currentPrice : 1;
+        const orderSize = marketInfo.assetClass === 'Forex' ? rawOrderSize : Number((rawOrderSize / safeCurrentPrice).toFixed(4));
         const riskDist = Math.abs(dropPrice * 0.015);
         const tp = isBuy ? dropPrice + riskDist * 2 : dropPrice - riskDist * 2;
         const sl = isBuy ? dropPrice - riskDist : dropPrice + riskDist;
@@ -10554,7 +10666,8 @@ export default function CustomChartWidget({
         const orderType = isLimit ? 'LIMIT' : 'STOP';
         const presets = (marketInfo.assetClass === 'Forex') ? volumePresets.forex : volumePresets.crypto;
         const rawOrderSize = drag.size || presets[activePresetIndex] || (marketInfo.assetClass === 'Forex' ? 0.1 : 100);
-        const orderSize = marketInfo.assetClass === 'Forex' ? rawOrderSize : Number((rawOrderSize / currentPrice).toFixed(4));
+        const safeTouchCurrentPrice = (currentPrice && !isNaN(currentPrice) && currentPrice > 0) ? currentPrice : 1;
+        const orderSize = marketInfo.assetClass === 'Forex' ? rawOrderSize : Number((rawOrderSize / safeTouchCurrentPrice).toFixed(4));
         const riskDist = Math.abs(dropPrice * 0.015);
         const tp = isBuy ? dropPrice + riskDist * 2 : dropPrice - riskDist * 2;
         const sl = isBuy ? dropPrice - riskDist : dropPrice + riskDist;
@@ -11913,7 +12026,7 @@ export default function CustomChartWidget({
 
 
           {/* 4A. TradingView-Style Interactive Scale Controls (Bottom-Right Overlays) */}
-          <div className="absolute bottom-1.5 right-1.5 z-30 flex items-center gap-1 bg-[var(--color-bg)]/90 border border-[var(--color-border)] px-1.5 py-0.5 rounded shadow-lg backdrop-blur-sm text-[10px] font-mono select-none">
+          <div className="absolute bottom-8 right-2 z-30 flex items-center gap-1 bg-[var(--color-bg)]/90 border border-[var(--color-border)] px-1.5 py-0.5 rounded shadow-lg backdrop-blur-sm text-[10px] font-mono select-none">
             {/* Jump to Realtime / Reset View Button */}
             {(panOffset > 3 || chartJumpTarget || targetSpotlightTime) && (
               <button
@@ -11987,6 +12100,50 @@ export default function CustomChartWidget({
               <Flame size={11} className={showNewsMarkers ? "text-amber-400 animate-pulse" : ""} />
               <span>NEWS [{showNewsMarkers ? "ON" : "OFF"}]</span>
             </button>
+
+            {/* News Impact & Active Instrument Filter Controls */}
+            {showNewsMarkers && (
+              <>
+                <button
+                  onClick={() => {
+                    const impacts: Array<'ALL' | 'HIGH' | 'MEDIUM' | 'LOW'> = ['ALL', 'HIGH', 'MEDIUM', 'LOW'];
+                    const next = impacts[(impacts.indexOf(newsFilterImpact) + 1) % impacts.length];
+                    setNewsFilterImpact(next);
+                    localStorage.setItem('mountalgo_news_filter_impact', next);
+                    tradingAudio.play('CLICK');
+                  }}
+                  type="button"
+                  className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold transition-all flex items-center gap-1 border cursor-pointer ${
+                    newsFilterImpact === 'HIGH'
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                      : newsFilterImpact === 'MEDIUM'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      : 'bg-white/5 text-cyan-300 border-cyan-500/30'
+                  }`}
+                  title="Filter Tingkat Dampak Berita Chart (ALL / HIGH / MEDIUM / LOW)"
+                >
+                  <span>{newsFilterImpact === 'ALL' ? 'IMPACT: ALL' : `IMPACT: ${newsFilterImpact}`}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const next = !filterByInstrumentOnly;
+                    setFilterByInstrumentOnly(next);
+                    localStorage.setItem('mountalgo_news_instrument_only', next ? 'true' : 'false');
+                    tradingAudio.play('CLICK');
+                  }}
+                  type="button"
+                  className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold transition-all flex items-center gap-1 border cursor-pointer ${
+                    filterByInstrumentOnly
+                      ? 'bg-cyan-500/25 text-cyan-300 border-cyan-500/50 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
+                      : 'bg-white/5 text-zinc-500 border-white/10 hover:text-zinc-300'
+                  }`}
+                  title={`Khusus Tampilkan Berita Yang Berhubungan Dengan Instrumen Aktif (${activeSymbol})`}
+                >
+                  <span>🎯 {activeSymbol}</span>
+                </button>
+              </>
+            )}
 
             {/* SL/TP Lock and Verification Safety Controls */}
             <div className="h-3.5 w-px bg-[var(--color-border)] mx-1" />
@@ -12302,7 +12459,7 @@ export default function CustomChartWidget({
           {indicators.showLiquidityHeatmap && !showLiquidationRadarBar && (
             <button
               onClick={() => setShowLiquidationRadarBar(true)}
-              className="absolute bottom-6 right-6 z-40 bg-[var(--color-panel)]/90 border border-[var(--color-border)] p-2.5 rounded-full shadow-xl hover:bg-[var(--color-hover)] transition-all text-indigo-400 hover:text-indigo-300 flex items-center justify-center group cursor-pointer"
+              className="absolute bottom-16 right-3 z-40 bg-[var(--color-panel)]/90 border border-[var(--color-border)] p-2.5 rounded-full shadow-xl hover:bg-[var(--color-hover)] transition-all text-indigo-400 hover:text-indigo-300 flex items-center justify-center group cursor-pointer"
               title="Tampilkan Liquidation Radar"
             >
               <Target size={20} className="group-hover:scale-110 transition-transform" />
@@ -12658,7 +12815,7 @@ export default function CustomChartWidget({
       )}
 
       {/* 13. Market Sessions Global HUD Overlay */}
-      <MarketSessionsOverlay className="absolute bottom-2 left-3 z-40 max-w-xl pointer-events-auto" />
+      <MarketSessionsOverlay className="absolute bottom-8 left-3 z-40 max-w-xl pointer-events-auto" />
 
       {/* 14. Flashing Beacon HUD for Imminent High Impact News Events */}
       <ChartNewsBeaconHUD

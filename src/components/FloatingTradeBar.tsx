@@ -56,7 +56,7 @@ const FloatingTradeBar: React.FC<FloatingTradeBarProps> = ({ symbol, onExecute, 
       style={{
         backgroundColor: 'var(--color-panel)',
         border: '1px solid var(--color-border)',
-        bottom: 12,
+        bottom: 34,
         right: 12,
         transform: `translate(${pos.x}px, ${pos.y}px)`,
         cursor: isDragging.current ? 'grabbing' : 'grab',

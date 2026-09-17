@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   X, 
   RefreshCw, 
@@ -293,7 +293,23 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
     }
   }, [calendarMode, calendarImpact, calendarCurrency]);
 
-  // Handle instant simulation release
+  // Pre-News Alarm Notification (Audio chime + Toast alert at 30m, 15m, 5m, 1m mark)
+  const notifiedEventsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!nextHighImpact) return;
+    const diffMins = Math.floor((nextHighImpact.timestamp - nowTimestamp) / 60000);
+    if (diffMins <= 0) return;
+
+    const eventKey = `${nextHighImpact.id}-${diffMins}`;
+    if ([30, 15, 5, 1].includes(diffMins) && !notifiedEventsRef.current.has(eventKey)) {
+      notifiedEventsRef.current.add(eventKey);
+      tradingAudio.play('ALERT');
+      if (typeof window !== 'undefined' && (window as any).showToast) {
+        (window as any).showToast(`⚠️ ALARM MACRO: Berita High Impact (${nextHighImpact.flag} ${nextHighImpact.currency} - ${nextHighImpact.event}) rilis dalam ${diffMins} menit!`);
+      }
+    }
+  }, [nextHighImpact, nowTimestamp]);
   const handleSimulateRelease = async () => {
     try {
       setIsSimulating(true);

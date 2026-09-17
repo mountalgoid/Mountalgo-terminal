@@ -64,9 +64,13 @@ export const SystemPerformanceHud: React.FC = React.memo(() => {
 
   // Hardware Battery & Thermal State Auto-Detect
   useEffect(() => {
+    let batteryObj: any = null;
+    let updateBattFn: any = null;
+
     if (typeof navigator !== 'undefined' && 'getBattery' in navigator) {
       (navigator as any).getBattery().then((battery: any) => {
-        const updateBatt = () => {
+        batteryObj = battery;
+        updateBattFn = () => {
           setBatteryStatus({
             level: Math.round(battery.level * 100),
             charging: battery.charging
@@ -77,11 +81,20 @@ export const SystemPerformanceHud: React.FC = React.memo(() => {
             localStorage.setItem('mountalgo_eco_mode', 'true');
           }
         };
-        updateBatt();
-        battery.addEventListener('levelchange', updateBatt);
-        battery.addEventListener('chargingchange', updateBatt);
+        updateBattFn();
+        battery.addEventListener('levelchange', updateBattFn);
+        battery.addEventListener('chargingchange', updateBattFn);
       }).catch(() => {});
     }
+
+    return () => {
+      if (batteryObj && updateBattFn) {
+        try {
+          batteryObj.removeEventListener('levelchange', updateBattFn);
+          batteryObj.removeEventListener('chargingchange', updateBattFn);
+        } catch {}
+      }
+    };
   }, []);
 
   // Sync Eco-Mode state with DOM attribute for global rendering throttle

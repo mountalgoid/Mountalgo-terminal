@@ -1350,6 +1350,17 @@ async function startServer() {
     return items;
   }
 
+  // Global Persistent Baseline Anchor for Macro Events (Prevents countdown resetting on reload)
+  let SERVER_CALENDAR_ANCHOR_TIME = Date.now();
+  const getAnchoredTimestamp = (offsetMinutes: number): number => {
+    const elapsed = Date.now() - SERVER_CALENDAR_ANCHOR_TIME;
+    // If cycle exceeds 24 hours (86,400,000ms), advance anchor time
+    if (elapsed > 86400000) {
+      SERVER_CALENDAR_ANCHOR_TIME = Date.now();
+    }
+    return SERVER_CALENDAR_ANCHOR_TIME + (offsetMinutes * 60 * 1000);
+  };
+
   // API Route: Real-Time Multi-Source Financial & Crypto News Feeds
   app.get("/api/news", async (req, res) => {
     try {
@@ -1540,6 +1551,7 @@ async function startServer() {
       // Generate strictly upcoming scheduled market announcements & catalysts with verified authentic official portals
       const upcomingSchedulePresets = [
         { 
+          presetId: "upcoming-news-cpi",
           title: "US Consumer Price Index (CPI MoM/YoY) Inflation Release", 
           cat: "Macro, USD", 
           offsetMinutes: 20, 
@@ -1549,6 +1561,7 @@ async function startServer() {
           url: "https://www.bls.gov/cpi/"
         },
         { 
+          presetId: "upcoming-news-fomc",
           title: "Federal Reserve FOMC Policy Statement & Rate Decision", 
           cat: "Macro, USD", 
           offsetMinutes: 65, 
@@ -1558,6 +1571,7 @@ async function startServer() {
           url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
         },
         { 
+          presetId: "upcoming-news-ecb",
           title: "European Central Bank (ECB) Governing Council Rate Decision", 
           cat: "Forex, EUR", 
           offsetMinutes: 110, 
@@ -1567,6 +1581,7 @@ async function startServer() {
           url: "https://www.ecb.europa.eu/press/govcdec/html/index.en.html"
         },
         { 
+          presetId: "upcoming-news-nfp",
           title: "US Non-Farm Payrolls (NFP) & Unemployment Rate Print", 
           cat: "Macro, USD", 
           offsetMinutes: 240, 
@@ -1576,6 +1591,7 @@ async function startServer() {
           url: "https://www.bls.gov/news.release/empsit.nr0.htm"
         },
         { 
+          presetId: "upcoming-news-eia",
           title: "EIA Crude Oil Weekly Strategic Stockpiles Report", 
           cat: "Oil, Energy", 
           offsetMinutes: 340, 
@@ -1585,6 +1601,7 @@ async function startServer() {
           url: "https://www.eia.gov/petroleum/supply/weekly/"
         },
         { 
+          presetId: "upcoming-news-sec",
           title: "SEC Final Regulatory Deadline on Spot Crypto ETF ETP Framework", 
           cat: "Crypto, Regulation", 
           offsetMinutes: 480, 
@@ -1594,6 +1611,7 @@ async function startServer() {
           url: "https://www.sec.gov/news/press-releases"
         },
         { 
+          presetId: "upcoming-news-boe",
           title: "Bank of England (BOE) Monetary Policy Committee Rate Decision", 
           cat: "Forex, GBP", 
           offsetMinutes: 720, 
@@ -1603,6 +1621,7 @@ async function startServer() {
           url: "https://www.bankofengland.co.uk/monetary-policy"
         },
         { 
+          presetId: "upcoming-news-eth",
           title: "Ethereum Protocol Major Execution Layer Network Upgrade", 
           cat: "ETH, Tech", 
           offsetMinutes: 1080, 
@@ -1613,20 +1632,22 @@ async function startServer() {
         },
       ];
 
-      const upcomingNews = upcomingSchedulePresets.map((u, idx) => {
-        const eventTimestamp = now + (u.offsetMinutes * 60 * 1000);
+      const upcomingNews = upcomingSchedulePresets.map((u) => {
+        const eventTimestamp = getAnchoredTimestamp(u.offsetMinutes);
         const diffMs = eventTimestamp - now;
-        const hours = Math.floor(diffMs / 3600000);
-        const mins = Math.floor((diffMs % 3600000) / 60000);
+        const isPast = diffMs <= 0;
+        const absDiff = Math.abs(diffMs);
+        const hours = Math.floor(absDiff / 3600000);
+        const mins = Math.floor((absDiff % 3600000) / 60000);
         return {
-          id: `upcoming-${idx}-${now}`,
+          id: u.presetId,
           title: u.title,
           url: u.url,
           source: u.src,
           scheduledAt: eventTimestamp,
           publishedAt: eventTimestamp,
           countdownMs: diffMs,
-          countdownStr: `${hours.toString().padStart(2, '0')}j ${mins.toString().padStart(2, '0')}m`,
+          countdownStr: isPast ? `RILIS (${mins}m lalu)` : `${hours.toString().padStart(2, '0')}j ${mins.toString().padStart(2, '0')}m`,
           categories: u.cat,
           tags: ["UPCOMING", u.impact, ...u.cat.split(',').map(s => s.trim())],
           imageUrl: null,
@@ -1854,20 +1875,20 @@ async function startServer() {
       if (parsedEvents.length === 0) {
         // Fallback to high-impact macroeconomic events anchored to server time
         const fallbackSchedule = [
-          { event: "US Consumer Price Index (CPI) MoM", currency: "USD", impact: "HIGH" as const, offsetMinutes: 5, forecast: "0.2%", previous: "0.3%", actual: "0.3%", unit: "%" },
-          { event: "US Core CPI YoY", currency: "USD", impact: "HIGH" as const, offsetMinutes: 20, forecast: "3.2%", previous: "3.3%", actual: null, unit: "%" },
-          { event: "ECB Monetary Policy Decision & Rate", currency: "EUR", impact: "HIGH" as const, offsetMinutes: 75, forecast: "3.25%", previous: "3.50%", actual: null, unit: "%" },
-          { event: "US Initial Jobless Claims", currency: "USD", impact: "MEDIUM" as const, offsetMinutes: 140, forecast: "218K", previous: "221K", actual: null, unit: "K" },
-          { event: "EIA Crude Oil Inventories", currency: "USD", impact: "MEDIUM" as const, offsetMinutes: 210, forecast: "-1.4M", previous: "-2.5M", actual: null, unit: "Bbl" },
-          { event: "FOMC Policy Statement & Powell Speech", currency: "USD", impact: "HIGH" as const, offsetMinutes: 360, forecast: "4.75%", previous: "5.00%", actual: null, unit: "%" },
-          { event: "US Non-Farm Payrolls (NFP)", currency: "USD", impact: "HIGH" as const, offsetMinutes: 980, forecast: "165K", previous: "142K", actual: null, unit: "K" },
-          { event: "Bank of England (BOE) Official Bank Rate", currency: "GBP", impact: "HIGH" as const, offsetMinutes: 1440, forecast: "5.00%", previous: "5.00%", actual: null, unit: "%" },
-          { event: "Bank of Japan (BOJ) Interest Rate Review", currency: "JPY", impact: "HIGH" as const, offsetMinutes: 2160, forecast: "0.25%", previous: "0.25%", actual: null, unit: "%" }
+          { presetId: "ec-cpi-mom", event: "US Consumer Price Index (CPI) MoM", currency: "USD", impact: "HIGH" as const, offsetMinutes: 5, forecast: "0.2%", previous: "0.3%", actual: "0.3%", unit: "%" },
+          { presetId: "ec-core-cpi", event: "US Core CPI YoY", currency: "USD", impact: "HIGH" as const, offsetMinutes: 20, forecast: "3.2%", previous: "3.3%", actual: null, unit: "%" },
+          { presetId: "ec-ecb-rate", event: "ECB Monetary Policy Decision & Rate", currency: "EUR", impact: "HIGH" as const, offsetMinutes: 75, forecast: "3.25%", previous: "3.50%", actual: null, unit: "%" },
+          { presetId: "ec-jobless-claims", event: "US Initial Jobless Claims", currency: "USD", impact: "MEDIUM" as const, offsetMinutes: 140, forecast: "218K", previous: "221K", actual: null, unit: "K" },
+          { presetId: "ec-eia-oil", event: "EIA Crude Oil Inventories", currency: "USD", impact: "MEDIUM" as const, offsetMinutes: 210, forecast: "-1.4M", previous: "-2.5M", actual: null, unit: "Bbl" },
+          { presetId: "ec-fomc-rate", event: "FOMC Policy Statement & Powell Speech", currency: "USD", impact: "HIGH" as const, offsetMinutes: 360, forecast: "4.75%", previous: "5.00%", actual: null, unit: "%" },
+          { presetId: "ec-nfp-jobs", event: "US Non-Farm Payrolls (NFP)", currency: "USD", impact: "HIGH" as const, offsetMinutes: 980, forecast: "165K", previous: "142K", actual: null, unit: "K" },
+          { presetId: "ec-boe-rate", event: "Bank of England (BOE) Official Bank Rate", currency: "GBP", impact: "HIGH" as const, offsetMinutes: 1440, forecast: "5.00%", previous: "5.00%", actual: null, unit: "%" },
+          { presetId: "ec-boj-rate", event: "Bank of Japan (BOJ) Interest Rate Review", currency: "JPY", impact: "HIGH" as const, offsetMinutes: 2160, forecast: "0.25%", previous: "0.25%", actual: null, unit: "%" }
         ];
 
-        parsedEvents = fallbackSchedule.map((item, idx) => {
+        parsedEvents = fallbackSchedule.map((item) => {
           const meta = CURRENCY_METADATA_MAP[item.currency] || { country: item.currency, flag: '🌐', sourceOrg: 'Lembaga Resmi', officialUrl: 'https://www.bls.gov/cpi/' };
-          const eventTimestamp = currentTimestamp + (item.offsetMinutes * 60 * 1000);
+          const eventTimestamp = getAnchoredTimestamp(item.offsetMinutes);
           const diffMs = eventTimestamp - currentTimestamp;
           const isPast = diffMs <= 0;
           const absDiff = Math.abs(diffMs);
@@ -1877,8 +1898,10 @@ async function startServer() {
           const countdownStr = isPast ? `RILIS (${mins}m ${secs}s lalu)` : `${hours.toString().padStart(2, '0')}h : ${mins.toString().padStart(2, '0')}m : ${secs.toString().padStart(2, '0')}s`;
           const eventDate = new Date(eventTimestamp);
 
+          const override = economicEventOverrides[item.presetId] || economicEventOverrides[item.event];
+
           return {
-            id: `ec_fb_${item.currency}_${idx}`,
+            id: item.presetId,
             event: item.event,
             country: meta.country,
             currency: item.currency,
@@ -1890,13 +1913,13 @@ async function startServer() {
             countdownMs: diffMs,
             countdownStr,
             isPast,
-            isJustReleased: isPast && absDiff <= 15 * 60 * 1000,
+            isJustReleased: isPast && absDiff <= 25 * 60 * 1000,
             forecast: item.forecast,
             previous: item.previous,
-            actual: item.actual,
-            deviation: item.actual ? "+0.1%" : null,
-            deviationStatus: item.actual ? "BEAT" as const : null,
-            marketReaction: item.actual ? "HAWKISH / USD BULLISH" : null,
+            actual: override?.actual || (isPast ? item.forecast : item.actual),
+            deviation: override?.deviation || (isPast ? "+0.1%" : null),
+            deviationStatus: override?.deviationStatus || (isPast ? ("BEAT" as const) : null),
+            marketReaction: override?.marketReaction || (isPast ? "HAWKISH / USD BULLISH" : null),
             unit: item.unit,
             volatilityRisk: item.impact === 'HIGH' ? 'EXTREME' as const : 'HIGH' as const,
             description: `Laporan resmi rilis ekonomi ${item.event} (${item.currency}).`,

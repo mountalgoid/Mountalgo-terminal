@@ -105,9 +105,10 @@ export const MarketSessionsOverlay: React.FC<MarketSessionsOverlayProps> = ({
     return { ...s, isOpen, hrs, mins, countdownStr };
   });
 
-  const activeSessions = sessionStatuses.filter(s => s.isOpen);
-  const isLondonNyOverlap = sessionStatuses.find(s => s.id === 'london')?.isOpen && sessionStatuses.find(s => s.id === 'newyork')?.isOpen;
-  const isTokyoLondonOverlap = sessionStatuses.find(s => s.id === 'tokyo')?.isOpen && sessionStatuses.find(s => s.id === 'london')?.isOpen;
+  const isWeekend = now.getUTCDay() === 0 || now.getUTCDay() === 6 || (now.getUTCDay() === 5 && utcHour >= 22) || (now.getUTCDay() === 0 && utcHour < 21);
+  const activeSessions = isWeekend ? [] : sessionStatuses.filter(s => s.isOpen);
+  const isLondonNyOverlap = !isWeekend && sessionStatuses.find(s => s.id === 'london')?.isOpen && sessionStatuses.find(s => s.id === 'newyork')?.isOpen;
+  const isTokyoLondonOverlap = !isWeekend && sessionStatuses.find(s => s.id === 'tokyo')?.isOpen && sessionStatuses.find(s => s.id === 'london')?.isOpen;
 
   if (!isVisible) {
     return (
@@ -132,7 +133,11 @@ export const MarketSessionsOverlay: React.FC<MarketSessionsOverlayProps> = ({
           <div className="flex items-center gap-2">
             <Activity size={14} className="text-cyan-400 animate-pulse" />
             <span className="font-bold text-cyan-300 text-[11px] tracking-wide">SESI PASAR GLOBAL</span>
-            {isLondonNyOverlap ? (
+            {isWeekend ? (
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-bold flex items-center gap-1">
+                <ShieldCheck size={10} /> PASAR TUTUP - LIBUR AKHIR PEKAN (WEEKEND PAUSE)
+              </span>
+            ) : isLondonNyOverlap ? (
               <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[9px] font-black animate-pulse flex items-center gap-1">
                 <Flame size={10} /> OVERLAP LIKUIDITAS TINGGI (LONDON + NY)
               </span>
