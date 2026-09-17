@@ -7508,113 +7508,95 @@ export default function CustomChartWidget({
 
           ctx.save();
 
-          // 1. Vertical Event Laser Guideline through chart bar
-          ctx.setLineDash([4, 4]);
+          // 1. Refined Solid Vertical Event Line through chart bar
+          ctx.setLineDash([]); // Clean solid line
           ctx.strokeStyle = isHovered ? baseColor : `${baseColor}66`;
-          ctx.lineWidth = isHovered ? 2 : 1;
+          ctx.lineWidth = isHovered ? 1.5 : 1;
           ctx.beginPath();
-          ctx.moveTo(evtX, 10);
+          ctx.moveTo(evtX, 8);
           ctx.lineTo(evtX, utils.chartHeight - 4);
           ctx.stroke();
-          ctx.setLineDash([]); // Reset line dash
 
-          // 2. Interactive Badge / Icon Pin at the bottom of the chart
-          const badgeWidth = isHovered ? 78 : 70;
-          const badgeHeight = 24;
-          const badgeY = Math.max(10, utils.chartHeight - badgeHeight - 6);
-          const badgeX = evtX - badgeWidth / 2;
+          // 2. Minimalist Refined Icon Pin at bottom axis
+          const pinRadius = isHovered ? 13 : 10;
+          const pinY = Math.max(pinRadius + 4, utils.chartHeight - pinRadius - 8);
 
-          // Register Hit Box for mouse click & hover interactions
+          // Register Hit Box for mouse click, tap & hover interactions
           newsMarkersHitBoxesRef.current.push({
             id: evt.id,
-            x1: badgeX - 4,
-            y1: badgeY - 4,
-            x2: badgeX + badgeWidth + 4,
-            y2: badgeY + badgeHeight + 4,
+            x1: evtX - 16,
+            y1: pinY - 16,
+            x2: evtX + 16,
+            y2: pinY + 16,
             event: evt,
           });
 
           // Glow effects for high impact or hovered events
           if (isHovered || (isHighImpact && !isPast)) {
-            ctx.shadowBlur = isHovered ? 16 : 8;
+            ctx.shadowBlur = isHovered ? 18 : 10;
             ctx.shadowColor = glowColor;
           }
 
-          // Badge Background Container
-          ctx.fillStyle = isHovered ? '#0b0f19' : 'rgba(10, 15, 29, 0.94)';
+          // Circular Icon Pin Container
+          ctx.fillStyle = isHovered ? '#070b14' : 'rgba(8, 12, 22, 0.94)';
           ctx.strokeStyle = baseColor;
           ctx.lineWidth = isHovered ? 2 : 1.2;
           ctx.beginPath();
-          if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 6);
-          } else {
-            ctx.rect(badgeX, badgeY, badgeWidth, badgeHeight);
-          }
+          ctx.arc(evtX, pinY, pinRadius, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
 
-          // Flag / Icon and Currency Tag
+          // Icon symbol / flag inside pin
           ctx.shadowBlur = 0;
-          ctx.font = '11px sans-serif';
-          ctx.textAlign = 'left';
+          ctx.font = isHovered ? '12px sans-serif' : '10px sans-serif';
+          ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(evt.flag || '⚡', badgeX + 4, badgeY + badgeHeight / 2);
+          ctx.fillText(evt.flag || (isHighImpact ? '🔥' : '⚡'), evtX, pinY);
 
-          ctx.font = 'bold 9px monospace';
-          ctx.fillStyle = '#ffffff';
-          ctx.fillText(evt.currency, badgeX + 22, badgeY + badgeHeight / 2 - 4);
-
-          // Subtext: Live countdown or "RILIS"
-          ctx.font = '8px monospace';
-          if (isPast) {
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillText('RILIS', badgeX + 22, badgeY + badgeHeight / 2 + 5);
-          } else {
-            const mins = Math.floor(diffMs / 60000);
-            const hours = Math.floor(mins / 60);
-            const timeTag = hours > 0 ? `${hours}h ${mins % 60}m` : `${Math.max(1, mins)}m`;
-            ctx.fillStyle = isHighImpact ? '#fda4af' : '#fde68a';
-            ctx.fillText(`⏱ ${timeTag}`, badgeX + 22, badgeY + badgeHeight / 2 + 5);
-          }
-
-          // Pin marker pointer arrow pointing to the exact candle bar
-          ctx.fillStyle = baseColor;
-          ctx.beginPath();
-          ctx.moveTo(evtX - 4, badgeY);
-          ctx.lineTo(evtX + 4, badgeY);
-          ctx.lineTo(evtX, badgeY - 5);
-          ctx.closePath();
-          ctx.fill();
-
-          // 3. Hover Floating Tooltip Preview
+          // 3. Rich Touch & Hover Detail Floating Tooltip
           if (isHovered) {
-            const tipWidth = 176;
-            const tipHeight = 44;
-            const tipX = Math.max(8, Math.min(utils.chartWidth - tipWidth - 8, evtX - tipWidth / 2));
-            const tipY = Math.max(8, badgeY - tipHeight - 8);
+            const tipWidth = 210;
+            const tipHeight = 58;
+            const tipX = Math.max(10, Math.min(utils.chartWidth - tipWidth - 10, evtX - tipWidth / 2));
+            const tipY = Math.max(10, pinY - tipHeight - 12);
 
-            ctx.fillStyle = 'rgba(8, 12, 24, 0.96)';
+            ctx.fillStyle = 'rgba(7, 10, 19, 0.98)';
             ctx.strokeStyle = baseColor;
             ctx.lineWidth = 1.5;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
             ctx.beginPath();
             if (typeof ctx.roundRect === 'function') {
-              ctx.roundRect(tipX, tipY, tipWidth, tipHeight, 6);
+              ctx.roundRect(tipX, tipY, tipWidth, tipHeight, 8);
             } else {
               ctx.rect(tipX, tipY, tipWidth, tipHeight);
             }
             ctx.fill();
             ctx.stroke();
 
+            // Event Title & Currency
+            ctx.shadowBlur = 0;
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 9.5px sans-serif';
+            ctx.font = 'bold 10px sans-serif';
             ctx.textAlign = 'left';
-            const title = evt.event.length > 22 ? evt.event.substring(0, 22) + '...' : evt.event;
-            ctx.fillText(`${evt.flag} ${title}`, tipX + 8, tipY + 15);
+            const title = evt.event.length > 24 ? evt.event.substring(0, 24) + '...' : evt.event;
+            ctx.fillText(`${evt.flag || '⚡'} ${evt.currency} - ${title}`, tipX + 8, tipY + 14);
+
+            // Impact & Forecast Info
+            ctx.font = 'bold 8.5px monospace';
+            ctx.fillStyle = baseColor;
+            const impactTag = `${evt.impact} IMPACT`;
+            ctx.fillText(impactTag, tipX + 8, tipY + 28);
 
             ctx.font = '8.5px monospace';
+            ctx.fillStyle = '#cbd5e1';
+            const fcastVal = evt.forecast && evt.forecast !== '-' ? `Prakiraan: ${evt.forecast}` : 'Makro Event';
+            ctx.fillText(fcastVal, tipX + 80, tipY + 28);
+
+            // Action hint
+            ctx.font = '8px monospace';
             ctx.fillStyle = '#38bdf8';
-            const fcastStr = evt.forecast && evt.forecast !== '-' ? `Forecast: ${evt.forecast}` : 'News Catalyst';
-            ctx.fillText(`${fcastStr} • Klik untuk detail & mundur`, tipX + 8, tipY + 30);
+            ctx.fillText(`Sentuh / Klik untuk Detail & AI Agent ➔`, tipX + 8, tipY + 44);
           }
 
           ctx.restore();
