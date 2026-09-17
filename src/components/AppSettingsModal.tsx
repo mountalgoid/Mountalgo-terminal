@@ -3,9 +3,16 @@ import {
   X, Settings, Palette, Check, Monitor, Smartphone, Volume2, VolumeX,
   ShieldCheck, Layers, RotateCcw, SunMoon, Sun, Moon, Zap, Contrast, Eye,
   Mic, Play, Activity, Sliders, RefreshCw, AlertTriangle, Shield, Lock, Unlock,
-  ChevronDown, ChevronUp, Sparkles, Download, Upload, FileText, CheckCircle2
+  ChevronDown, ChevronUp, Sparkles, Download, Upload, FileText, CheckCircle2,
+  Bot, Cpu, KeyRound
 } from 'lucide-react';
 import { MountAlgoLogo } from './MountAlgoLogo';
+import { AiAgentSettingsModal } from './AiAgentSettingsModal';
+import { 
+  loadAiAgentSettings, 
+  AI_PROVIDERS_METADATA, 
+  AiAgentSettings 
+} from '../types/aiSettings';
 import { useTheme } from '../context/ThemeContext';
 import { ColorThemeName, THEME_PALETTES } from '../context/ThemeContext';
 import { 
@@ -71,12 +78,15 @@ export default function AppSettingsModal({
   const [importJsonText, setImportJsonText] = useState<string>('');
   const [importFeedback, setImportFeedback] = useState<{ success: boolean; message: string } | null>(null);
   const [isThemeDropdownOpen, setIsThemeDropdownOpen] = useState<boolean>(false);
+  const [isAiSettingsOpen, setIsAiSettingsOpen] = useState<boolean>(false);
+  const [aiSettings, setAiSettings] = useState<AiAgentSettings>(() => loadAiAgentSettings());
   const themeDropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       setAudioConfig(tradingAudio.getConfig());
+      setAiSettings(loadAiAgentSettings());
       setShowFullResetConfirm(false);
       setShowImportModal(false);
       setImportJsonText('');
@@ -84,6 +94,16 @@ export default function AppSettingsModal({
       setIsThemeDropdownOpen(false);
     }
   }, [isOpen]);
+
+  // Sync AI settings when updated elsewhere
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      if (e.detail) setAiSettings(e.detail);
+      else setAiSettings(loadAiAgentSettings());
+    };
+    window.addEventListener('mountalgo:ai-settings-updated', handleUpdate as EventListener);
+    return () => window.removeEventListener('mountalgo:ai-settings-updated', handleUpdate as EventListener);
+  }, []);
 
   // Click outside to close theme dropdown
   useEffect(() => {
@@ -949,7 +969,48 @@ export default function AppSettingsModal({
             </div>
           )}
 
-          {/* 5. Workspace Configuration Backup & Synchronization (JSON Export/Import) */}
+          {/* 5. AI Agent & Multi-Model Engine Keys */}
+          <div className="pt-4 border-t border-[var(--color-border)] space-y-2.5">
+            <div 
+              className="flex items-center justify-between font-bold text-xs uppercase tracking-wider"
+              style={{ color: palette.bull }}
+            >
+              <div className="flex items-center gap-2">
+                <Bot size={15} /> Konfigurasi AI Agent & Multi-Model API Keys
+              </div>
+              <span className="text-[10px] font-mono text-[var(--color-text-muted)]">
+                LLM Provider Engine
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[var(--color-text)]">
+                    Provider Aktif:
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center gap-1.5">
+                    <Zap size={11} className="fill-current text-cyan-400" />
+                    {AI_PROVIDERS_METADATA[aiSettings.activeProvider]?.name} · {aiSettings.providers[aiSettings.activeProvider]?.model || 'Default'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-[var(--color-text-muted)]">
+                  Gunakan API key mandiri untuk GPT-4o, Claude 3.5, OpenRouter (DeepSeek R1/Llama), Gemini, atau local Ollama/Groq endpoint.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAiSettingsOpen(true)}
+                className="px-4 py-2 rounded-xl text-xs font-bold border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 flex items-center justify-center gap-2 cursor-pointer transition-all shrink-0 shadow-sm"
+              >
+                <KeyRound size={14} className="text-cyan-400" />
+                <span>Kelola API Keys AI</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 6. Workspace Configuration Backup & Synchronization (JSON Export/Import) */}
           <div className="pt-4 border-t border-[var(--color-border)] space-y-2.5">
             <div 
               className="flex items-center justify-between font-bold text-xs uppercase tracking-wider"
@@ -1258,6 +1319,13 @@ export default function AppSettingsModal({
           </button>
         </div>
       </div>
+
+      {/* Embedded AI Agent Settings Modal */}
+      <AiAgentSettingsModal
+        isOpen={isAiSettingsOpen}
+        onClose={() => setIsAiSettingsOpen(false)}
+        onSettingsSaved={(newSettings) => setAiSettings(newSettings)}
+      />
     </div>
   );
 }

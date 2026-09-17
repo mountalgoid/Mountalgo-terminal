@@ -7610,5 +7610,38 @@
     "precision": 4,
     "firstSeenAt": 1757780589896,
     "isNewListing": false
+  },
+  {
+    "symbol": "CONLUSDT",
+    "base": "CONL",
+    "quote": "USDT",
+    "displayName": "CONL/USDT Perp",
+    "type": "futures",
+    "active": true,
+    "precision": 4,
+    "firstSeenAt": 1789554284000,
+    "isNewListing": true
+  },
+  {
+    "symbol": "IBITUSDT",
+    "base": "IBIT",
+    "quote": "USDT",
+    "displayName": "IBIT/USDT Perp",
+    "type": "futures",
+    "active": true,
+    "precision": 4,
+    "firstSeenAt": 1789554050000,
+    "isNewListing": true
+  },
+  {
+    "symbol": "LONGXIAUSDT",
+    "base": "LONGXIA",
+    "quote": "USDT",
+    "displayName": "LONGXIA/USDT Perp",
+    "type": "futures",
+    "active": true,
+    "precision": 4,
+    "firstSeenAt": 1789376372000,
+    "isNewListing": false
   }
 ]

@@ -127,6 +127,10 @@ import ChartTradePanel from './ChartTradePanel';
 import QuickScalperBar from './QuickScalperBar';
 import HoldPriceTraderMenu from './HoldPriceTraderMenu';
 import SLTPVerificationModal, { SLTPVerificationData } from './SLTPVerificationModal';
+import ChartNewsEventModal, { ChartNewsEconomicEvent } from './ChartNewsEventModal';
+import ChartNewsBeaconHUD from './ChartNewsBeaconHUD';
+import NewsVolatilityGuard from './NewsVolatilityGuard';
+import { calendarWorkerDispatcher } from '../workers/calendarWorkerDispatcher';
 
 import { AiTapeAnalyzer } from './AiTapeAnalyzer';
 import { ExecutionEngine } from '../utils/math/executionEngine';
@@ -911,6 +915,132 @@ export default function CustomChartWidget({
     price: number;
   } | null>(null);
 
+  // Real-Time News and Economic Event Milestones on Chart (Directly at Event Candle Bars)
+  const [chartNewsEvents, setChartNewsEvents] = useState<ChartNewsEconomicEvent[]>([]);
+  const [selectedNewsEventModal, setSelectedNewsEventModal] = useState<ChartNewsEconomicEvent | null>(null);
+  const [hoveredNewsEventId, setHoveredNewsEventId] = useState<string | null>(null);
+  const hoveredNewsEventIdRef = useRef<string | null>(null);
+  const newsMarkersHitBoxesRef = useRef<Array<{
+    id: string;
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    event: ChartNewsEconomicEvent;
+  }>>([]);
+
+  // Fetch strictly upcoming & high-impact news & calendar catalysts for active symbol with 3s failover & worker offloading
+  useEffect(() => {
+    let isMounted = true;
+
+    // Sub-3s SLA fetch helper with automatic secondary failover
+    const fetchWithFailover = async (primaryUrl: string, failoverUrl: string, timeoutMs: number = 3000): Promise<any> => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(primaryUrl, { signal: controller.signal });
+        clearTimeout(timer);
+        if (res.ok) return await res.json();
+        throw new Error('Primary feed error');
+      } catch (e) {
+        clearTimeout(timer);
+        // Failover fallback triggered seamlessly
+        try {
+          const fRes = await fetch(failoverUrl);
+          if (fRes.ok) return await fRes.json();
+        } catch {
+          // secondary error
+        }
+        return null;
+      }
+    };
+
+    const loadNewsMilestones = async () => {
+      try {
+        const [calData, newsRes] = await Promise.all([
+          fetchWithFailover('/api/economic-calendar', '/api/economic-calendar/failover', 3000),
+          fetch('/api/news').then(r => r.ok ? r.json() : null).catch(() => null),
+        ]);
+
+        const combined: ChartNewsEconomicEvent[] = [];
+
+        if (calData && calData.events && Array.isArray(calData.events)) {
+          calData.events.forEach((evt: any) => {
+            combined.push({
+              id: `cal-${evt.id}`,
+              event: evt.event,
+              country: evt.country,
+              currency: evt.currency,
+              flag: evt.flag || '🌐',
+              impact: evt.impact || 'MEDIUM',
+              timestamp: evt.timestamp,
+              dateFormatted: evt.dateFormatted,
+              timeFormatted: evt.timeFormatted,
+              forecast: evt.forecast,
+              previous: evt.previous,
+              actual: evt.actual,
+              unit: evt.unit,
+              volatilityRisk: evt.volatilityRisk,
+              description: evt.description,
+            });
+          });
+        }
+
+        if (newsRes && newsRes.upcomingNews && Array.isArray(newsRes.upcomingNews)) {
+          newsRes.upcomingNews.forEach((n: any) => {
+            const ts = n.scheduledAt || n.publishedAt;
+            if (ts) {
+              combined.push({
+                id: `news-${n.id}`,
+                event: n.title,
+                country: n.categories?.includes('Macro') ? 'US' : 'GLOBAL',
+                currency: n.categories?.includes('Forex') ? 'USD' : activeSymbol.slice(0, 3),
+                flag: n.categories?.includes('Macro') ? '🇺🇸' : '⚡',
+                impact: n.impact || (n.title.toLowerCase().includes('cpi') || n.title.toLowerCase().includes('fomc') ? 'HIGH' : 'MEDIUM'),
+                timestamp: ts,
+                forecast: '-',
+                previous: '-',
+                description: n.body,
+              });
+            }
+          });
+        }
+
+        if (isMounted && combined.length > 0) {
+          // Web Worker Offloading: If list exceeds 100 items, offload sort and calculation to background worker thread
+          if (combined.length > 100) {
+            try {
+              const workerResult = await calendarWorkerDispatcher.processEventsAsync(
+                combined as any,
+                Date.now(),
+                'ALL',
+                'ALL'
+              );
+              if (isMounted && workerResult && workerResult.events) {
+                setChartNewsEvents(workerResult.events as any);
+                return;
+              }
+            } catch (wErr) {
+              console.warn('Worker offloading fallback:', wErr);
+            }
+          }
+
+          // Direct assignment for regular sizes (<100)
+          setChartNewsEvents(combined);
+        }
+      } catch (err) {
+        console.error("Failed to load chart news markers:", err);
+      }
+    };
+
+    loadNewsMilestones();
+    const interval = setInterval(loadNewsMilestones, 45000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [activeSymbol]);
+
   // Drag and Drop Visual Open Position, Pending Order & Bracket State
   const [visualDragState, setVisualDragState] = useState<{
     active: boolean;
@@ -1270,6 +1400,149 @@ export default function CustomChartWidget({
     } catch {}
   }, [id, drawings]);
 
+  // Listen for AI Trade Setup Application (Tandai Level di Chart)
+  useEffect(() => {
+    const handleApplyAiTradeSetup = (e: any) => {
+      const setup = e.detail;
+      if (!setup) return;
+
+      // If symbol is different, switch symbol
+      if (setup.symbol && setup.symbol !== activeSymbol) {
+        handleSelectSymbol(setup.symbol);
+      }
+
+      if (!candles || candles.length === 0) return;
+
+      const lastCandle = candles[candles.length - 1];
+      const secondLast = candles.length > 15 ? candles[candles.length - 15] : candles[0];
+      const candleInterval = (lastCandle.time - (candles[candles.length - 2]?.time || lastCandle.time - 60000)) || 60000;
+      const t1 = lastCandle.time;
+      const t2 = lastCandle.time + candleInterval * 35; // Extend 35 bars forward
+
+      const isBuy = setup.direction === 'BUY' || String(setup.direction).toUpperCase().includes('BUY');
+      const entryPrice = Number(setup.entry) || lastCandle.close;
+      const slPrice = Number(setup.stopLoss) || (isBuy ? entryPrice * 0.988 : entryPrice * 1.012);
+      const tp1Price = Number(setup.takeProfit1) || (isBuy ? entryPrice * 1.025 : entryPrice * 0.975);
+      const tp2Price = setup.takeProfit2 ? Number(setup.takeProfit2) : null;
+
+      const formatP = (val: number) => {
+        if (!val || isNaN(val)) return '0.00';
+        return val < 1 ? val.toFixed(6) : val < 100 ? val.toFixed(4) : val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      };
+
+      const slPct = Math.abs(((slPrice - entryPrice) / (entryPrice || 1)) * 100).toFixed(2);
+      const tp1Pct = Math.abs(((tp1Price - entryPrice) / (entryPrice || 1)) * 100).toFixed(2);
+      const tp2Pct = tp2Price ? Math.abs(((tp2Price - entryPrice) / (entryPrice || 1)) * 100).toFixed(2) : null;
+      
+      const newLevelDrawings: DrawingItem[] = [];
+
+      // 1. Entry Level Ray (Crisp Cyan Line + Text Box Badge)
+      const entryRay: DrawingItem = {
+        id: `ai_entry_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        type: 'horizontal_ray',
+        points: [{ time: t1, price: entryPrice }],
+        color: '#06b6d4',
+        isComplete: true,
+        lineWidth: 2,
+        lineStyle: 'solid',
+        label: `⚡ ENTRY: $${formatP(entryPrice)} [${isBuy ? 'BUY / LONG' : 'SELL / SHORT'}]`,
+        textColor: '#38bdf8',
+        showPrices: true
+      };
+      newLevelDrawings.push(entryRay);
+
+      // 2. Take Profit 1 Ray (Emerald Line + Text Box Badge)
+      const tp1Ray: DrawingItem = {
+        id: `ai_tp1_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        type: 'horizontal_ray',
+        points: [{ time: t1, price: tp1Price }],
+        color: '#10b981',
+        isComplete: true,
+        lineWidth: 2,
+        lineStyle: 'dashed',
+        label: `🎯 TP1: $${formatP(tp1Price)} (+${tp1Pct}%)`,
+        textColor: '#34d399',
+        showPrices: true
+      };
+      newLevelDrawings.push(tp1Ray);
+
+      // 3. Take Profit 2 Ray (Teal Line + Text Box Badge if provided)
+      if (tp2Price) {
+        const tp2Ray: DrawingItem = {
+          id: `ai_tp2_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          type: 'horizontal_ray',
+          points: [{ time: t1, price: tp2Price }],
+          color: '#059669',
+          isComplete: true,
+          lineWidth: 1.5,
+          lineStyle: 'dotted',
+          label: `🚀 TP2: $${formatP(tp2Price)} (+${tp2Pct}%)`,
+          textColor: '#6ee7b7',
+          showPrices: true
+        };
+        newLevelDrawings.push(tp2Ray);
+      }
+
+      // 4. Stop Loss Ray (Rose Line + Text Box Badge)
+      const slRay: DrawingItem = {
+        id: `ai_sl_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        type: 'horizontal_ray',
+        points: [{ time: t1, price: slPrice }],
+        color: '#f43f5e',
+        isComplete: true,
+        lineWidth: 2,
+        lineStyle: 'dashed',
+        label: `🛑 STOP LOSS: $${formatP(slPrice)} (-${slPct}%) [R:R 1:${setup.riskReward || '2.5'}]`,
+        textColor: '#fb7185',
+        showPrices: true
+      };
+      newLevelDrawings.push(slRay);
+
+      // 5. Key Level / Order Block Zone Box (Clean Header Text Box)
+      const fvgTop = setup.fvgZone?.top || (isBuy ? entryPrice * 1.005 : entryPrice * 0.995);
+      const fvgBottom = setup.fvgZone?.bottom || (isBuy ? entryPrice * 0.995 : entryPrice * 1.005);
+      const fvgBox: DrawingItem = {
+        id: `ai_zone_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        type: 'rectangle',
+        points: [
+          { time: secondLast.time, price: Math.max(fvgTop, fvgBottom) },
+          { time: t2, price: Math.min(fvgTop, fvgBottom) }
+        ],
+        color: isBuy ? '#06b6d4' : '#a855f7',
+        fillColor: isBuy ? '#06b6d418' : '#a855f718',
+        fillOpacity: 0.12,
+        isComplete: true,
+        lineWidth: 1.5,
+        label: `📦 ${setup.keyLevelName || (isBuy ? 'Demand / Bullish OB Zone' : 'Supply / Bearish Zone')}`,
+        textColor: isBuy ? '#38bdf8' : '#c084fc',
+        showPrices: true
+      };
+      newLevelDrawings.push(fvgBox);
+
+      // 6. Summary Callout Badge (Neat Annotation Text Box)
+      const summaryCallout: DrawingItem = {
+        id: `ai_summary_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        type: 'callout',
+        points: [{ time: t1, price: entryPrice }],
+        color: isBuy ? '#10b981' : '#f43f5e',
+        isComplete: true,
+        lineWidth: 1.5,
+        label: `⚡ AI ${setup.direction || (isBuy ? 'BUY' : 'SELL')} SETUP | R:R 1:${setup.riskReward || '2.5'} | Risk: ${slPct}% | Target: +${tp1Pct}%`,
+        textColor: '#ffffff'
+      };
+      newLevelDrawings.push(summaryCallout);
+
+      setDrawings(prev => [...prev, ...newLevelDrawings]);
+
+      try {
+        tradingAudio.play(isBuy ? 'BUY' : 'SELL');
+      } catch (e) {}
+    };
+
+    window.addEventListener('mountalgo:apply-ai-trade-setup', handleApplyAiTradeSetup);
+    return () => window.removeEventListener('mountalgo:apply-ai-trade-setup', handleApplyAiTradeSetup);
+  }, [activeSymbol, candles, currentPalette, handleSelectSymbol]);
+
   useEffect(() => {
     let isMounted = true;
     loadChartStateFromIDB(id).then((savedState) => {
@@ -1437,12 +1710,15 @@ export default function CustomChartWidget({
       setDrawings((prev) => [...prev, newDrawing]);
       setSelectedDrawingId(newDrawing.id);
     } else {
+      const formattedP = targetPrice < 1 ? targetPrice.toFixed(6) : targetPrice < 100 ? targetPrice.toFixed(4) : targetPrice.toFixed(2);
       const newDrawing: DrawingItem = {
         id: Date.now().toString(),
         type: type as any,
         points: [{ price: targetPrice, time: nowTime }],
         color: currentPalette.poc,
         isComplete: true,
+        label: `📌 Level: $${formattedP}`,
+        showPrices: true
       };
       setDrawings((prev) => [...prev, newDrawing]);
       setSelectedDrawingId(newDrawing.id);
@@ -2189,8 +2465,8 @@ export default function CustomChartWidget({
 
     const startFallbackLiveTicks = () => {
       if (fallbackInterval) return;
-      // Real-Time Market Feed Polling Fallback (for Forex, Commodities & WS fallback)
-      // Ensures prices ALWAYS match real exchange data and NEVER jump around synthetically
+      // High-frequency polling fallback for Forex, Commodities, or WebSocket interruption
+      // 750ms interval ensures zero perceptible latency during high volatility news events
       fallbackInterval = setInterval(async () => {
         if (!isMounted) return;
         try {
@@ -2207,7 +2483,7 @@ export default function CustomChartWidget({
             }
           }
         } catch {}
-      }, 2000);
+      }, 750);
     };
 
     let pendingCandle: Candle | null = null;
@@ -2284,20 +2560,59 @@ export default function CustomChartWidget({
         if (['1T', '10T', '50T', '100T', 'tick'].includes(timeframe)) {
           wsInterval = '1s' as any;
         }
-        ws = new WebSocket(`wss://stream.binance.com:9443/ws/${querySymbol}@kline_${wsInterval}`);
+
+        // Subscribing to Binance Combined Stream (aggTrade for 0-latency live order-book execution + kline for candles)
+        const wsUrl = `wss://stream.binance.com:9443/stream?streams=${querySymbol}@aggTrade/${querySymbol}@kline_${wsInterval}`;
+        ws = new WebSocket(wsUrl);
 
         ws.onmessage = (event) => {
           if (!isMounted) return;
           try {
-            const message = JSON.parse(event.data);
-            const k = message.k;
+            const raw = JSON.parse(event.data);
+            const payload = raw.data || raw;
+
+            // 1. Instant Real-Time Trade Tick (0 latency execution during volatility)
+            if (payload.e === 'aggTrade' || raw.stream?.endsWith('@aggTrade')) {
+              const tradePrice = parseFloat(payload.p);
+              const tradeVol = parseFloat(payload.q);
+              const isBuyerMaker = !!payload.m;
+
+              if (tradePrice > 0) {
+                tickRingBufferRef.current.push(
+                  tradePrice,
+                  Math.max(0.01, tradeVol),
+                  payload.T || Date.now(),
+                  isBuyerMaker
+                );
+
+                setCurrentPrice(tradePrice);
+
+                // Instantly update active candle high, low, close in memory
+                setRawCandles((prev) => {
+                  if (prev.length === 0) return prev;
+                  const last = prev[prev.length - 1];
+                  if (tradePrice === last.close && tradePrice <= last.high && tradePrice >= last.low) return prev;
+                  const updated: Candle = {
+                    ...last,
+                    high: Math.max(last.high, tradePrice),
+                    low: Math.min(last.low, tradePrice),
+                    close: tradePrice,
+                    volume: last.volume + (tradeVol > 0 ? tradeVol : 0.001),
+                  };
+                  return [...prev.slice(0, -1), updated];
+                });
+              }
+              return;
+            }
+
+            // 2. Official Candle Confirmation (Kline stream)
+            const k = payload.k || (payload.e === 'kline' ? payload.k : null);
             if (!k) return;
 
             const cPrice = parseFloat(k.c);
             const cVol = parseFloat(k.v);
             const isBuyerMaker = parseFloat(k.c) < parseFloat(k.o);
 
-            // Queue into high-frequency ring buffer for zero-GC processing
             tickRingBufferRef.current.push(
               cPrice,
               Math.max(0.1, cVol),
@@ -2330,7 +2645,7 @@ export default function CustomChartWidget({
         };
 
         ws.onclose = () => {
-          if (isMounted) setTimeout(connectWS, 4000);
+          if (isMounted) setTimeout(connectWS, 1200);
         };
       } catch {
         startFallbackLiveTicks();
@@ -7135,6 +7450,152 @@ export default function CustomChartWidget({
         }
       }
 
+      // --- DRAW REAL-TIME NEWS & ECONOMIC EVENT ICONS/MARKERS DIRECTLY AT EVENT CANDLE BARS ---
+      newsMarkersHitBoxesRef.current = [];
+      if (chartNewsEvents && chartNewsEvents.length > 0) {
+        const nowMs = Date.now();
+        const hasCandles = candles && candles.length > 0;
+        const lastCandleX = hasCandles ? utils.getX(candles.length - 1) : utils.chartWidth;
+        const candleSlot = (hasCandles && candles.length > 1) 
+          ? Math.abs(utils.getX(candles.length - 1) - utils.getX(candles.length - 2)) 
+          : 14;
+        const isMicroTimeframe = ['tick', '1T', '10T', '50T', '100T', '1s', '1m', '3m', '5m'].includes(timeframe);
+        // Render Optimization: Cap future projection lines to maximum 15 bars to the right for micro-timeframe focus
+        const maxFutureBars = isMicroTimeframe ? 15 : 30;
+        const maxFutureX = lastCandleX + (maxFutureBars * candleSlot);
+
+        chartNewsEvents.forEach((evt) => {
+          const evtX = utils.getXFromTime(evt.timestamp);
+          // Only draw if visible within chart horizontal viewport
+          if (!isFinite(evtX) || evtX < -60 || evtX > utils.chartWidth + 60) return;
+
+          // Capped forward projection: skip drawing if event bar is more than 15 bars into empty future canvas
+          if (evtX > maxFutureX) return;
+
+          const isHighImpact = evt.impact === 'HIGH';
+          const isHovered = hoveredNewsEventId === evt.id;
+          const diffMs = evt.timestamp - nowMs;
+          const isPast = diffMs <= 0;
+
+          // Impact-based color palette
+          const baseColor = isHighImpact ? '#f43f5e' : evt.impact === 'MEDIUM' ? '#f59e0b' : '#06b6d4';
+          const glowColor = isHighImpact ? 'rgba(244, 63, 94, 0.4)' : 'rgba(245, 158, 11, 0.35)';
+
+          ctx.save();
+
+          // 1. Vertical Event Laser Guideline through chart bar
+          ctx.setLineDash([4, 4]);
+          ctx.strokeStyle = isHovered ? baseColor : `${baseColor}66`;
+          ctx.lineWidth = isHovered ? 2 : 1;
+          ctx.beginPath();
+          ctx.moveTo(evtX, 10);
+          ctx.lineTo(evtX, utils.chartHeight - 4);
+          ctx.stroke();
+          ctx.setLineDash([]); // Reset line dash
+
+          // 2. Interactive Badge / Icon Pin at the bottom of the chart
+          const badgeWidth = isHovered ? 78 : 70;
+          const badgeHeight = 24;
+          const badgeY = Math.max(10, utils.chartHeight - badgeHeight - 6);
+          const badgeX = evtX - badgeWidth / 2;
+
+          // Register Hit Box for mouse click & hover interactions
+          newsMarkersHitBoxesRef.current.push({
+            id: evt.id,
+            x1: badgeX - 4,
+            y1: badgeY - 4,
+            x2: badgeX + badgeWidth + 4,
+            y2: badgeY + badgeHeight + 4,
+            event: evt,
+          });
+
+          // Glow effects for high impact or hovered events
+          if (isHovered || (isHighImpact && !isPast)) {
+            ctx.shadowBlur = isHovered ? 16 : 8;
+            ctx.shadowColor = glowColor;
+          }
+
+          // Badge Background Container
+          ctx.fillStyle = isHovered ? '#0b0f19' : 'rgba(10, 15, 29, 0.94)';
+          ctx.strokeStyle = baseColor;
+          ctx.lineWidth = isHovered ? 2 : 1.2;
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 6);
+          } else {
+            ctx.rect(badgeX, badgeY, badgeWidth, badgeHeight);
+          }
+          ctx.fill();
+          ctx.stroke();
+
+          // Flag / Icon and Currency Tag
+          ctx.shadowBlur = 0;
+          ctx.font = '11px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(evt.flag || '⚡', badgeX + 4, badgeY + badgeHeight / 2);
+
+          ctx.font = 'bold 9px monospace';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(evt.currency, badgeX + 22, badgeY + badgeHeight / 2 - 4);
+
+          // Subtext: Live countdown or "RILIS"
+          ctx.font = '8px monospace';
+          if (isPast) {
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText('RILIS', badgeX + 22, badgeY + badgeHeight / 2 + 5);
+          } else {
+            const mins = Math.floor(diffMs / 60000);
+            const hours = Math.floor(mins / 60);
+            const timeTag = hours > 0 ? `${hours}h ${mins % 60}m` : `${Math.max(1, mins)}m`;
+            ctx.fillStyle = isHighImpact ? '#fda4af' : '#fde68a';
+            ctx.fillText(`⏱ ${timeTag}`, badgeX + 22, badgeY + badgeHeight / 2 + 5);
+          }
+
+          // Pin marker pointer arrow pointing to the exact candle bar
+          ctx.fillStyle = baseColor;
+          ctx.beginPath();
+          ctx.moveTo(evtX - 4, badgeY);
+          ctx.lineTo(evtX + 4, badgeY);
+          ctx.lineTo(evtX, badgeY - 5);
+          ctx.closePath();
+          ctx.fill();
+
+          // 3. Hover Floating Tooltip Preview
+          if (isHovered) {
+            const tipWidth = 176;
+            const tipHeight = 44;
+            const tipX = Math.max(8, Math.min(utils.chartWidth - tipWidth - 8, evtX - tipWidth / 2));
+            const tipY = Math.max(8, badgeY - tipHeight - 8);
+
+            ctx.fillStyle = 'rgba(8, 12, 24, 0.96)';
+            ctx.strokeStyle = baseColor;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            if (typeof ctx.roundRect === 'function') {
+              ctx.roundRect(tipX, tipY, tipWidth, tipHeight, 6);
+            } else {
+              ctx.rect(tipX, tipY, tipWidth, tipHeight);
+            }
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 9.5px sans-serif';
+            ctx.textAlign = 'left';
+            const title = evt.event.length > 22 ? evt.event.substring(0, 22) + '...' : evt.event;
+            ctx.fillText(`${evt.flag} ${title}`, tipX + 8, tipY + 15);
+
+            ctx.font = '8.5px monospace';
+            ctx.fillStyle = '#38bdf8';
+            const fcastStr = evt.forecast && evt.forecast !== '-' ? `Forecast: ${evt.forecast}` : 'News Catalyst';
+            ctx.fillText(`${fcastStr} • Klik untuk detail & mundur`, tipX + 8, tipY + 30);
+          }
+
+          ctx.restore();
+        });
+      }
+
       // --- DRAW PENDING ORDERS VISUAL LINES & LABELS (Limit, Stop, Stop-Limit, OCO) ---
       if (pendingOrders && pendingOrders.length > 0) {
         const stacks = calculateLabelStacks(utils, visualDragState);
@@ -7938,6 +8399,19 @@ export default function CustomChartWidget({
     const pt = getCanvasPriceAndTime(e.clientX, e.clientY);
     if (!pt) return;
 
+    // 0. Check if clicked directly on a News / Economic Event Marker Pin on the Chart
+    if (newsMarkersHitBoxesRef.current && newsMarkersHitBoxesRef.current.length > 0) {
+      const hitNews = newsMarkersHitBoxesRef.current.find(
+        (hb) => mouseX >= hb.x1 && mouseX <= hb.x2 && mouseY >= hb.y1 && mouseY <= hb.y2
+      );
+      if (hitNews) {
+        if (aiLongPressTimerRef.current) clearTimeout(aiLongPressTimerRef.current);
+        setSelectedNewsEventModal(hitNews.event);
+        tradingAudio.play('PRESET');
+        return;
+      }
+    }
+
     // 1. Check if clicked on active position elements, action buttons, or TP/SL drag handles
     // HIGH PRIORITY: This MUST come before axis dragging to allow dragging SL/TP tags on the scale
     if (activeTool === 'cursor' && positions && positions.length > 0) {
@@ -8489,6 +8963,23 @@ export default function CustomChartWidget({
             setHoveredDrawingId(null);
             setHoveredPart(null);
           }
+        }
+
+        // Check hovered news & economic event markers on chart
+        let hoveredNewsId: string | null = null;
+        if (!isDragging && newsMarkersHitBoxesRef.current && newsMarkersHitBoxesRef.current.length > 0) {
+          const hit = newsMarkersHitBoxesRef.current.find(
+            (hb) => mouseX >= hb.x1 && mouseX <= hb.x2 && mouseY >= hb.y1 && mouseY <= hb.y2
+          );
+          if (hit) {
+            hoveredNewsId = hit.id;
+            if (canvasRef.current) canvasRef.current.style.cursor = 'pointer';
+          }
+        }
+        if (hoveredNewsId !== hoveredNewsEventIdRef.current) {
+          hoveredNewsEventIdRef.current = hoveredNewsId;
+          setHoveredNewsEventId(hoveredNewsId);
+          requestRender();
         }
 
         const isDraggingDrawing = !!dragDrawingStateRef.current;
@@ -12146,6 +12637,43 @@ export default function CustomChartWidget({
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-[var(--color-panel)]/95 border border-amber-500/50 text-amber-300 px-4 py-2 rounded-full shadow-2xl backdrop-blur-md text-xs font-semibold animate-fadeIn select-none pointer-events-none">
           <span>{sltpToast.message}</span>
         </div>
+      )}
+
+      {/* 13. Flashing Beacon HUD for Imminent High Impact News Events */}
+      <ChartNewsBeaconHUD
+        events={chartNewsEvents}
+        activeSymbol={activeSymbol}
+        onSelectEvent={(evt) => setSelectedNewsEventModal(evt)}
+        onOpenAiAgent={(prompt) => {
+          window.dispatchEvent(new CustomEvent('mountalgo:open-ai-agent', { detail: { prompt } }));
+        }}
+      />
+
+      {/* 14. News Volatility Guard (Spread Risk Warning & One-Click Pause Scalping) */}
+      <NewsVolatilityGuard
+        events={chartNewsEvents}
+        activeSymbol={activeSymbol}
+        className="absolute top-12 left-4 right-4 z-40 max-w-4xl mx-auto"
+        onOpenAiAgent={(prompt) => {
+          window.dispatchEvent(new CustomEvent('mountalgo:open-ai-agent', { detail: { prompt } }));
+        }}
+      />
+
+      {/* 15. Interactive Chart News & Economic Milestone Modal with Real-Time Countdown */}
+      {selectedNewsEventModal && (
+        <ChartNewsEventModal
+          event={selectedNewsEventModal}
+          onClose={() => setSelectedNewsEventModal(null)}
+          onOpenFullCalendar={() => {
+            setSelectedNewsEventModal(null);
+            window.dispatchEvent(new CustomEvent('mountalgo:open-news-modal'));
+          }}
+          onOpenAiAgent={(prompt) => {
+            setSelectedNewsEventModal(null);
+            window.dispatchEvent(new CustomEvent('mountalgo:open-ai-agent', { detail: { prompt } }));
+          }}
+          activeSymbol={activeSymbol}
+        />
       )}
     </div>
   );

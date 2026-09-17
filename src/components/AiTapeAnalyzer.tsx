@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Brain, Zap, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { loadAiAgentSettings, AI_PROVIDERS_METADATA } from '../types/aiSettings';
 
 interface AiTapeAnalyzerProps {
   tapeData: any[];
@@ -12,19 +13,36 @@ export function AiTapeAnalyzer({ tapeData, symbol, timeframe }: AiTapeAnalyzerPr
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastAnalyzedAt, setLastAnalyzedAt] = useState<number>(0);
+  const [modelLabel, setModelLabel] = useState<string>('GEMINI-3.8-FLASH');
+  const [latency, setLatency] = useState<number | null>(null);
 
   const analyzeTape = useCallback(async () => {
     if (tapeData.length < 10 || isAnalyzing) return;
 
     setIsAnalyzing(true);
+    const start = Date.now();
     try {
+      const aiSettings = loadAiAgentSettings();
+      const activeProv = aiSettings.activeProvider || 'gemini';
+      const provConfig = aiSettings.providers[activeProv];
+      const userAiConfig = {
+        provider: activeProv,
+        apiKey: provConfig?.apiKey || '',
+        model: provConfig?.model,
+        baseUrl: provConfig?.baseUrl,
+        temperature: aiSettings.temperature,
+        maxTokens: aiSettings.maxTokens
+      };
+
       const response = await fetch('/api/ai/analyze-tape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tapeData, symbol, timeframe }),
+        body: JSON.stringify({ tapeData, symbol, timeframe, userAiConfig }),
       });
       const data = await response.json();
       setAnalysis(data.analysis);
+      setModelLabel(data.model ? `${data.provider || activeProv.toUpperCase()} - ${data.model.toUpperCase()}` : 'AI TAPE ENGINE');
+      setLatency(data.latencyMs || (Date.now() - start));
       setLastAnalyzedAt(Date.now());
     } catch (error) {
       console.error('Tape Analysis Error:', error);
@@ -50,7 +68,7 @@ export function AiTapeAnalyzer({ tapeData, symbol, timeframe }: AiTapeAnalyzerPr
           <div className="p-1 bg-emerald-500/20 rounded">
             <Brain className="w-4 h-4 text-emerald-400" />
           </div>
-          <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase">Gemini AI Tape Intelligence</span>
+          <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase">Multi-Provider AI Tape Intelligence</span>
         </div>
         <button 
           onClick={analyzeTape}
@@ -85,9 +103,9 @@ export function AiTapeAnalyzer({ tapeData, symbol, timeframe }: AiTapeAnalyzerPr
         </AnimatePresence>
       </div>
       
-      <div className="mt-2 flex items-center justify-between text-[9px] text-zinc-600 font-mono">
-        <span>MODEL: GEMINI-3.7-FLASH</span>
-        <span>LATENCY: ~800MS</span>
+      <div className="mt-2 flex items-center justify-between text-[9px] text-zinc-500 font-mono">
+        <span>MODEL: {modelLabel}</span>
+        <span>LATENCY: {latency ? `~${latency}MS` : '~800MS'}</span>
       </div>
     </div>
   );

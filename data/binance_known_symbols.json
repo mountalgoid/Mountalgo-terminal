@@ -9359,5 +9359,38 @@
     "precision": 8,
     "firstSeenAt": 1757780589893,
     "isNewListing": false
+  },
+  {
+    "symbol": "BNCBUSDT",
+    "base": "BNCB",
+    "quote": "USDT",
+    "displayName": "BNCB/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 8,
+    "firstSeenAt": 1758091667277,
+    "isNewListing": false
+  },
+  {
+    "symbol": "GPROBUSDT",
+    "base": "GPROB",
+    "quote": "USDT",
+    "displayName": "GPROB/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 8,
+    "firstSeenAt": 1758091667277,
+    "isNewListing": false
+  },
+  {
+    "symbol": "RDDTBUSDT",
+    "base": "RDDTB",
+    "quote": "USDT",
+    "displayName": "RDDTB/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 8,
+    "firstSeenAt": 1758091667277,
+    "isNewListing": false
   }
 ]

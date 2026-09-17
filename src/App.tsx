@@ -273,6 +273,23 @@ export default function App() {
 
   useEffect(() => {
     hasMountedRef.current = true;
+
+    // Listen to global open news and open AI agent events dispatched from chart markers
+    const handleOpenNews = () => setIsNewsModalOpen(true);
+    const handleOpenAi = (e: any) => {
+      if (e.detail?.prompt) {
+        setAiAgentInitialPrompt(e.detail.prompt);
+      }
+      setIsAiAgentModalOpen(true);
+    };
+
+    window.addEventListener('mountalgo:open-news-modal', handleOpenNews);
+    window.addEventListener('mountalgo:open-ai-agent', handleOpenAi);
+
+    return () => {
+      window.removeEventListener('mountalgo:open-news-modal', handleOpenNews);
+      window.removeEventListener('mountalgo:open-ai-agent', handleOpenAi);
+    };
   }, []);
 
   // Toast adder helper with duplicate prevention
@@ -708,7 +725,7 @@ export default function App() {
       )}
 
       {/* Main Responsive Layout Workspace */}
-      <main className="flex-1 w-full h-full min-h-0 relative overflow-hidden">
+      <main className="flex-1 w-full h-full min-h-0 relative overflow-hidden flex flex-col md:flex-row gap-2">
         <ResizableLayout
           widgetOrder={widgetOrder}
           renderWidget={renderWidget}

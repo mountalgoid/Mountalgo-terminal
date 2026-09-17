@@ -816,7 +816,7 @@
     "displayName": "SOCK/USDT",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -962,7 +962,7 @@
     "precision": 4,
     "firstSeenAt": 1757780589860,
     "isNewListing": false,
-    "maxLeverage": 20
+    "maxLeverage": 50
   },
   {
     "symbol": "GGUSDT",
@@ -1536,7 +1536,7 @@
     "displayName": "CTO/USDT",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -1726,7 +1726,7 @@
     "displayName": "EYE/USDT",
     "type": "spot",
     "active": true,
-    "precision": 7,
+    "precision": 8,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -2214,7 +2214,7 @@
     "displayName": "FATCOIN/USDT",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -2985,7 +2985,7 @@
     "precision": 2,
     "firstSeenAt": 1757780589860,
     "isNewListing": false,
-    "maxLeverage": 50
+    "maxLeverage": 100
   },
   {
     "symbol": "GMTUSDT",
@@ -3718,7 +3718,7 @@
     "displayName": "SAYLORMOON/USDT",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -7383,7 +7383,7 @@
     "precision": 2,
     "firstSeenAt": 1757780589860,
     "isNewListing": false,
-    "maxLeverage": 50
+    "maxLeverage": 100
   },
   {
     "symbol": "GGLLUSDT",
@@ -8552,7 +8552,7 @@
     "displayName": "CSOPSKHYNIX2L/USDT Perp",
     "type": "futures",
     "active": true,
-    "precision": 3,
+    "precision": 4,
     "firstSeenAt": 1757780589860,
     "isNewListing": false,
     "maxLeverage": 10
@@ -11912,7 +11912,7 @@
     "displayName": "DJTSTOCK/USDT Perp",
     "type": "futures",
     "active": true,
-    "precision": 2,
+    "precision": 3,
     "firstSeenAt": 1757780589860,
     "isNewListing": false,
     "maxLeverage": 20
@@ -12820,12 +12820,13 @@
     "symbol": "PEPEUSD1",
     "base": "PEPE",
     "quote": "USD1",
-    "displayName": "PEPE/USD1",
-    "type": "spot",
+    "displayName": "PEPE/USD1 Perp",
+    "type": "futures",
     "active": true,
-    "precision": 9,
+    "precision": 8,
     "firstSeenAt": 1757780589860,
-    "isNewListing": false
+    "isNewListing": false,
+    "maxLeverage": 50
   },
   {
     "symbol": "SILVERUSD1",
@@ -13077,12 +13078,13 @@
     "symbol": "SAHARAUSDC",
     "base": "SAHARA",
     "quote": "USDC",
-    "displayName": "SAHARA/USDC",
-    "type": "spot",
+    "displayName": "SAHARA/USDC Perp",
+    "type": "futures",
     "active": true,
-    "precision": 6,
+    "precision": 5,
     "firstSeenAt": 1757780589860,
-    "isNewListing": false
+    "isNewListing": false,
+    "maxLeverage": 50
   },
   {
     "symbol": "BIOUSDC",
@@ -13110,12 +13112,13 @@
     "symbol": "ASTERUSD1",
     "base": "ASTER",
     "quote": "USD1",
-    "displayName": "ASTER/USD1",
-    "type": "spot",
+    "displayName": "ASTER/USD1 Perp",
+    "type": "futures",
     "active": true,
-    "precision": 4,
+    "precision": 3,
     "firstSeenAt": 1757780589860,
-    "isNewListing": false
+    "isNewListing": false,
+    "maxLeverage": 50
   },
   {
     "symbol": "LINKUSD1",
@@ -15932,7 +15935,7 @@
     "displayName": "AGISOL/USD1",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -16977,7 +16980,7 @@
     "displayName": "EYE/USD1",
     "type": "spot",
     "active": true,
-    "precision": 7,
+    "precision": 8,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -17593,7 +17596,7 @@
     "displayName": "BULL/USDT",
     "type": "spot",
     "active": true,
-    "precision": 7,
+    "precision": 8,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -17604,7 +17607,7 @@
     "displayName": "BEN/USDT",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -17626,7 +17629,7 @@
     "displayName": "BULL/USD1",
     "type": "spot",
     "active": true,
-    "precision": 7,
+    "precision": 8,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -19617,7 +19620,7 @@
     "displayName": "SAYLORMOON/USD1",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -19870,7 +19873,7 @@
     "displayName": "CTO/USD1",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -20849,7 +20852,7 @@
     "displayName": "FATCOIN/USD1",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -21476,7 +21479,7 @@
     "displayName": "NATG/USDT",
     "type": "spot",
     "active": true,
-    "precision": 2,
+    "precision": 3,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -22686,7 +22689,7 @@
     "displayName": "BEN/USD1",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -22763,7 +22766,7 @@
     "displayName": "BASELINE/USD1",
     "type": "spot",
     "active": true,
-    "precision": 7,
+    "precision": 8,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -22829,7 +22832,7 @@
     "displayName": "SOCK/USD1",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 8,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -23049,7 +23052,7 @@
     "displayName": "BASELINE/USDT",
     "type": "spot",
     "active": true,
-    "precision": 7,
+    "precision": 8,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -23423,7 +23426,7 @@
     "displayName": "PBALL/USDT",
     "type": "spot",
     "active": true,
-    "precision": 4,
+    "precision": 6,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -24281,7 +24284,7 @@
     "displayName": "STONKS/USD1",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -24479,7 +24482,7 @@
     "displayName": "STRATTON/USD1",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -25656,7 +25659,7 @@
     "displayName": "STONKS/USDT",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -25667,7 +25670,7 @@
     "displayName": "STRATTON/USDT",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -26514,7 +26517,7 @@
     "displayName": "AGISOL/USDT",
     "type": "spot",
     "active": true,
-    "precision": 6,
+    "precision": 7,
     "firstSeenAt": 1757780589860,
     "isNewListing": false
   },
@@ -28243,6 +28246,387 @@
     "active": true,
     "precision": 4,
     "firstSeenAt": 1757780589860,
+    "isNewListing": false
+  },
+  {
+    "symbol": "MUSEBOOKUSDT",
+    "base": "MUSEBOOK",
+    "quote": "USDT",
+    "displayName": "MUSEBOOK/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 8,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "PAIDUSDT",
+    "base": "PAID",
+    "quote": "USDT",
+    "displayName": "PAID/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 5,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "ARGUSUSDT",
+    "base": "ARGUS",
+    "quote": "USDT",
+    "displayName": "ARGUS/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 5,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "ALLINUUSDT",
+    "base": "ALLINU",
+    "quote": "USDT",
+    "displayName": "ALLINU/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 5,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "STANDARDUSDT",
+    "base": "STANDARD",
+    "quote": "USDT",
+    "displayName": "STANDARD/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 4,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "COOLUSDT",
+    "base": "COOL",
+    "quote": "USDT",
+    "displayName": "COOL/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 6,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "LONGUSDT",
+    "base": "LONG",
+    "quote": "USDT",
+    "displayName": "LONG/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 6,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "GUOYINGUSDT",
+    "base": "GUOYING",
+    "quote": "USDT",
+    "displayName": "GUOYING/USDT Perp",
+    "type": "futures",
+    "active": true,
+    "precision": 6,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false,
+    "maxLeverage": 20
+  },
+  {
+    "symbol": "TOLLYUSDT",
+    "base": "TOLLY",
+    "quote": "USDT",
+    "displayName": "TOLLY/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 6,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "TREADUSDT",
+    "base": "TREAD",
+    "quote": "USDT",
+    "displayName": "TREAD/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 4,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "SWKSSTOCKUSDT",
+    "base": "SWKSSTOCK",
+    "quote": "USDT",
+    "displayName": "SWKSSTOCK/USDT Perp",
+    "type": "futures",
+    "active": true,
+    "precision": 2,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false,
+    "maxLeverage": 20
+  },
+  {
+    "symbol": "ILMNSTOCKUSDT",
+    "base": "ILMNSTOCK",
+    "quote": "USDT",
+    "displayName": "ILMNSTOCK/USDT Perp",
+    "type": "futures",
+    "active": true,
+    "precision": 2,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false,
+    "maxLeverage": 20
+  },
+  {
+    "symbol": "CLSSTOCKUSDT",
+    "base": "CLSSTOCK",
+    "quote": "USDT",
+    "displayName": "CLSSTOCK/USDT Perp",
+    "type": "futures",
+    "active": true,
+    "precision": 2,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false,
+    "maxLeverage": 20
+  },
+  {
+    "symbol": "USTOCKUSDT",
+    "base": "USTOCK",
+    "quote": "USDT",
+    "displayName": "USTOCK/USDT Perp",
+    "type": "futures",
+    "active": true,
+    "precision": 2,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false,
+    "maxLeverage": 20
+  },
+  {
+    "symbol": "PWRSTOCKUSDT",
+    "base": "PWRSTOCK",
+    "quote": "USDT",
+    "displayName": "PWRSTOCK/USDT Perp",
+    "type": "futures",
+    "active": true,
+    "precision": 2,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false,
+    "maxLeverage": 20
+  },
+  {
+    "symbol": "ADISTOCKUSDT",
+    "base": "ADISTOCK",
+    "quote": "USDT",
+    "displayName": "ADISTOCK/USDT Perp",
+    "type": "futures",
+    "active": true,
+    "precision": 2,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false,
+    "maxLeverage": 20
+  },
+  {
+    "symbol": "USDUSDC",
+    "base": "USD",
+    "quote": "USDC",
+    "displayName": "USD/USDC",
+    "type": "spot",
+    "active": true,
+    "precision": 4,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "BEMUSD1",
+    "base": "BEM",
+    "quote": "USD1",
+    "displayName": "BEM/USD1",
+    "type": "spot",
+    "active": true,
+    "precision": 2,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "BEMUSDT",
+    "base": "BEM",
+    "quote": "USDT",
+    "displayName": "BEM/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 2,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "STANDARDUSD1",
+    "base": "STANDARD",
+    "quote": "USD1",
+    "displayName": "STANDARD/USD1",
+    "type": "spot",
+    "active": true,
+    "precision": 4,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "COOLUSD1",
+    "base": "COOL",
+    "quote": "USD1",
+    "displayName": "COOL/USD1",
+    "type": "spot",
+    "active": true,
+    "precision": 6,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "MAXUSD1",
+    "base": "MAX",
+    "quote": "USD1",
+    "displayName": "MAX/USD1",
+    "type": "spot",
+    "active": true,
+    "precision": 6,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "PAIDUSD1",
+    "base": "PAID",
+    "quote": "USD1",
+    "displayName": "PAID/USD1",
+    "type": "spot",
+    "active": true,
+    "precision": 5,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "LONGUSD1",
+    "base": "LONG",
+    "quote": "USD1",
+    "displayName": "LONG/USD1",
+    "type": "spot",
+    "active": true,
+    "precision": 6,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "EVUSDT",
+    "base": "EV",
+    "quote": "USDT",
+    "displayName": "EV/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 7,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "MUSEBOOKUSD1",
+    "base": "MUSEBOOK",
+    "quote": "USD1",
+    "displayName": "MUSEBOOK/USD1",
+    "type": "spot",
+    "active": true,
+    "precision": 8,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "USDUSDT",
+    "base": "USD",
+    "quote": "USDT",
+    "displayName": "USD/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 4,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "TOLLYUSD1",
+    "base": "TOLLY",
+    "quote": "USD1",
+    "displayName": "TOLLY/USD1",
+    "type": "spot",
+    "active": true,
+    "precision": 6,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "OKAIUSDT",
+    "base": "OKAI",
+    "quote": "USDT",
+    "displayName": "OKAI/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 8,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "ALLINUUSD1",
+    "base": "ALLINU",
+    "quote": "USD1",
+    "displayName": "ALLINU/USD1",
+    "type": "spot",
+    "active": true,
+    "precision": 5,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "MAXUSDT",
+    "base": "MAX",
+    "quote": "USDT",
+    "displayName": "MAX/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 6,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "果蝇USDT",
+    "base": "果蝇",
+    "quote": "USDT",
+    "displayName": "果蝇/USDT",
+    "type": "spot",
+    "active": true,
+    "precision": 6,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "ARGUSUSD1",
+    "base": "ARGUS",
+    "quote": "USD1",
+    "displayName": "ARGUS/USD1",
+    "type": "spot",
+    "active": true,
+    "precision": 5,
+    "firstSeenAt": 1758091667261,
+    "isNewListing": false
+  },
+  {
+    "symbol": "果蝇USD1",
+    "base": "果蝇",
+    "quote": "USD1",
+    "displayName": "果蝇/USD1",
+    "type": "spot",
+    "active": true,
+    "precision": 6,
+    "firstSeenAt": 1758091667261,
     "isNewListing": false
   }
 ]

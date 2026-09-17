@@ -95,7 +95,47 @@ export function renderDrawingItem(
         ctx.fillText(`$${p1.price?.toFixed(p1.price > 100 ? 2 : 4)}`, chartWidth + 6, y + 3.5);
       }
 
+      // High-Visibility On-Chart Text Box Label
+      const levelLabel = item.label || item.text;
+      if (levelLabel && levelLabel.trim()) {
+        ctx.save();
+        ctx.setLineDash([]);
+        ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        const labelW = ctx.measureText(levelLabel).width;
+        const boxW = labelW + 20;
+        const boxH = 22;
+        const boxX = 24;
+        const boxY = y - boxH / 2;
+
+        // Dark glass background with drop shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+        ctx.shadowBlur = 6;
+        ctx.fillStyle = '#0a0e1af2';
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, 4);
+        ctx.fill();
+
+        // Colored accent border
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        // Left accent indicator bar
+        ctx.fillStyle = strokeColor;
+        ctx.beginPath();
+        ctx.roundRect(boxX + 2, boxY + 3, 3, boxH - 6, 1.5);
+        ctx.fill();
+
+        // Crisp label text
+        ctx.fillStyle = item.textColor || '#f8fafc';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(levelLabel, boxX + 9, y);
+        ctx.restore();
+      }
+
       // Anchor point
+      ctx.setLineDash([]);
       ctx.fillStyle = '#ffffff';
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = 1.5;
@@ -129,7 +169,48 @@ export function renderDrawingItem(
         ctx.fillText(`$${p1.price?.toFixed(p1.price > 100 ? 2 : 4)}`, chartWidth + 6, y + 3.5);
       }
 
+      // High-Visibility On-Chart Text Box Label
+      const levelLabel = item.label || item.text;
+      if (levelLabel && levelLabel.trim()) {
+        ctx.save();
+        ctx.setLineDash([]);
+        ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        const labelW = ctx.measureText(levelLabel).width;
+        const boxW = labelW + 20;
+        const boxH = 22;
+        // Position starting from anchor or clamp gracefully if near right edge
+        const boxX = Math.min(chartWidth - boxW - 12, Math.max(12, x1 + 8));
+        const boxY = y - boxH / 2;
+
+        // Dark glass background with drop shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+        ctx.shadowBlur = 6;
+        ctx.fillStyle = '#0a0e1af2';
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, 4);
+        ctx.fill();
+
+        // Colored accent border
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        // Left accent indicator bar
+        ctx.fillStyle = strokeColor;
+        ctx.beginPath();
+        ctx.roundRect(boxX + 2, boxY + 3, 3, boxH - 6, 1.5);
+        ctx.fill();
+
+        // Crisp label text
+        ctx.fillStyle = item.textColor || '#f8fafc';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(levelLabel, boxX + 9, y);
+        ctx.restore();
+      }
+
       // Anchor point
+      ctx.setLineDash([]);
       ctx.fillStyle = '#ffffff';
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = 1.5;
@@ -575,32 +656,41 @@ export function renderDrawingItem(
         ctx.fillText(`Zone: $${priceDiff?.toFixed(2)} (${pctDiff?.toFixed(2)}%)`, minX + 4, minY + 12);
       }
 
-      // Custom Text inside Rectangle Box
+      // Custom Text / Header Badge on Rectangle Zone Box
       const boxText = item.text || item.label;
       if (boxText && boxText.trim()) {
         ctx.save();
-        const txtColor = item.textColor || strokeColor;
-        const fontSz = item.fontSize || 12;
+        ctx.setLineDash([]);
+        const txtColor = item.textColor || '#f8fafc';
+        const fontSz = item.fontSize || 10.5;
+        ctx.font = `bold ${fontSz}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        const textW = ctx.measureText(boxText).width;
+        const badgeW = textW + 18;
+        const badgeH = 20;
+        const badgeX = Math.min(maxX - badgeW - 4, Math.max(minX + 4, minX + 6));
+        const badgeY = minY + 4;
+
+        // Glass badge background
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = '#0a0e1af2';
+        ctx.beginPath();
+        ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+        ctx.fill();
+
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = strokeColor;
+        ctx.beginPath();
+        ctx.roundRect(badgeX + 2, badgeY + 2.5, 2.5, badgeH - 5, 1);
+        ctx.fill();
+
         ctx.fillStyle = txtColor;
-        ctx.font = `bold ${fontSz}px sans-serif`;
-        ctx.textAlign = 'center';
+        ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-
-        const lines = boxText.split('\n');
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-        const lineHeight = fontSz * 1.35;
-        const totalHeight = lines.length * lineHeight;
-        const startY = centerY - (totalHeight / 2) + (lineHeight / 2);
-
-        lines.forEach((line, i) => {
-          const ly = startY + i * lineHeight;
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-          ctx.shadowBlur = 4;
-          ctx.shadowOffsetX = 1;
-          ctx.shadowOffsetY = 1;
-          ctx.fillText(line, centerX, ly);
-        });
+        ctx.fillText(boxText, badgeX + 8, badgeY + badgeH / 2);
         ctx.restore();
       }
 

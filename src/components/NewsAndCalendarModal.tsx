@@ -17,9 +17,13 @@ import {
   Globe2, 
   ChevronRight,
   Zap,
-  Info
+  Info,
+  ShieldCheck,
+  Server
 } from 'lucide-react';
 import MountAlgoLogo from './MountAlgoLogo';
+import { calendarWorkerDispatcher } from '../workers/calendarWorkerDispatcher';
+import { tradingAudio } from '../utils/audioSynth';
 
 interface NewsItem {
   id: string;
@@ -27,11 +31,16 @@ interface NewsItem {
   url: string;
   source: string;
   publishedAt: number;
+  scheduledAt?: number;
+  countdownMs?: number;
+  countdownStr?: string;
   categories: string;
   tags: string[];
   imageUrl: string | null;
   body: string;
   sentiment: 'Bullish' | 'Bearish' | 'Neutral';
+  impact?: 'HIGH' | 'MEDIUM' | 'LOW';
+  isUpcoming?: boolean;
 }
 
 interface EconomicEvent {
@@ -47,9 +56,13 @@ interface EconomicEvent {
   countdownMs: number;
   countdownStr: string;
   isPast: boolean;
+  isJustReleased?: boolean;
   forecast: string;
   previous: string;
   actual: string | null;
+  deviation?: string | null;
+  deviationStatus?: 'BEAT' | 'MISS' | 'IN_LINE' | null;
+  marketReaction?: string | null;
   unit: string;
   volatilityRisk: 'EXTREME' | 'HIGH' | 'MODERATE' | 'LOW';
   description: string;
@@ -72,6 +85,8 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
   
   // News States
   const [news, setNews] = useState<NewsItem[]>([]);
+  const [upcomingNews, setUpcomingNews] = useState<NewsItem[]>([]);
+  const [newsFilterMode, setNewsFilterMode] = useState<'UPCOMING_ONLY' | 'ALL_FEEDS'>('UPCOMING_ONLY');
   const [isLoadingNews, setIsLoadingNews] = useState(false);
   const [newsCategory, setNewsCategory] = useState<string>('ALL');
   const [newsSearch, setNewsSearch] = useState<string>('');
@@ -83,9 +98,20 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [calendarImpact, setCalendarImpact] = useState<'ALL' | 'HIGH' | 'MEDIUM'>('ALL');
   const [calendarCurrency, setCalendarCurrency] = useState<string>('ALL');
+  const [calendarMode, setCalendarMode] = useState<'ALL' | 'UPCOMING'>('ALL');
+  const [isSimulating, setIsSimulating] = useState(false);
   const [nextHighImpact, setNextHighImpact] = useState<EconomicEvent | null>(null);
+  const [feedProvider, setFeedProvider] = useState<{
+    name: string;
+    latency: number;
+    isFailover: boolean;
+  }>({
+    name: 'Primary Institutional Feed',
+    latency: 14,
+    isFailover: false
+  });
 
-  // Auto countdown ticker
+  // Auto countdown ticker updated every second in sync with realtime clock
   const [nowTimestamp, setNowTimestamp] = useState<number>(Date.now());
 
   useEffect(() => {
@@ -106,8 +132,11 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
         const data = await res.json();
         if (data.news && Array.isArray(data.news)) {
           setNews(data.news);
-          setLastNewsUpdate(Date.now());
         }
+        if (data.upcomingNews && Array.isArray(data.upcomingNews)) {
+          setUpcomingNews(data.upcomingNews);
+        }
+        setLastNewsUpdate(Date.now());
       }
     } catch (err) {
       console.error("Fetch news error:", err);
@@ -116,24 +145,106 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
     }
   }, [newsCategory, newsSearch]);
 
-  // Fetch Economic Calendar from Backend
-  const fetchCalendar = useCallback(async () => {
+  // Fetch Economic Calendar from Backend with Sub-3s SLA Failover & Worker Offloading
+  const fetchCalendar = useCallback(async (modeOverride?: 'ALL' | 'UPCOMING') => {
     setIsLoadingEvents(true);
+    const mode = modeOverride || calendarMode;
+    const modeQuery = mode === 'UPCOMING' ? 'upcoming' : 'all';
+
+    // 3-Second Timeout AbortController for primary institutional feed
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
     try {
-      const res = await fetch('/api/economic-calendar');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.events && Array.isArray(data.events)) {
-          setEvents(data.events);
-          setNextHighImpact(data.nextHighImpact || null);
+      let data: any = null;
+      try {
+        const res = await fetch(`/api/economic-calendar?mode=${modeQuery}`, {
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          data = await res.json();
+        } else {
+          throw new Error('Primary status not ok');
         }
+      } catch (primaryErr) {
+        clearTimeout(timeoutId);
+        // Failover triggered seamlessly within 3s SLA
+        console.warn('Primary feed timeout (>3s) or error. Activating secondary failover...', primaryErr);
+        const failoverRes = await fetch(`/api/economic-calendar/failover?mode=${modeQuery}`);
+        if (failoverRes.ok) {
+          data = await failoverRes.json();
+        }
+      }
+
+      if (data && data.events && Array.isArray(data.events)) {
+        setFeedProvider({
+          name: data.provider || (data.failoverActive ? 'Secondary Failover' : 'Primary Institutional'),
+          latency: data.latencyMs || 10,
+          isFailover: !!data.failoverActive
+        });
+
+        // Web Worker Offloading: If events exceed 100, offload sort & calculations to background thread
+        if (data.events.length > 100) {
+          try {
+            const workerResult = await calendarWorkerDispatcher.processEventsAsync(
+              data.events,
+              Date.now(),
+              calendarImpact,
+              calendarCurrency
+            );
+            setEvents(workerResult.events as EconomicEvent[]);
+            setNextHighImpact((workerResult.nextHighImpact || null) as EconomicEvent | null);
+            return;
+          } catch (wErr) {
+            console.warn('Worker offloading fallback:', wErr);
+          }
+        }
+
+        setEvents(data.events);
+        setNextHighImpact(data.nextHighImpact || null);
       }
     } catch (err) {
       console.error("Fetch calendar error:", err);
     } finally {
       setIsLoadingEvents(false);
     }
-  }, []);
+  }, [calendarMode, calendarImpact, calendarCurrency]);
+
+  // Handle instant simulation release
+  const handleSimulateRelease = async () => {
+    try {
+      setIsSimulating(true);
+      tradingAudio.play('ORDER_SUBMITTED');
+      const res = await fetch('/api/economic-calendar/trigger-release', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: 'ec-cpi-mom' })
+      });
+      if (res.ok) {
+        tradingAudio.play('ALERT');
+        await fetchCalendar();
+      }
+    } catch (e) {
+      console.error('Simulate release error:', e);
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  // Auto-fetch actual print within 3-5 seconds when countdown hits 0
+  useEffect(() => {
+    const shouldRefresh = events.some(e => {
+      const diff = e.timestamp - nowTimestamp;
+      return diff <= 0 && diff >= -20000 && !e.actual;
+    });
+    if (shouldRefresh && !isLoadingEvents) {
+      const t = setTimeout(() => {
+        fetchCalendar();
+      }, 3500);
+      return () => clearTimeout(t);
+    }
+  }, [nowTimestamp, events, isLoadingEvents, fetchCalendar]);
 
   // Initial fetch when opened
   useEffect(() => {
@@ -143,33 +254,73 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
     }
   }, [isOpen, fetchNews, fetchCalendar]);
 
-  // Periodic background refresh every 45s when open
+  // Periodic background refresh every 30s when open
   useEffect(() => {
     if (!isOpen) return;
     const interval = setInterval(() => {
       fetchNews();
       fetchCalendar();
-    }, 45000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [isOpen, fetchNews, fetchCalendar]);
 
-  // Filtered News
-  const filteredNews = useMemo(() => {
-    return news.filter(item => {
-      if (newsSentiment !== 'ALL' && item.sentiment !== newsSentiment) return false;
-      return true;
-    });
-  }, [news, newsSentiment]);
+  // Format Helper: Real-time Synchronized Local Time & Date
+  const formatLocalTime = useCallback((timestamp: number) => {
+    const d = new Date(timestamp);
+    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const dateStr = d.toLocaleDateString('id-ID', { weekday: 'short', month: 'short', day: 'numeric' });
+    const tzStr = Intl.DateTimeFormat().resolvedOptions().timeZone || 'WIB';
+    return { timeStr, dateStr, tzStr };
+  }, []);
 
-  // Filtered Events
+  // Format Helper: Live Countdown string calculation
+  const getLiveCountdown = useCallback((targetTimestamp: number) => {
+    const diff = targetTimestamp - nowTimestamp;
+    if (diff <= 0) {
+      return { str: 'Sedang Rilis', isPast: true, diff: 0, hours: 0, mins: 0, secs: 0 };
+    }
+    const hours = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+    const str = `${hours.toString().padStart(2, '0')}j : ${mins.toString().padStart(2, '0')}m : ${secs.toString().padStart(2, '0')}s`;
+    return { str, isPast: false, diff, hours, mins, secs };
+  }, [nowTimestamp]);
+
+  // Filtered News: strictly upcoming news when in UPCOMING_ONLY mode
+  const displayedNewsItems = useMemo(() => {
+    const sourceList = newsFilterMode === 'UPCOMING_ONLY' ? upcomingNews : [...upcomingNews, ...news];
+
+    return sourceList.filter(item => {
+      const eventTime = item.scheduledAt || item.publishedAt;
+      // If user requested UPCOMING ONLY: strictly filter events in the future
+      if (newsFilterMode === 'UPCOMING_ONLY' && eventTime <= nowTimestamp) {
+        return false;
+      }
+      if (newsSentiment !== 'ALL' && item.sentiment !== newsSentiment) return false;
+      if (newsCategory !== 'ALL') {
+        const cat = newsCategory.toLowerCase();
+        const hasCategory = item.categories?.toLowerCase().includes(cat) || item.tags?.some(t => t.toLowerCase().includes(cat));
+        if (!hasCategory) return false;
+      }
+      return true;
+    }).sort((a, b) => {
+      // Sort upcoming by closest time first
+      const timeA = a.scheduledAt || a.publishedAt;
+      const timeB = b.scheduledAt || b.publishedAt;
+      return timeA - timeB;
+    });
+  }, [newsFilterMode, upcomingNews, news, nowTimestamp, newsSentiment, newsCategory]);
+
+  // Filtered Events: support upcoming only or upcoming + newly released prints
   const filteredEvents = useMemo(() => {
     return events.filter(evt => {
+      if (calendarMode === 'UPCOMING' && evt.timestamp <= nowTimestamp) return false;
       if (calendarImpact === 'HIGH' && evt.impact !== 'HIGH') return false;
       if (calendarImpact === 'MEDIUM' && evt.impact === 'LOW') return false;
       if (calendarCurrency !== 'ALL' && evt.currency !== calendarCurrency) return false;
       return true;
-    });
-  }, [events, calendarImpact, calendarCurrency]);
+    }).sort((a, b) => a.timestamp - b.timestamp);
+  }, [events, nowTimestamp, calendarMode, calendarImpact, calendarCurrency]);
 
   if (!isOpen) return null;
 
@@ -196,9 +347,14 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                   MOUNTALGO
                   <span className="text-cyan-400 font-extrabold text-sm sm:text-base">INTELLIGENCE</span>
                 </h2>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  LIVE DATA FEEDS
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border flex items-center gap-1.5 ${
+                  feedProvider.isFailover
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${feedProvider.isFailover ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400 animate-pulse'}`} />
+                  <span>{feedProvider.isFailover ? '⚡ FAILOVER FEED' : '🟢 PRIMARY FEED'}</span>
+                  <span className="text-zinc-400 font-normal">({feedProvider.latency}ms)</span>
                 </span>
               </div>
               <p className="text-[11px] text-zinc-400 font-medium">
@@ -295,6 +451,44 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
           {/* ========================================================================= */}
           {activeTab === 'news' && (
             <div className="space-y-4">
+              {/* Primary Feed Selector (Upcoming vs All) */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 p-2 rounded-xl bg-white/[0.03] border border-white/10">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-mono text-zinc-400 font-bold hidden sm:inline">Mode Tampilan:</span>
+                  <button
+                    onClick={() => setNewsFilterMode('UPCOMING_ONLY')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                      newsFilterMode === 'UPCOMING_ONLY'
+                        ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+                        : 'bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <Clock size={13} className={newsFilterMode === 'UPCOMING_ONLY' ? 'animate-pulse' : ''} />
+                    <span>⚡ Yang Akan Datang (Upcoming Events)</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-black/40 text-cyan-300">
+                      {upcomingNews.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setNewsFilterMode('ALL_FEEDS')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                      newsFilterMode === 'ALL_FEEDS'
+                        ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+                        : 'bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <Newspaper size={13} />
+                    <span>Semua Wire Feeds Terkini</span>
+                  </button>
+                </div>
+
+                <div className="text-[10px] font-mono text-cyan-300/80 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span>Sinkron Waktu Server & Lokal Presisi</span>
+                </div>
+              </div>
+
               {/* Filter and Search Bar */}
               <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2">
                 <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5">
@@ -351,40 +545,59 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
               </div>
 
               {/* News Articles Grid */}
-              {isLoadingNews && news.length === 0 ? (
+              {isLoadingNews && displayedNewsItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3">
                   <div className="w-10 h-10 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin" />
                   <span className="text-xs font-mono text-cyan-300 font-bold tracking-wider">
-                    MENYINKRONKAN BERITA PASAR GLOBAL REALTIME...
+                    MENYINKRONKAN JADWAL BERITA PASAR REALTIME...
                   </span>
                 </div>
-              ) : filteredNews.length === 0 ? (
+              ) : displayedNewsItems.length === 0 ? (
                 <div className="text-center py-16 text-zinc-500 font-mono text-xs">
                   Tidak ada berita yang cocok dengan filter saat ini.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  {filteredNews.map(item => {
-                    const date = new Date(item.publishedAt);
-                    const timeAgoStr = Math.max(1, Math.floor((nowTimestamp - item.publishedAt) / 60000));
-                    const timeText = timeAgoStr < 60 ? `${timeAgoStr}m lalu` : `${Math.floor(timeAgoStr / 60)}h lalu`;
+                  {displayedNewsItems.map(item => {
+                    const eventTime = item.scheduledAt || item.publishedAt;
+                    const isUpcomingEvent = eventTime > nowTimestamp;
+                    const countdown = getLiveCountdown(eventTime);
+                    const { timeStr, dateStr, tzStr } = formatLocalTime(eventTime);
+
+                    // Relative time for past/wire news
+                    const diffPast = Math.max(0, nowTimestamp - eventTime);
+                    const pastSecs = Math.floor(diffPast / 1000);
+                    const pastMins = Math.floor(pastSecs / 60);
+                    const relativePastStr = pastSecs < 60 ? `${pastSecs} detik lalu` : pastMins < 60 ? `${pastMins} menit lalu` : `${Math.floor(pastMins / 60)} jam lalu`;
 
                     return (
                       <div
                         key={item.id}
-                        className="group relative p-4 rounded-xl bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-[var(--color-border)]/30 hover:border-cyan-500/40 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-950/20 flex flex-col justify-between backdrop-blur-xl"
+                        className={`group relative p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between backdrop-blur-xl ${
+                          isUpcomingEvent
+                            ? 'bg-gradient-to-br from-[#0c1322]/80 via-[#070c17]/80 to-[#040811]/80 border-cyan-500/40 hover:border-cyan-400 hover:shadow-[0_0_25px_rgba(6,182,212,0.15)]'
+                            : 'bg-white/[0.03] border-[var(--color-border)]/30 hover:border-cyan-500/40'
+                        }`}
                       >
                         <div>
-                          {/* Metadata row */}
+                          {/* Top Row: Tag / Source & Live Ticking Countdown */}
                           <div className="flex items-center justify-between gap-2 mb-2 text-[10px] font-mono">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-cyan-400 bg-cyan-950/50 border border-cyan-800/40 px-2 py-0.5 rounded">
+                              <span className="font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/50 px-2 py-0.5 rounded">
                                 {item.source}
                               </span>
-                              <span className="text-zinc-500 flex items-center gap-1">
-                                <Clock size={10} />
-                                {timeText}
-                              </span>
+
+                              {isUpcomingEvent ? (
+                                <span className="flex items-center gap-1 px-2 py-0.5 rounded font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm animate-pulse">
+                                  <Clock size={11} className="text-cyan-400" />
+                                  <span>RILIS: {countdown.str} LAGI</span>
+                                </span>
+                              ) : (
+                                <span className="text-zinc-500 flex items-center gap-1">
+                                  <Clock size={10} />
+                                  <span>{relativePastStr}</span>
+                                </span>
+                              )}
                             </div>
 
                             <span
@@ -399,6 +612,16 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                               {item.sentiment}
                             </span>
                           </div>
+
+                          {/* Scheduled Event Timing Bar (For upcoming news) */}
+                          {isUpcomingEvent && (
+                            <div className="mb-2 px-2.5 py-1 rounded-lg bg-black/40 border border-white/5 flex items-center justify-between text-[10.5px] font-mono text-zinc-300">
+                              <span className="text-zinc-400">Jadwal Tepat:</span>
+                              <span className="font-bold text-white">
+                                {dateStr}, {timeStr} ({tzStr})
+                              </span>
+                            </div>
+                          )}
 
                           {/* Title */}
                           <h3 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors line-clamp-2 leading-snug">
@@ -417,7 +640,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                         <div className="flex items-center justify-between pt-3 mt-3 border-t border-white/5 text-xs">
                           {/* Tags */}
                           <div className="flex items-center gap-1 overflow-hidden">
-                            {item.tags.slice(0, 3).map(tag => (
+                            {item.tags?.slice(0, 3).map(tag => (
                               <span key={tag} className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white/5 text-zinc-400 border border-white/5">
                                 #{tag}
                               </span>
@@ -430,7 +653,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                               <button
                                 onClick={() => {
                                   onOpenAiAgentWithContext(
-                                    `Analisis dampak berita berikut terhadap pasar kripto/forex (${activeSymbol}): "${item.title}". Apa potensi reaksi harga dan setup yang disarankan?`
+                                    `Analisis dampak berita berikut terhadap pasar kripto/forex (${activeSymbol}): "${item.title}". Waktu rilis: ${timeStr} ${tzStr}. Apa potensi reaksi harga dan setup yang disarankan?`
                                   );
                                   onClose();
                                 }}
@@ -469,38 +692,79 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
             <div className="space-y-4">
               {/* Filter controls */}
               <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-[var(--color-border)]/30">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-zinc-400 font-bold">Filter Dampak:</span>
-                  <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-[var(--color-border)]/30 text-xs font-mono">
-                    <button
-                      onClick={() => setCalendarImpact('ALL')}
-                      className={`px-2.5 py-1 rounded ${calendarImpact === 'ALL' ? 'bg-cyan-500 text-black font-bold' : 'text-zinc-400 hover:text-white'}`}
-                    >
-                      Semua
-                    </button>
-                    <button
-                      onClick={() => setCalendarImpact('HIGH')}
-                      className={`px-2.5 py-1 rounded flex items-center gap-1 ${calendarImpact === 'HIGH' ? 'bg-rose-500 text-white font-bold' : 'text-rose-400 hover:text-rose-300'}`}
-                    >
-                      <Flame size={12} />
-                      High Impact Only
-                    </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-zinc-400 font-bold">Tampilan:</span>
+                    <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-[var(--color-border)]/30 text-xs font-mono">
+                      <button
+                        onClick={() => setCalendarMode('ALL')}
+                        className={`px-2.5 py-1 rounded ${calendarMode === 'ALL' ? 'bg-cyan-500 text-black font-bold' : 'text-zinc-400 hover:text-white'}`}
+                      >
+                        Mendatang & Rilis Baru
+                      </button>
+                      <button
+                        onClick={() => setCalendarMode('UPCOMING')}
+                        className={`px-2.5 py-1 rounded ${calendarMode === 'UPCOMING' ? 'bg-cyan-500 text-black font-bold' : 'text-zinc-400 hover:text-white'}`}
+                      >
+                        Mendatang Saja
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-zinc-400 font-bold">Dampak:</span>
+                    <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-[var(--color-border)]/30 text-xs font-mono">
+                      <button
+                        onClick={() => setCalendarImpact('ALL')}
+                        className={`px-2.5 py-1 rounded ${calendarImpact === 'ALL' ? 'bg-cyan-500 text-black font-bold' : 'text-zinc-400 hover:text-white'}`}
+                      >
+                        Semua
+                      </button>
+                      <button
+                        onClick={() => setCalendarImpact('HIGH')}
+                        className={`px-2.5 py-1 rounded flex items-center gap-1 ${calendarImpact === 'HIGH' ? 'bg-rose-500 text-white font-bold' : 'text-rose-400 hover:text-rose-300'}`}
+                      >
+                        <Flame size={12} />
+                        High Impact
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-zinc-400 font-bold">Mata Uang:</span>
+                    <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-[var(--color-border)]/30 text-xs font-mono">
+                      {['ALL', 'USD', 'EUR', 'GBP'].map(curr => (
+                        <button
+                          key={curr}
+                          onClick={() => setCalendarCurrency(curr)}
+                          className={`px-2.5 py-1 rounded ${calendarCurrency === curr ? 'bg-cyan-500 text-black font-bold' : 'text-zinc-400 hover:text-white'}`}
+                        >
+                          {curr}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-zinc-400 font-bold">Mata Uang:</span>
-                  <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-[var(--color-border)]/30 text-xs font-mono">
-                    {['ALL', 'USD', 'EUR', 'GBP'].map(curr => (
-                      <button
-                        key={curr}
-                        onClick={() => setCalendarCurrency(curr)}
-                        className={`px-2.5 py-1 rounded ${calendarCurrency === curr ? 'bg-cyan-500 text-black font-bold' : 'text-zinc-400 hover:text-white'}`}
-                      >
-                        {curr}
-                      </button>
-                    ))}
-                  </div>
+                  <button
+                    onClick={handleSimulateRelease}
+                    disabled={isSimulating}
+                    className="px-2.5 py-1 rounded bg-gradient-to-r from-amber-500/20 to-rose-500/20 hover:from-amber-500/30 hover:to-rose-500/30 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-sm"
+                    title="Simulasikan rilis instan angka aktual US CPI MoM"
+                  >
+                    <Zap size={13} className={isSimulating ? "animate-spin" : "text-amber-400"} />
+                    <span>{isSimulating ? "Memproses..." : "⚡ Uji Rilis Aktual (Simulasi)"}</span>
+                  </button>
+
+                  <button
+                    onClick={() => fetchCalendar()}
+                    disabled={isLoadingEvents}
+                    className="p-1.5 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 text-xs transition-colors cursor-pointer"
+                    title="Muat Ulang Data"
+                  >
+                    <RefreshCw size={13} className={isLoadingEvents ? "animate-spin" : ""} />
+                  </button>
                 </div>
               </div>
 
@@ -512,35 +776,39 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                     MEMUAT KALENDER BERITA EKONOMI MAKRO...
                   </span>
                 </div>
+              ) : filteredEvents.length === 0 ? (
+                <div className="text-center py-16 text-zinc-500 font-mono text-xs">
+                  Tidak ada event yang cocok dengan filter saat ini.
+                </div>
               ) : (
                 <div className="overflow-x-auto rounded-xl border border-[var(--color-border)]/30 bg-[var(--color-bg)]/40 backdrop-blur-xl">
                   <table className="w-full text-left text-xs font-mono">
                     <thead>
                       <tr className="border-b border-[var(--color-border)]/30 bg-white/5 text-[10px] text-zinc-400 uppercase tracking-wider">
-                        <th className="py-3 px-3">Waktu & Tanggal</th>
+                        <th className="py-3 px-3">Waktu Realtime</th>
                         <th className="py-3 px-3">Negara</th>
                         <th className="py-3 px-3">Dampak</th>
                         <th className="py-3 px-3">Event / Indikator</th>
                         <th className="py-3 px-3 text-right">Aktual</th>
                         <th className="py-3 px-3 text-right">Prakiraan</th>
                         <th className="py-3 px-3 text-right">Sebelumnya</th>
-                        <th className="py-3 px-3 text-center">Countdown</th>
+                        <th className="py-3 px-3 text-center">Waktu Mundur</th>
                         <th className="py-3 px-3 text-center">AI Analisis</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {filteredEvents.map(evt => {
-                        const diff = evt.timestamp - nowTimestamp;
-                        const isPast = diff <= 0;
+                        const countdown = getLiveCountdown(evt.timestamp);
+                        const { timeStr, dateStr, tzStr } = formatLocalTime(evt.timestamp);
 
                         return (
                           <tr 
                             key={evt.id}
-                            className={`hover:bg-white/[0.03] transition-colors ${evt.impact === 'HIGH' && !isPast ? 'bg-rose-950/10' : ''}`}
+                            className={`hover:bg-white/[0.03] transition-colors ${evt.impact === 'HIGH' ? 'bg-rose-950/10' : ''}`}
                           >
                             <td className="py-3 px-3 whitespace-nowrap">
-                              <div className="font-bold text-white">{evt.timeFormatted} WIB</div>
-                              <div className="text-[10px] text-zinc-500">{evt.dateFormatted}</div>
+                              <div className="font-bold text-white">{timeStr} <span className="text-[10px] text-cyan-400 font-normal">{tzStr}</span></div>
+                              <div className="text-[10px] text-zinc-500">{dateStr}</div>
                             </td>
 
                             <td className="py-3 px-3 whitespace-nowrap">
@@ -564,9 +832,14 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                               </span>
                             </td>
 
-                            <td className="py-3 px-3 min-w-[200px]">
-                              <div className="font-bold text-white flex items-center gap-1.5">
+                            <td className="py-3 px-3 min-w-[220px]">
+                              <div className="font-bold text-white flex items-center gap-1.5 flex-wrap">
                                 <span>{evt.event}</span>
+                                {evt.isJustReleased && (
+                                  <span className="text-[8px] px-1.5 py-0.2 rounded bg-emerald-500/30 text-emerald-200 font-bold border border-emerald-500/50 animate-pulse">
+                                    ⚡ LIVE ACTUAL
+                                  </span>
+                                )}
                                 {evt.volatilityRisk === 'EXTREME' && (
                                   <span className="text-[8.5px] px-1 rounded bg-rose-500/30 text-rose-200 font-bold border border-rose-500/40">
                                     HIGH VOLATILITY
@@ -576,17 +849,35 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                               <div className="text-[10px] text-zinc-400 line-clamp-1 mt-0.5">
                                 {evt.description}
                               </div>
-                            </td>
-
-                            <td className="py-3 px-3 text-right font-bold text-white whitespace-nowrap">
-                              {evt.actual ? (
-                                <span className="text-emerald-400">{evt.actual}</span>
-                              ) : (
-                                <span className="text-zinc-600">-</span>
+                              {evt.marketReaction && (
+                                <div className="text-[9.5px] font-mono text-amber-300 font-bold mt-1">
+                                  ⚡ {evt.marketReaction}
+                                </div>
                               )}
                             </td>
 
-                            <td className="py-3 px-3 text-right text-zinc-300 whitespace-nowrap">
+                            <td className="py-3 px-3 text-right whitespace-nowrap">
+                              {evt.actual ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="font-bold text-emerald-400 font-mono text-sm">{evt.actual}</span>
+                                  {evt.deviation && (
+                                    <span className={`text-[8.5px] font-mono px-1.5 py-0.2 rounded border font-black ${
+                                      evt.deviationStatus === 'BEAT'
+                                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                                        : evt.deviationStatus === 'MISS'
+                                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/50'
+                                        : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                                    }`}>
+                                      {evt.deviation} ({evt.deviationStatus})
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-amber-400 text-[10px] font-bold">Menunggu</span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 text-right text-zinc-300 whitespace-nowrap font-medium">
                               {evt.forecast}
                             </td>
 
@@ -595,18 +886,13 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                             </td>
 
                             <td className="py-3 px-3 text-center whitespace-nowrap">
-                              {isPast ? (
-                                <span className="text-[10px] text-zinc-500 font-bold">Rilis</span>
-                              ) : (
-                                <span className="text-[10.5px] px-2 py-0.5 rounded font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                                  {(() => {
-                                    const h = Math.floor(diff / (1000 * 60 * 60));
-                                    const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                                    const s = Math.floor((diff % (1000 * 60)) / 1000);
-                                    return `${h}j ${m}m ${s}d`;
-                                  })()}
-                                </span>
-                              )}
+                              <span className={`text-[10.5px] px-2 py-0.5 rounded font-mono font-bold border shadow-sm ${
+                                countdown.isPast
+                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                  : 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+                              }`}>
+                                {countdown.isPast ? '✓ ' + countdown.str : '⏱ ' + countdown.str}
+                              </span>
                             </td>
 
                             <td className="py-3 px-3 text-center whitespace-nowrap">
@@ -614,15 +900,15 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                                 <button
                                   onClick={() => {
                                     onOpenAiAgentWithContext(
-                                      `Bagaimana proyeksi dampak rilis berita ekonomi "${evt.event}" (${evt.currency}, Forecast: ${evt.forecast}, Previous: ${evt.previous}) terhadap pergerakan ${activeSymbol}? Berikan rekomendasi skenario jika hasil aktual > atau < forecast.`
+                                      `Bagaimana proyeksi dampak rilis berita ekonomi "${evt.event}" (${evt.currency}, Forecast: ${evt.forecast}, Previous: ${evt.previous}) terhadap pergerakan ${activeSymbol}? Waktu rilis: ${timeStr} ${tzStr}. Berikan rekomendasi skenario jika hasil aktual > atau < forecast.`
                                     );
                                     onClose();
                                   }}
-                                  className="p-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 transition-all cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold"
-                                  title="Analisis Skenario Rilis dengan AI Agent"
+                                  className="px-2.5 py-1 rounded bg-cyan-500/15 hover:bg-cyan-500/30 text-cyan-300 hover:text-white border border-cyan-500/40 text-[10px] font-mono font-bold transition-all flex items-center gap-1 mx-auto cursor-pointer"
+                                  title="Analisis Skenario Rilis dengan MountAlgo AI"
                                 >
-                                  <Bot size={12} />
-                                  <span className="hidden lg:inline">Skenario AI</span>
+                                  <Bot size={11} className="text-cyan-400" />
+                                  <span>AI Analisis</span>
                                 </button>
                               )}
                             </td>
