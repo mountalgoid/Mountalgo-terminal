@@ -17,6 +17,8 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { tradingAudio } from '../utils/audioSynth';
+import { formatTimeInTimezone, getStoredTimezone } from '../utils/timezone';
+import { TimezoneSelector } from './TimezoneSelector';
 
 export interface ChartNewsEconomicEvent {
   id: string;
@@ -140,25 +142,26 @@ export const ChartNewsEventModal: React.FC<ChartNewsEventModalProps> = ({
     }
   };
 
+  const [selectedTimezone, setSelectedTimezone] = useState<string>(() => getStoredTimezone());
+
+  useEffect(() => {
+    const handleTzChange = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) setSelectedTimezone(customEvent.detail);
+    };
+    window.addEventListener('mountalgo_timezone_changed', handleTzChange);
+    return () => window.removeEventListener('mountalgo_timezone_changed', handleTzChange);
+  }, []);
+
   const hours = Math.max(0, Math.floor(diff / (1000 * 60 * 60)));
   const minutes = Math.max(0, Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)));
   const seconds = Math.max(0, Math.floor((diff % (1000 * 60)) / 1000));
 
-  // Dynamic user local timezone representation
-  const eventDate = new Date(currentEvent.timestamp);
-  const localTimeStr = eventDate.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  });
-  const localDateStr = eventDate.toLocaleDateString('id-ID', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-  const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
+  // Dynamic user selected timezone representation
+  const formattedTz = formatTimeInTimezone(currentEvent.timestamp, selectedTimezone);
+  const localTimeStr = formattedTz.timeWithSecsStr;
+  const localDateStr = formattedTz.dateStr;
+  const tzName = formattedTz.tzAbbr;
 
   const isHighImpact = currentEvent.impact === 'HIGH';
   const hasActual = Boolean(currentEvent.actual);
@@ -218,13 +221,16 @@ export const ChartNewsEventModal: React.FC<ChartNewsEventModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
-            title="Tutup (Esc)"
-          >
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            <TimezoneSelector variant="badge" />
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              title="Tutup (Esc)"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Modal Body */}

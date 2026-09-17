@@ -66,6 +66,8 @@ import { computeVolumeProfile, renderVolumeProfileOverlay, VolumeProfileResult }
 import { generateFootprintData, FootprintCandleData } from '../utils/footprints';
 import { DrawingToolType, DrawingItem, FIBONACCI_LEVELS } from '../utils/drawingTools';
 import { formatVol } from '../utils/numberFormatters';
+import { TimezoneSelector } from './TimezoneSelector';
+import { MarketSessionsOverlay } from './MarketSessionsOverlay';
 import { 
   calculateLiquidityHeatmap, 
   renderLiquidityHeatmapLayer, 
@@ -1539,8 +1541,19 @@ export default function CustomChartWidget({
       } catch (e) {}
     };
 
+    const handleExternalSymbolChange = (e: any) => {
+      const sym = e.detail;
+      if (sym && typeof sym === 'string') {
+        handleSelectSymbol(sym);
+      }
+    };
+
     window.addEventListener('mountalgo:apply-ai-trade-setup', handleApplyAiTradeSetup);
-    return () => window.removeEventListener('mountalgo:apply-ai-trade-setup', handleApplyAiTradeSetup);
+    window.addEventListener('mountalgo_symbol_changed', handleExternalSymbolChange);
+    return () => {
+      window.removeEventListener('mountalgo:apply-ai-trade-setup', handleApplyAiTradeSetup);
+      window.removeEventListener('mountalgo_symbol_changed', handleExternalSymbolChange);
+    };
   }, [activeSymbol, candles, currentPalette, handleSelectSymbol]);
 
   useEffect(() => {
@@ -1762,6 +1775,18 @@ export default function CustomChartWidget({
 
   // Crosshair & Hover info
   const [useLocalTime, setUseLocalTime] = useState<boolean>(() => localStorage.getItem('mountalgo_timezone') === 'LOCAL');
+  const [showNewsMarkers, setShowNewsMarkers] = useState<boolean>(() => localStorage.getItem('mountalgo_show_news_markers') !== 'false');
+
+  useEffect(() => {
+    const handleToggle = (e: Event) => {
+      const customEvent = e as CustomEvent<boolean>;
+      if (typeof customEvent.detail === 'boolean') {
+        setShowNewsMarkers(customEvent.detail);
+      }
+    };
+    window.addEventListener('mountalgo_news_markers_toggled', handleToggle);
+    return () => window.removeEventListener('mountalgo_news_markers_toggled', handleToggle);
+  }, []);
   
   const formatCrosshairTime = (timestamp: number, isLocal: boolean, tf: string) => {
     const d = new Date(timestamp);
@@ -7452,7 +7477,7 @@ export default function CustomChartWidget({
 
       // --- DRAW REAL-TIME NEWS & ECONOMIC EVENT ICONS/MARKERS DIRECTLY AT EVENT CANDLE BARS ---
       newsMarkersHitBoxesRef.current = [];
-      if (chartNewsEvents && chartNewsEvents.length > 0) {
+      if (showNewsMarkers && chartNewsEvents && chartNewsEvents.length > 0) {
         const nowMs = Date.now();
         const hasCandles = candles && candles.length > 0;
         const lastCandleX = hasCandles ? utils.getX(candles.length - 1) : utils.chartWidth;
@@ -11957,18 +11982,29 @@ export default function CustomChartWidget({
               log
             </button>
 
-            {/* Timezone Badge */}
-            <span 
-      className="text-gray-500 text-[9px] px-1 font-semibold cursor-pointer hover:text-[var(--color-text)] transition-colors"
-      onClick={() => {
-        const next = !useLocalTime;
-        setUseLocalTime(next);
-        localStorage.setItem('mountalgo_timezone', next ? 'LOCAL' : 'UTC');
-      }}
-      title="Toggle Timezone (Local / UTC)"
-    >
-      {useLocalTime ? 'LOCAL' : 'UTC'}
-    </span>
+            {/* Interactive Global Timezone Selector */}
+            <TimezoneSelector variant="badge" />
+
+            {/* Visual News Icons & Laser Markers Toggle [ON/OFF] */}
+            <button
+              onClick={() => {
+                const next = !showNewsMarkers;
+                setShowNewsMarkers(next);
+                localStorage.setItem('mountalgo_show_news_markers', next ? 'true' : 'false');
+                window.dispatchEvent(new CustomEvent('mountalgo_news_markers_toggled', { detail: next }));
+                tradingAudio.play('CLICK');
+              }}
+              type="button"
+              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 border cursor-pointer ${
+                showNewsMarkers
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                  : 'bg-white/5 text-zinc-500 border-white/10 hover:text-zinc-300'
+              }`}
+              title={showNewsMarkers ? "Klik Untuk Sembunyikan Visual Ikon Berita di Chart [ON]" : "Klik Untuk Tampilkan Visual Ikon Berita di Chart [OFF]"}
+            >
+              <Flame size={11} className={showNewsMarkers ? "text-amber-400 animate-pulse" : ""} />
+              <span>NEWS [{showNewsMarkers ? "ON" : "OFF"}]</span>
+            </button>
 
             {/* SL/TP Lock and Verification Safety Controls */}
             <div className="h-3.5 w-px bg-[var(--color-border)] mx-1" />
@@ -12639,7 +12675,10 @@ export default function CustomChartWidget({
         </div>
       )}
 
-      {/* 13. Flashing Beacon HUD for Imminent High Impact News Events */}
+      {/* 13. Market Sessions Global HUD Overlay */}
+      <MarketSessionsOverlay className="absolute bottom-2 left-3 z-40 max-w-xl pointer-events-auto" />
+
+      {/* 14. Flashing Beacon HUD for Imminent High Impact News Events */}
       <ChartNewsBeaconHUD
         events={chartNewsEvents}
         activeSymbol={activeSymbol}

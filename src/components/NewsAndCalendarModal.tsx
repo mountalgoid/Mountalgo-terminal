@@ -16,14 +16,24 @@ import {
   Bot, 
   Globe2, 
   ChevronRight,
+  ChevronDown,
   Zap,
   Info,
   ShieldCheck,
-  Server
+  Server,
+  Volume2,
+  VolumeX,
+  Target,
+  ShieldAlert,
+  CheckCircle2,
+  Layers,
+  Radio
 } from 'lucide-react';
 import MountAlgoLogo from './MountAlgoLogo';
 import { calendarWorkerDispatcher } from '../workers/calendarWorkerDispatcher';
 import { tradingAudio } from '../utils/audioSynth';
+import { formatTimeInTimezone, getStoredTimezone } from '../utils/timezone';
+import { TimezoneSelector } from './TimezoneSelector';
 
 interface NewsItem {
   id: string;
@@ -94,6 +104,76 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
   const [newsSearch, setNewsSearch] = useState<string>('');
   const [newsSentiment, setNewsSentiment] = useState<'ALL' | 'Bullish' | 'Bearish'>('ALL');
   const [lastNewsUpdate, setLastNewsUpdate] = useState<number>(Date.now());
+  const [filterOnlyActiveSymbol, setFilterOnlyActiveSymbol] = useState(false);
+  const [sourceTierFilter, setSourceTierFilter] = useState<'ALL' | 'TIER1' | 'CRYPTO' | 'OFFICIAL'>('ALL');
+  const [expandedAiDigestId, setExpandedAiDigestId] = useState<string | null>(null);
+
+  // Audio Breaking News Chime State
+  const [isAudioAlertEnabled, setIsAudioAlertEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('mountalgo_news_audio_alert_enabled') !== 'false';
+  });
+
+  // Floating Toast State
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(prev => prev === msg ? null : prev);
+    }, 3000);
+  };
+
+  const toggleAudioAlert = () => {
+    const next = !isAudioAlertEnabled;
+    setIsAudioAlertEnabled(next);
+    localStorage.setItem('mountalgo_news_audio_alert_enabled', String(next));
+    if (next) {
+      tradingAudio.play('ALERT');
+      showToast('🔊 Audio Notifikasi Breaking News Aktif');
+    } else {
+      showToast('🔇 Audio Notifikasi Dimatikan');
+    }
+  };
+
+  // Symbol Normalization helper for interactive tag clicks
+  const normalizeTagToSymbol = useCallback((rawTag: string): string | null => {
+    const clean = rawTag.replace(/^#/, '').toUpperCase().trim();
+    if (!clean) return null;
+    
+    if (clean.includes('BTC') || clean === 'BITCOIN') return 'BTCUSDT';
+    if (clean.includes('ETH') || clean === 'ETHEREUM') return 'ETHUSDT';
+    if (clean.includes('SOL') || clean === 'SOLANA') return 'SOLUSDT';
+    if (clean.includes('BNB')) return 'BNBUSDT';
+    if (clean.includes('XRP') || clean === 'RIPPLE') return 'XRPUSDT';
+    if (clean.includes('DOGE')) return 'DOGEUSDT';
+    if (clean.includes('ADA') || clean === 'CARDANO') return 'ADAUSDT';
+    if (clean.includes('AVAX')) return 'AVAXUSDT';
+    if (clean.includes('GOLD') || clean.includes('XAU') || clean === 'EMAS') return 'XAUUSD';
+    if (clean.includes('OIL') || clean.includes('WTI') || clean.includes('CRUDE') || clean === 'MINYAK') return 'USOIL';
+    if (clean.includes('EURUSD') || clean === 'EUR') return 'EURUSD';
+    if (clean.includes('GBPUSD') || clean === 'GBP') return 'GBPUSD';
+    if (clean.includes('USDJPY') || clean === 'JPY') return 'USDJPY';
+    if (clean.includes('AUDUSD') || clean === 'AUD') return 'AUDUSD';
+    if (clean.includes('USDCAD') || clean === 'CAD') return 'USDCAD';
+    if (clean.includes('USDCHF') || clean === 'CHF') return 'USDCHF';
+    if (clean.includes('NDX') || clean.includes('NAS100') || clean.includes('NASDAQ')) return 'NAS100';
+    if (clean.includes('SPX') || clean.includes('SP500') || clean.includes('US500')) return 'US500';
+    
+    if (/^[A-Z0-9]{3,8}$/.test(clean)) {
+      return clean.endsWith('USDT') || clean.length === 6 ? clean : `${clean}USDT`;
+    }
+    return null;
+  }, []);
+
+  // Interactive Switch Symbol handler
+  const handleSwitchSymbol = useCallback((tag: string) => {
+    const targetSymbol = normalizeTagToSymbol(tag);
+    if (targetSymbol) {
+      window.dispatchEvent(new CustomEvent('mountalgo_symbol_changed', { detail: targetSymbol }));
+      tradingAudio.play('CLICK');
+      showToast(`🎯 Chart berpindah ke instrumen ${targetSymbol}`);
+    }
+  }, [normalizeTagToSymbol]);
 
   // Economic Calendar States
   const [events, setEvents] = useState<EconomicEvent[]>([]);
@@ -266,14 +346,41 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
     return () => clearInterval(interval);
   }, [isOpen, fetchNews, fetchCalendar]);
 
-  // Format Helper: Real-time Synchronized Local Time & Date
-  const formatLocalTime = useCallback((timestamp: number) => {
-    const d = new Date(timestamp);
-    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-    const dateStr = d.toLocaleDateString('id-ID', { weekday: 'short', month: 'short', day: 'numeric' });
-    const tzStr = Intl.DateTimeFormat().resolvedOptions().timeZone || 'WIB';
-    return { timeStr, dateStr, tzStr };
+  // Selected Timezone state with persistent global sync
+  const [selectedTimezone, setSelectedTimezone] = useState<string>(() => getStoredTimezone());
+  const [showChartNewsMarkers, setShowChartNewsMarkers] = useState<boolean>(() => localStorage.getItem('mountalgo_show_news_markers') !== 'false');
+  const [alarmMinutesThreshold, setAlarmMinutesThreshold] = useState<number>(() => {
+    const saved = localStorage.getItem('mountalgo_news_alarm_mins');
+    return saved ? parseInt(saved, 10) : 5;
+  });
+
+  useEffect(() => {
+    const handleTzChange = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) setSelectedTimezone(customEvent.detail);
+    };
+    window.addEventListener('mountalgo_timezone_changed', handleTzChange);
+    return () => window.removeEventListener('mountalgo_timezone_changed', handleTzChange);
   }, []);
+
+  const toggleChartNewsMarkers = () => {
+    const next = !showChartNewsMarkers;
+    setShowChartNewsMarkers(next);
+    localStorage.setItem('mountalgo_show_news_markers', next ? 'true' : 'false');
+    window.dispatchEvent(new CustomEvent('mountalgo_news_markers_toggled', { detail: next }));
+    tradingAudio.play('CLICK');
+  };
+
+  // Format Helper: Real-time Synchronized Time & Date in Selected Timezone
+  const formatLocalTime = useCallback((timestamp: number) => {
+    const formatted = formatTimeInTimezone(timestamp, selectedTimezone);
+    return {
+      timeStr: formatted.timeWithSecsStr,
+      dateStr: formatted.dateStr,
+      tzStr: formatted.tzAbbr,
+      tzOffset: formatted.tzOffset
+    };
+  }, [selectedTimezone]);
 
   // Format Helper: Live Countdown string calculation
   const getLiveCountdown = useCallback((targetTimestamp: number) => {
@@ -288,6 +395,41 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
     return { str, isPast: false, diff, hours, mins, secs };
   }, [nowTimestamp]);
 
+  // Helper: News Relevance to Active Symbol
+  const isNewsRelevantToSymbol = useCallback((item: NewsItem, symbol: string): boolean => {
+    const sym = symbol.toUpperCase();
+    const base = sym.replace(/USDT$|USD$/, '');
+    const terms = [sym, base];
+
+    if (sym.includes('BTC')) terms.push('bitcoin', 'crypto', 'satoshi', 'etf');
+    if (sym.includes('ETH')) terms.push('ethereum', 'vitalik', 'defi', 'layer 2');
+    if (sym.includes('SOL')) terms.push('solana', 'meme');
+    if (sym.includes('XAU') || sym.includes('GOLD')) terms.push('gold', 'emas', 'fomc', 'fed', 'cpi', 'inflation', 'dollar', 'usd', 'yield');
+    if (sym.includes('USOIL') || sym.includes('OIL')) terms.push('oil', 'crude', 'eia', 'opec', 'petroleum', 'energy', 'brent');
+    if (sym.includes('EUR')) terms.push('ecb', 'lagarde', 'euro', 'europe', 'inflation');
+    if (sym.includes('GBP')) terms.push('boe', 'bailey', 'pound', 'uk');
+    if (sym.includes('JPY')) terms.push('boj', 'ueda', 'yen', 'japan');
+
+    const content = `${item.title} ${item.body} ${item.categories} ${item.tags?.join(' ')}`.toLowerCase();
+    return terms.some(t => t && content.includes(t.toLowerCase()));
+  }, []);
+
+  // Helper: Source Tier Whitelist Filtering
+  const isNewsMatchingSourceFilter = useCallback((item: NewsItem, filter: 'ALL' | 'TIER1' | 'CRYPTO' | 'OFFICIAL'): boolean => {
+    if (filter === 'ALL') return true;
+    const src = (item.source || '').toLowerCase();
+    if (filter === 'TIER1') {
+      return src.includes('reuters') || src.includes('bloomberg') || src.includes('wsj') || src.includes('ft') || src.includes('marketwatch') || src.includes('yahoo');
+    }
+    if (filter === 'CRYPTO') {
+      return src.includes('cointelegraph') || src.includes('coindesk') || src.includes('cryptocompare') || src.includes('theblock') || src.includes('decrypt');
+    }
+    if (filter === 'OFFICIAL') {
+      return src.includes('fed') || src.includes('bls') || src.includes('ecb') || src.includes('boe') || src.includes('sec') || src.includes('census') || src.includes('eia');
+    }
+    return true;
+  }, []);
+
   // Filtered News: strictly upcoming news when in UPCOMING_ONLY mode
   const displayedNewsItems = useMemo(() => {
     const sourceList = newsFilterMode === 'UPCOMING_ONLY' ? upcomingNews : [...upcomingNews, ...news];
@@ -299,6 +441,17 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
         return false;
       }
       if (newsSentiment !== 'ALL' && item.sentiment !== newsSentiment) return false;
+      
+      // Active Symbol Filter
+      if (filterOnlyActiveSymbol && !isNewsRelevantToSymbol(item, activeSymbol)) {
+        return false;
+      }
+
+      // Source Tier Filter
+      if (!isNewsMatchingSourceFilter(item, sourceTierFilter)) {
+        return false;
+      }
+
       if (newsCategory !== 'ALL') {
         const cat = newsCategory.toLowerCase();
         const hasCategory = item.categories?.toLowerCase().includes(cat) || item.tags?.some(t => t.toLowerCase().includes(cat));
@@ -311,7 +464,19 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
       const timeB = b.scheduledAt || b.publishedAt;
       return timeA - timeB;
     });
-  }, [newsFilterMode, upcomingNews, news, nowTimestamp, newsSentiment, newsCategory]);
+  }, [
+    newsFilterMode, 
+    upcomingNews, 
+    news, 
+    nowTimestamp, 
+    newsSentiment, 
+    newsCategory, 
+    filterOnlyActiveSymbol, 
+    activeSymbol, 
+    isNewsRelevantToSymbol, 
+    sourceTierFilter, 
+    isNewsMatchingSourceFilter
+  ]);
 
   // Filtered Events: support upcoming only or upcoming + newly released prints
   const filteredEvents = useMemo(() => {
@@ -333,6 +498,14 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
         className="absolute inset-0 bg-black/80 backdrop-blur-xl"
         onClick={onClose}
       />
+
+      {/* Floating Glass Toast Notification */}
+      {toastMessage && (
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[10010] bg-[#090d16]/95 border border-cyan-500/50 text-cyan-200 px-4 py-2 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(6,182,212,0.3)] text-xs font-mono font-bold flex items-center gap-2 backdrop-blur-xl animate-in fade-in slide-in-from-top-3 duration-200">
+          <CheckCircle2 size={14} className="text-emerald-400" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
       {/* Main Modal Container */}
       <div 
@@ -359,22 +532,54 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                   <span className="text-zinc-400 font-normal">({feedProvider.latency}ms)</span>
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400 font-medium">
-                Berita Finansial Terverifikasi & Kalender Makroekonomi Berdampak Tinggi Real-Time
+              <p className="text-[11px] text-zinc-400 font-mono flex items-center gap-2 mt-0.5">
+                <span>Real-Time Market Feeds & Makroekonomi Terverifikasi</span>
+                <span className="text-cyan-400/80">• Instrumen Aktif: {activeSymbol}</span>
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-mono text-emerald-300">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span className="font-bold">LIVE FEED SYNC</span>
-              <span className="text-zinc-400">|</span>
-              <span className="text-zinc-300">{feedProvider.latency || 12}ms</span>
-            </div>
+            {/* Global Timezone Selector */}
+            <TimezoneSelector selectedTz={selectedTimezone} onChange={(tz) => setSelectedTimezone(tz)} />
 
+            {/* Chart News Marker Visual Toggle [ON/OFF] */}
+            <button
+              onClick={toggleChartNewsMarkers}
+              type="button"
+              className={`p-2 rounded-lg border text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
+                showChartNewsMarkers
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
+                  : 'bg-white/5 text-zinc-500 border-white/10 hover:text-zinc-300'
+              }`}
+              title={showChartNewsMarkers ? 'Sembunyikan Visual Ikon Berita di Chart [ON]' : 'Tampilkan Visual Ikon Berita di Chart [OFF]'}
+            >
+              <Flame size={15} className={showChartNewsMarkers ? "text-amber-400 animate-pulse" : ""} />
+              <span className="hidden md:inline text-[11px] font-bold">
+                IKON CHART [{showChartNewsMarkers ? "ON" : "OFF"}]
+              </span>
+            </button>
+
+            {/* Audio Alert Chime Toggle */}
+            <button
+              onClick={toggleAudioAlert}
+              className={`p-2 rounded-lg border text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer ${
+                isAudioAlertEnabled
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-[0_0_12px_rgba(6,182,212,0.2)]'
+                  : 'bg-white/5 text-zinc-500 border-white/10 hover:text-zinc-300'
+              }`}
+              title={isAudioAlertEnabled ? 'Matikan Notifikasi Audio Breaking News' : 'Nyalakan Notifikasi Audio Breaking News'}
+            >
+              {isAudioAlertEnabled ? <Volume2 size={15} className="text-cyan-400 animate-pulse" /> : <VolumeX size={15} />}
+              <span className="hidden md:inline text-[11px] font-bold">
+                {isAudioAlertEnabled ? 'AUDIO ON' : 'AUDIO OFF'}
+              </span>
+            </button>
+
+            {/* Refresh Button */}
             <button
               onClick={() => {
+                tradingAudio.play('CLICK');
                 fetchNews();
                 fetchCalendar();
               }}
@@ -386,6 +591,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
               <span className="hidden sm:inline">Refresh</span>
             </button>
 
+            {/* Close Modal Button */}
             <button
               onClick={onClose}
               className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 border border-[var(--color-border)]/30 hover:border-rose-500/40 text-zinc-400 hover:text-rose-300 transition-colors cursor-pointer"
@@ -401,7 +607,10 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
           {/* Tabs */}
           <div className="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-[var(--color-border)]/30 backdrop-blur-xl">
             <button
-              onClick={() => setActiveTab('news')}
+              onClick={() => {
+                tradingAudio.play('CLICK');
+                setActiveTab('news');
+              }}
               className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold font-mono transition-all cursor-pointer ${
                 activeTab === 'news'
                   ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]'
@@ -411,12 +620,15 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
               <Newspaper size={14} />
               <span>News Feeds Realtime</span>
               <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-[var(--color-bg)]/40 text-cyan-200">
-                {news.length}
+                {displayedNewsItems.length}
               </span>
             </button>
 
             <button
-              onClick={() => setActiveTab('calendar')}
+              onClick={() => {
+                tradingAudio.play('CLICK');
+                setActiveTab('calendar');
+              }}
               className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold font-mono transition-all cursor-pointer ${
                 activeTab === 'calendar'
                   ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]'
@@ -465,7 +677,10 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] font-mono text-zinc-400 font-bold hidden sm:inline">Mode Tampilan:</span>
                   <button
-                    onClick={() => setNewsFilterMode('UPCOMING_ONLY')}
+                    onClick={() => {
+                      tradingAudio.play('CLICK');
+                      setNewsFilterMode('UPCOMING_ONLY');
+                    }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                       newsFilterMode === 'UPCOMING_ONLY'
                         ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]'
@@ -480,7 +695,10 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                   </button>
 
                   <button
-                    onClick={() => setNewsFilterMode('ALL_FEEDS')}
+                    onClick={() => {
+                      tradingAudio.play('CLICK');
+                      setNewsFilterMode('ALL_FEEDS');
+                    }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
                       newsFilterMode === 'ALL_FEEDS'
                         ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]'
@@ -492,9 +710,24 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                   </button>
                 </div>
 
-                <div className="text-[10px] font-mono text-cyan-300/80 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  <span>Sinkron Waktu Server & Lokal Presisi</span>
+                <div className="flex items-center gap-3">
+                  {/* Single-Click Active Symbol News Filter Toggle */}
+                  <button
+                    onClick={() => {
+                      tradingAudio.play('CLICK');
+                      setFilterOnlyActiveSymbol(!filterOnlyActiveSymbol);
+                      showToast(!filterOnlyActiveSymbol ? `Menampilkan berita khusus ${activeSymbol}` : 'Menampilkan berita semua instrumen');
+                    }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all border cursor-pointer ${
+                      filterOnlyActiveSymbol
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.2)]'
+                        : 'bg-white/5 text-zinc-400 hover:text-zinc-200 border-white/10'
+                    }`}
+                    title="Filter Berita Sesuai Instrumen yang Sedang Dibuka di Chart"
+                  >
+                    <Target size={12} className={filterOnlyActiveSymbol ? 'text-cyan-400 animate-pulse' : ''} />
+                    <span>Hanya Aset Aktif ({activeSymbol})</span>
+                  </button>
                 </div>
               </div>
 
@@ -516,7 +749,40 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                   ))}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Source Tier Whitelist Filter */}
+                  <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-[var(--color-border)]/30 text-xs font-mono">
+                    <span className="px-2 text-[10px] text-zinc-400 font-bold hidden md:inline">Sumber:</span>
+                    <button
+                      onClick={() => setSourceTierFilter('ALL')}
+                      className={`px-2 py-0.5 rounded ${sourceTierFilter === 'ALL' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-zinc-400'}`}
+                      title="Semua Sumber Berita"
+                    >
+                      Semua
+                    </button>
+                    <button
+                      onClick={() => setSourceTierFilter('TIER1')}
+                      className={`px-2 py-0.5 rounded ${sourceTierFilter === 'TIER1' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-zinc-400'}`}
+                      title="Reuters, Bloomberg, WSJ, Yahoo Finance"
+                    >
+                      Tier-1 Inst.
+                    </button>
+                    <button
+                      onClick={() => setSourceTierFilter('CRYPTO')}
+                      className={`px-2 py-0.5 rounded ${sourceTierFilter === 'CRYPTO' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-zinc-400'}`}
+                      title="Cointelegraph, CoinDesk, CryptoCompare"
+                    >
+                      Crypto Wire
+                    </button>
+                    <button
+                      onClick={() => setSourceTierFilter('OFFICIAL')}
+                      className={`px-2 py-0.5 rounded ${sourceTierFilter === 'OFFICIAL' ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-zinc-400'}`}
+                      title="Federal Reserve, BLS, ECB, BOE"
+                    >
+                      Portal Resmi
+                    </button>
+                  </div>
+
                   {/* Sentiment Filter */}
                   <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-[var(--color-border)]/30 text-xs font-mono">
                     <button
@@ -547,7 +813,7 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                       placeholder="Cari berita..."
                       value={newsSearch}
                       onChange={(e) => setNewsSearch(e.target.value)}
-                      className="bg-[var(--color-bg)]/50 border border-[var(--color-border)]/30 rounded-lg pl-7 pr-3 py-1 text-xs font-mono text-white placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/50 w-36 sm:w-48"
+                      className="bg-[var(--color-bg)]/50 border border-[var(--color-border)]/30 rounded-lg pl-7 pr-3 py-1 text-xs font-mono text-white placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/50 w-32 sm:w-44"
                     />
                   </div>
                 </div>
@@ -573,11 +839,21 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                     const countdown = getLiveCountdown(eventTime);
                     const { timeStr, dateStr, tzStr } = formatLocalTime(eventTime);
 
-                    // Relative time for past/wire news
+                    // Relative time for past/wire news with precise time stamp
                     const diffPast = Math.max(0, nowTimestamp - eventTime);
                     const pastSecs = Math.floor(diffPast / 1000);
                     const pastMins = Math.floor(pastSecs / 60);
-                    const relativePastStr = pastSecs < 60 ? `${pastSecs} detik lalu` : pastMins < 60 ? `${pastMins} menit lalu` : `${Math.floor(pastMins / 60)} jam lalu`;
+                    const relativePastStr = pastSecs < 60 
+                      ? `${pastSecs}s lalu (${timeStr})` 
+                      : pastMins < 60 
+                      ? `${pastMins}m lalu (${timeStr})` 
+                      : pastMins < 1440 
+                      ? `${Math.floor(pastMins / 60)}j ${pastMins % 60}m lalu (${timeStr})` 
+                      : `${dateStr}, ${timeStr}`;
+
+                    const isExpandedAi = expandedAiDigestId === item.id;
+                    const isBull = item.sentiment === 'Bullish';
+                    const isBear = item.sentiment === 'Bearish';
 
                     return (
                       <div
@@ -643,21 +919,95 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                               {item.body}
                             </p>
                           )}
+
+                          {/* Expandable AI Fundamental Digest Section */}
+                          {isExpandedAi && (
+                            <div className="mt-3 p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/30 space-y-2 text-xs font-sans animate-in fade-in duration-200">
+                              <div className="flex items-center justify-between border-b border-cyan-500/20 pb-1.5">
+                                <span className="text-[11px] font-mono font-bold text-cyan-300 flex items-center gap-1.5">
+                                  <Sparkles size={12} className="text-cyan-400" />
+                                  AI Fundamental Impact Assessment ({activeSymbol})
+                                </span>
+                                <span className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded ${
+                                  isBull ? 'bg-emerald-500/20 text-emerald-300' : isBear ? 'bg-rose-500/20 text-rose-300' : 'bg-zinc-500/20 text-zinc-300'
+                                }`}>
+                                  {item.sentiment}
+                                </span>
+                              </div>
+
+                              <div className="space-y-1.5 text-[11px] text-zinc-300 leading-relaxed font-sans">
+                                <div className="flex items-start gap-1.5">
+                                  <TrendingUp size={13} className="text-cyan-400 shrink-0 mt-0.5" />
+                                  <div>
+                                    <strong className="text-white font-mono">Dampak Tren:</strong> {
+                                      isBull 
+                                        ? `Katalis ekspansi bullish berpotensi mendorong ${activeSymbol} menembus resistance struktural dengan momentum volume tinggi.`
+                                        : isBear
+                                        ? `Tekanan likuidasi bearish berpotensi menguji support kunci ${activeSymbol}, waspadai aksi sweep likuiditas.`
+                                        : `Sentimen netral / konsolidasi. Reaksi harga cenderung membentuk false breakout sebelum tren sejati terbentuk.`
+                                    }
+                                  </div>
+                                </div>
+
+                                <div className="flex items-start gap-1.5">
+                                  <Target size={13} className="text-amber-400 shrink-0 mt-0.5" />
+                                  <div>
+                                    <strong className="text-white font-mono">Level Kunci Terpicu:</strong> {
+                                      isBull
+                                        ? `Order Block demand & Fair Value Gap bawah menjadi area pullback ideal sebelum melanjutkan uptrend.`
+                                        : isBear
+                                        ? `Supply zone & rejection wick atas menjadi area validasi konfirmasi entri short.`
+                                        : `Rentang range 4H menjadi zona pantauan retest support dan resistance.`
+                                    }
+                                  </div>
+                                </div>
+
+                                <div className="flex items-start gap-1.5">
+                                  <ShieldAlert size={13} className="text-rose-400 shrink-0 mt-0.5" />
+                                  <div>
+                                    <strong className="text-white font-mono">Panduan Risiko:</strong> Batasi risiko per trade maks 1-2%, hindari eksekusi market order menjelang volatilitas ekstrem untuk mencegah slippage.
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Footer & Action row */}
                         <div className="flex items-center justify-between pt-3 mt-3 border-t border-white/5 text-xs">
-                          {/* Tags */}
+                          {/* Interactive Tags: Click to switch chart symbol instantly */}
                           <div className="flex items-center gap-1 overflow-hidden">
                             {item.tags?.slice(0, 3).map(tag => (
-                              <span key={tag} className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white/5 text-zinc-400 border border-white/5">
+                              <button
+                                key={tag}
+                                onClick={() => handleSwitchSymbol(tag)}
+                                className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/5 hover:bg-cyan-500/20 text-zinc-400 hover:text-cyan-300 border border-white/5 hover:border-cyan-500/40 transition-colors cursor-pointer"
+                                title={`Klik untuk ganti instrumen chart ke #${tag}`}
+                              >
                                 #{tag}
-                              </span>
+                              </button>
                             ))}
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
-                            {/* AI Analysis Bridge Button */}
+                            {/* Toggle AI Digest Button */}
+                            <button
+                              onClick={() => {
+                                tradingAudio.play('CLICK');
+                                setExpandedAiDigestId(isExpandedAi ? null : item.id);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg border text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                                isExpandedAi
+                                  ? 'bg-cyan-500 text-black border-cyan-400'
+                                  : 'bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 border-cyan-800/40'
+                              }`}
+                              title="Tampilkan Analisis Singkat Dampak Fundamental"
+                            >
+                              <Sparkles size={11} className={isExpandedAi ? 'text-black' : 'text-cyan-400'} />
+                              <span>{isExpandedAi ? 'Tutup Digest' : '⚡ AI Digest'}</span>
+                            </button>
+
+                            {/* AI Agent Deep Analysis Button */}
                             {onOpenAiAgentWithContext && (
                               <button
                                 onClick={() => {
@@ -666,11 +1016,11 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                                   );
                                   onClose();
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/30 text-cyan-300 hover:text-white border border-cyan-500/40 text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
                                 title="Minta Analisis AI Agent untuk Berita Ini"
                               >
                                 <Bot size={11} className="text-cyan-400" />
-                                <span>AI Insight</span>
+                                <span>AI Agent</span>
                               </button>
                             )}
 
