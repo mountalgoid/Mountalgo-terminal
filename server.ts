@@ -1554,7 +1554,7 @@ async function startServer() {
           presetId: "upcoming-news-cpi",
           title: "US Consumer Price Index (CPI MoM/YoY) Inflation Release", 
           cat: "Macro, USD", 
-          offsetMinutes: 20, 
+          offsetMinutes: 480, 
           impact: "HIGH", 
           sent: "Bullish" as const, 
           src: "US Bureau of Labor Statistics (BLS)",
@@ -1564,7 +1564,7 @@ async function startServer() {
           presetId: "upcoming-news-fomc",
           title: "Federal Reserve FOMC Policy Statement & Rate Decision", 
           cat: "Macro, USD", 
-          offsetMinutes: 65, 
+          offsetMinutes: 1440, 
           impact: "HIGH", 
           sent: "Neutral" as const, 
           src: "Federal Reserve Board (FRB)",
@@ -1574,7 +1574,7 @@ async function startServer() {
           presetId: "upcoming-news-ecb",
           title: "European Central Bank (ECB) Governing Council Rate Decision", 
           cat: "Forex, EUR", 
-          offsetMinutes: 110, 
+          offsetMinutes: 2160, 
           impact: "HIGH", 
           sent: "Neutral" as const, 
           src: "European Central Bank (ECB)",
@@ -1584,7 +1584,7 @@ async function startServer() {
           presetId: "upcoming-news-nfp",
           title: "US Non-Farm Payrolls (NFP) & Unemployment Rate Print", 
           cat: "Macro, USD", 
-          offsetMinutes: 240, 
+          offsetMinutes: 2880, 
           impact: "HIGH", 
           sent: "Bullish" as const, 
           src: "US Department of Labor (BLS)",
@@ -1594,7 +1594,7 @@ async function startServer() {
           presetId: "upcoming-news-eia",
           title: "EIA Crude Oil Weekly Strategic Stockpiles Report", 
           cat: "Oil, Energy", 
-          offsetMinutes: 340, 
+          offsetMinutes: 3600, 
           impact: "MEDIUM", 
           sent: "Neutral" as const, 
           src: "US Energy Information Administration (EIA)",
@@ -1604,7 +1604,7 @@ async function startServer() {
           presetId: "upcoming-news-sec",
           title: "SEC Final Regulatory Deadline on Spot Crypto ETF ETP Framework", 
           cat: "Crypto, Regulation", 
-          offsetMinutes: 480, 
+          offsetMinutes: 4320, 
           impact: "HIGH", 
           sent: "Bullish" as const, 
           src: "US Securities and Exchange Commission (SEC)",
@@ -1614,7 +1614,7 @@ async function startServer() {
           presetId: "upcoming-news-boe",
           title: "Bank of England (BOE) Monetary Policy Committee Rate Decision", 
           cat: "Forex, GBP", 
-          offsetMinutes: 720, 
+          offsetMinutes: 5760, 
           impact: "HIGH", 
           sent: "Neutral" as const, 
           src: "Bank of England (BOE)",
@@ -1624,7 +1624,7 @@ async function startServer() {
           presetId: "upcoming-news-eth",
           title: "Ethereum Protocol Major Execution Layer Network Upgrade", 
           cat: "ETH, Tech", 
-          offsetMinutes: 1080, 
+          offsetMinutes: 7200, 
           impact: "HIGH", 
           sent: "Bullish" as const, 
           src: "Ethereum Foundation Core Roadmap",
@@ -1762,6 +1762,25 @@ async function startServer() {
     'All': { country: 'GLOBAL', flag: '🌐', sourceOrg: 'Global Macro / Multilateral', officialUrl: 'https://www.imf.org/' },
   };
 
+  // API Route: Real-Time Economic Calendar Sync (Accepts real-time events fetched by browser to bypass Cloud Run rate limits)
+  app.post("/api/economic-calendar/sync", express.json(), (req, res) => {
+    try {
+      const data = req.body;
+      if (Array.isArray(data) && data.length > 0) {
+        economicCalendarCache = {
+          data,
+          expiresAt: Date.now() + 15 * 60 * 1000 // Cache real synced calendar for 15 minutes
+        };
+        console.log(`[Calendar Sync] Successfully synced ${data.length} real-time events from client browser!`);
+        res.json({ success: true, count: data.length });
+        return;
+      }
+    } catch (err) {
+      console.error("Failed to sync calendar from client:", err);
+    }
+    res.status(400).json({ success: false });
+  });
+
   // API Route: Real-Time Economic Calendar (Direct Global Live Wire + Dynamic Actual Prints)
   app.get("/api/economic-calendar", async (req, res) => {
     try {
@@ -1875,15 +1894,15 @@ async function startServer() {
       if (parsedEvents.length === 0) {
         // Fallback to high-impact macroeconomic events anchored to server time
         const fallbackSchedule = [
-          { presetId: "ec-cpi-mom", event: "US Consumer Price Index (CPI) MoM", currency: "USD", impact: "HIGH" as const, offsetMinutes: 5, forecast: "0.2%", previous: "0.3%", actual: "0.3%", unit: "%" },
-          { presetId: "ec-core-cpi", event: "US Core CPI YoY", currency: "USD", impact: "HIGH" as const, offsetMinutes: 20, forecast: "3.2%", previous: "3.3%", actual: null, unit: "%" },
-          { presetId: "ec-ecb-rate", event: "ECB Monetary Policy Decision & Rate", currency: "EUR", impact: "HIGH" as const, offsetMinutes: 75, forecast: "3.25%", previous: "3.50%", actual: null, unit: "%" },
-          { presetId: "ec-jobless-claims", event: "US Initial Jobless Claims", currency: "USD", impact: "MEDIUM" as const, offsetMinutes: 140, forecast: "218K", previous: "221K", actual: null, unit: "K" },
-          { presetId: "ec-eia-oil", event: "EIA Crude Oil Inventories", currency: "USD", impact: "MEDIUM" as const, offsetMinutes: 210, forecast: "-1.4M", previous: "-2.5M", actual: null, unit: "Bbl" },
-          { presetId: "ec-fomc-rate", event: "FOMC Policy Statement & Powell Speech", currency: "USD", impact: "HIGH" as const, offsetMinutes: 360, forecast: "4.75%", previous: "5.00%", actual: null, unit: "%" },
-          { presetId: "ec-nfp-jobs", event: "US Non-Farm Payrolls (NFP)", currency: "USD", impact: "HIGH" as const, offsetMinutes: 980, forecast: "165K", previous: "142K", actual: null, unit: "K" },
-          { presetId: "ec-boe-rate", event: "Bank of England (BOE) Official Bank Rate", currency: "GBP", impact: "HIGH" as const, offsetMinutes: 1440, forecast: "5.00%", previous: "5.00%", actual: null, unit: "%" },
-          { presetId: "ec-boj-rate", event: "Bank of Japan (BOJ) Interest Rate Review", currency: "JPY", impact: "HIGH" as const, offsetMinutes: 2160, forecast: "0.25%", previous: "0.25%", actual: null, unit: "%" }
+          { presetId: "ec-cpi-mom", event: "US Consumer Price Index (CPI) MoM", currency: "USD", impact: "HIGH" as const, offsetMinutes: 180, forecast: "0.2%", previous: "0.3%", actual: "0.3%", unit: "%" },
+          { presetId: "ec-core-cpi", event: "US Core CPI YoY", currency: "USD", impact: "HIGH" as const, offsetMinutes: 480, forecast: "3.2%", previous: "3.3%", actual: null, unit: "%" },
+          { presetId: "ec-ecb-rate", event: "ECB Monetary Policy Decision & Rate", currency: "EUR", impact: "HIGH" as const, offsetMinutes: 720, forecast: "3.25%", previous: "3.50%", actual: null, unit: "%" },
+          { presetId: "ec-jobless-claims", event: "US Initial Jobless Claims", currency: "USD", impact: "MEDIUM" as const, offsetMinutes: 1440, forecast: "218K", previous: "221K", actual: null, unit: "K" },
+          { presetId: "ec-eia-oil", event: "EIA Crude Oil Inventories", currency: "USD", impact: "MEDIUM" as const, offsetMinutes: 2160, forecast: "-1.4M", previous: "-2.5M", actual: null, unit: "Bbl" },
+          { presetId: "ec-fomc-rate", event: "FOMC Policy Statement & Powell Speech", currency: "USD", impact: "HIGH" as const, offsetMinutes: 2880, forecast: "4.75%", previous: "5.00%", actual: null, unit: "%" },
+          { presetId: "ec-nfp-jobs", event: "US Non-Farm Payrolls (NFP)", currency: "USD", impact: "HIGH" as const, offsetMinutes: 4320, forecast: "165K", previous: "142K", actual: null, unit: "K" },
+          { presetId: "ec-boe-rate", event: "Bank of England (BOE) Official Bank Rate", currency: "GBP", impact: "HIGH" as const, offsetMinutes: 5760, forecast: "5.00%", previous: "5.00%", actual: null, unit: "%" },
+          { presetId: "ec-boj-rate", event: "Bank of Japan (BOJ) Interest Rate Review", currency: "JPY", impact: "HIGH" as const, offsetMinutes: 7200, forecast: "0.25%", previous: "0.25%", actual: null, unit: "%" }
         ];
 
         parsedEvents = fallbackSchedule.map((item) => {

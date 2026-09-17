@@ -1390,56 +1390,6 @@ export function renderDrawingItem(
       ctx.arc(midX, entryY, 5.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-
-      // 5. TradingView Style In-Box Text Overlays & Badges
-      const tpDiff = Math.abs(tpPrice - entryPrice);
-      const slDiff = Math.abs(entryPrice - slPrice);
-      const tpPct = (tpDiff / (entryPrice || 1)) * 100;
-      const slPct = (slDiff / (entryPrice || 1)) * 100;
-      const rrVal = Math.max(0.01, tpDiff / (slDiff || 0.00001));
-
-      const fmtPrice = (p: number) => (p > 100 ? p.toFixed(2) : p.toFixed(4));
-      const fmtDiff = (d: number) => (d > 100 ? d.toFixed(2) : d.toFixed(4));
-
-      // TP Box Overlay Text
-      if (tpBoxHeight >= 22 && boxWidth >= 50) {
-        ctx.font = 'bold 10px sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        const tpTextY = tpTopY + Math.min(22, tpBoxHeight / 2);
-        ctx.fillText(`Target: +${fmtDiff(tpDiff)} (${tpPct.toFixed(2)}%)`, midX, tpTextY);
-        ctx.font = '9px sans-serif';
-        ctx.fillStyle = `${bullColor}`;
-        ctx.fillText(`Risk/Reward Ratio: ${rrVal.toFixed(2)}`, midX, tpTextY + 12);
-      }
-
-      // SL Box Overlay Text
-      if (slBoxHeight >= 22 && boxWidth >= 50) {
-        ctx.font = 'bold 10px sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        const slTextY = slTopY + Math.max(14, slBoxHeight - 12);
-        ctx.fillText(`Stop: -${fmtDiff(slDiff)} (${slPct.toFixed(2)}%)`, midX, slTextY);
-      }
-
-      // Main Floating Summary Badge above Entry Line
-      const badgeText = `LONG | R:R ${rrVal.toFixed(2)} | TP +${tpPct.toFixed(2)}% (${fmtPrice(tpPrice)}) | SL -${slPct.toFixed(2)}% (${fmtPrice(slPrice)})`;
-      ctx.font = 'bold 9.5px monospace';
-      const textWidth = ctx.measureText(badgeText).width + 16;
-      const badgeX = Math.max(4, Math.min(x1, chartWidth - textWidth - 10));
-      const badgeY = Math.max(20, entryY - 14);
-
-      ctx.fillStyle = '#0b0f19ee';
-      ctx.beginPath();
-      ctx.roundRect(badgeX, badgeY - 2, textWidth, 20, 5);
-      ctx.fill();
-      ctx.strokeStyle = bullColor;
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'left';
-      ctx.fillText(badgeText, badgeX + 8, badgeY + 11.5);
       break;
     }
 
@@ -1571,56 +1521,6 @@ export function renderDrawingItem(
       ctx.arc(midX, entryY, 5.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-
-      // 5. TradingView Style In-Box Text Overlays & Badges
-      const tpDiff = Math.abs(entryPrice - tpPrice);
-      const slDiff = Math.abs(slPrice - entryPrice);
-      const tpPct = (tpDiff / (entryPrice || 1)) * 100;
-      const slPct = (slDiff / (entryPrice || 1)) * 100;
-      const rrVal = Math.max(0.01, tpDiff / (slDiff || 0.00001));
-
-      const fmtPrice = (p: number) => (p > 100 ? p.toFixed(2) : p.toFixed(4));
-      const fmtDiff = (d: number) => (d > 100 ? d.toFixed(2) : d.toFixed(4));
-
-      // SL Box Overlay Text (Top red area)
-      if (slBoxHeight >= 22 && boxWidth >= 50) {
-        ctx.font = 'bold 10px sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        const slTextY = slTopY + Math.min(22, slBoxHeight / 2);
-        ctx.fillText(`Stop: -${fmtDiff(slDiff)} (${slPct.toFixed(2)}%)`, midX, slTextY);
-      }
-
-      // TP Box Overlay Text (Bottom green area)
-      if (tpBoxHeight >= 22 && boxWidth >= 50) {
-        ctx.font = 'bold 10px sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        const tpTextY = tpTopY + Math.max(14, tpBoxHeight - 20);
-        ctx.fillText(`Target: +${fmtDiff(tpDiff)} (${tpPct.toFixed(2)}%)`, midX, tpTextY);
-        ctx.font = '9px sans-serif';
-        ctx.fillStyle = `${bullColor}`;
-        ctx.fillText(`Risk/Reward Ratio: ${rrVal.toFixed(2)}`, midX, tpTextY + 12);
-      }
-
-      // Main Floating Summary Badge above Entry Line
-      const badgeText = `SHORT | R:R ${rrVal.toFixed(2)} | TP +${tpPct.toFixed(2)}% (${fmtPrice(tpPrice)}) | SL -${slPct.toFixed(2)}% (${fmtPrice(slPrice)})`;
-      ctx.font = 'bold 9.5px monospace';
-      const textWidth = ctx.measureText(badgeText).width + 16;
-      const badgeX = Math.max(4, Math.min(x1, chartWidth - textWidth - 10));
-      const badgeY = Math.max(20, entryY - 14);
-
-      ctx.fillStyle = '#0b0f19ee';
-      ctx.beginPath();
-      ctx.roundRect(badgeX, badgeY - 2, textWidth, 20, 5);
-      ctx.fill();
-      ctx.strokeStyle = bearColor;
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'left';
-      ctx.fillText(badgeText, badgeX + 8, badgeY + 11.5);
       break;
     }
 

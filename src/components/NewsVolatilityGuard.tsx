@@ -106,7 +106,16 @@ export const NewsVolatilityGuard: React.FC<NewsVolatilityGuardProps> = ({
       {/* Background Warning Glow */}
       <div className={`absolute top-0 right-0 w-48 h-full blur-2xl pointer-events-none opacity-20 ${isPaused ? 'bg-emerald-500' : 'bg-rose-600'}`} />
 
-      <div className="relative px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-3 text-white font-sans text-xs">
+      {/* Corner Absolute Close Button */}
+      <button
+        onClick={() => setIsDismissed(true)}
+        className="absolute top-2.5 right-3 text-zinc-400 hover:text-rose-300 bg-white/5 hover:bg-white/15 p-1 rounded-full transition-all cursor-pointer z-20 border border-white/10 shadow-sm flex items-center justify-center"
+        title="Tutup Peringatan"
+      >
+        <X size={14} />
+      </button>
+
+      <div className="relative px-3.5 py-2.5 pr-10 flex flex-wrap items-center justify-between gap-3 text-white font-sans text-xs">
         {/* Left Indicator & Info */}
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`p-1.5 rounded-lg border flex items-center justify-center shrink-0 ${
@@ -183,12 +192,14 @@ export const NewsVolatilityGuard: React.FC<NewsVolatilityGuardProps> = ({
             </button>
           )}
 
+          {/* Close / Tutup Button */}
           <button
             onClick={() => setIsDismissed(true)}
-            className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-colors cursor-pointer"
-            title="Sembunyikan Peringatan"
+            className="px-2 py-1.5 rounded-lg bg-white/10 hover:bg-rose-500/30 border border-white/20 hover:border-rose-500/50 text-zinc-300 hover:text-rose-200 font-mono text-xs font-semibold transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+            title="Tutup Peringatan Berita Ini"
           >
-            <X size={14} />
+            <X size={14} className="text-rose-400" />
+            <span>Tutup</span>
           </button>
         </div>
       </div>

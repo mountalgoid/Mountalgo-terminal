@@ -1061,11 +1061,46 @@ export default function CustomChartWidget({
       }
     };
 
-    loadNewsMilestones();
+    const syncRealCalendarFromClient = async () => {
+      try {
+        const resp = await fetch("https://nfs.faireconomy.media/ff_calendar_thisweek.json", {
+          mode: 'cors',
+          headers: { 'Accept': 'application/json' }
+        });
+        if (resp.ok) {
+          const json = await resp.json();
+          if (Array.isArray(json) && json.length > 0) {
+            console.log("[Calendar Sync] Successfully fetched raw real-time events from browser directly:", json.length);
+            await fetch("/api/economic-calendar/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(json)
+            }).catch(() => {});
+            if (isMounted) {
+              loadNewsMilestones();
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[Calendar Sync] Client direct fetch failed (possibly CORS or blocked):", err);
+      }
+    };
+
+    // Attempt direct real-time sync first, then load
+    syncRealCalendarFromClient().finally(() => {
+      if (isMounted) {
+        loadNewsMilestones();
+      }
+    });
+
     const interval = setInterval(loadNewsMilestones, 45000);
+    // Sync again every 10 minutes from the browser to keep the server cache fresh
+    const syncInterval = setInterval(syncRealCalendarFromClient, 10 * 60 * 1000);
+
     return () => {
       isMounted = false;
       clearInterval(interval);
+      clearInterval(syncInterval);
     };
   }, [activeSymbol]);
 
@@ -1414,6 +1449,9 @@ export default function CustomChartWidget({
 
   const [drawings, setDrawings] = useState<DrawingItem[]>(() => {
     try {
+      const symbolKey = `mountalgo_drawings_${id}_${activeSymbol}`;
+      const savedSymbol = localStorage.getItem(symbolKey);
+      if (savedSymbol) return JSON.parse(savedSymbol);
       const saved = localStorage.getItem(`mountalgo_drawings_${id}`) || localStorage.getItem('mountalgo_drawings');
       return saved ? JSON.parse(saved) : [];
     } catch {
@@ -1421,12 +1459,36 @@ export default function CustomChartWidget({
     }
   });
 
+  // Reload drawings when activeSymbol or id changes to avoid cross-symbol price mismatches
   useEffect(() => {
+    if (!activeSymbol) return;
     try {
+      const symbolKey = `mountalgo_drawings_${id}_${activeSymbol}`;
+      const savedSymbol = localStorage.getItem(symbolKey);
+      if (savedSymbol) {
+        setDrawings(JSON.parse(savedSymbol));
+      } else {
+        const saved = localStorage.getItem(`mountalgo_drawings_${id}`) || localStorage.getItem('mountalgo_drawings');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const filtered = parsed.filter((d: DrawingItem) => !d.symbol || d.symbol === activeSymbol);
+            setDrawings(filtered);
+          }
+        }
+      }
+    } catch {}
+  }, [id, activeSymbol]);
+
+  useEffect(() => {
+    if (!activeSymbol) return;
+    try {
+      const symbolKey = `mountalgo_drawings_${id}_${activeSymbol}`;
+      localStorage.setItem(symbolKey, JSON.stringify(drawings));
       localStorage.setItem(`mountalgo_drawings_${id}`, JSON.stringify(drawings));
       localStorage.setItem('mountalgo_drawings', JSON.stringify(drawings));
     } catch {}
-  }, [id, drawings]);
+  }, [id, activeSymbol, drawings]);
 
   // Listen for AI Trade Setup Application (Tandai Level di Chart)
   useEffect(() => {
@@ -8805,6 +8867,7 @@ export default function CustomChartWidget({
         const rawDrawing: DrawingItem = {
           id: Date.now().toString(),
           type: activeTool as any,
+          symbol: activeSymbol,
           points: [{ price: pt.price, time: pt.time }],
           color: drawingColor,
           layerId: activeLayerId,
@@ -8836,6 +8899,7 @@ export default function CustomChartWidget({
         const rawDrawing: DrawingItem = {
           id: Date.now().toString(),
           type: activeTool,
+          symbol: activeSymbol,
           points: [
             { price: entryPrice, time: pt.time },
             { price: entryPrice, time: p2Time }
@@ -12138,9 +12202,9 @@ export default function CustomChartWidget({
                       ? 'bg-cyan-500/25 text-cyan-300 border-cyan-500/50 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
                       : 'bg-white/5 text-zinc-500 border-white/10 hover:text-zinc-300'
                   }`}
-                  title={`Khusus Tampilkan Berita Yang Berhubungan Dengan Instrumen Aktif (${activeSymbol})`}
+                  title={`Khusus Tampilkan Berita Yang Berhubungan Dengan Instrumen Aktif (${activeMarketPair.base}/${activeMarketPair.quote})`}
                 >
-                  <span>🎯 {activeSymbol}</span>
+                  <span>🎯 {activeMarketPair.base}/{activeMarketPair.quote}</span>
                 </button>
               </>
             )}
