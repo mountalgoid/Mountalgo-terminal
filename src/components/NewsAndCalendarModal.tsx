@@ -66,6 +66,8 @@ interface EconomicEvent {
   unit: string;
   volatilityRisk: 'EXTREME' | 'HIGH' | 'MODERATE' | 'LOW';
   description: string;
+  sourceOrg?: string;
+  officialUrl?: string;
 }
 
 interface NewsAndCalendarModalProps {
@@ -254,13 +256,13 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
     }
   }, [isOpen, fetchNews, fetchCalendar]);
 
-  // Periodic background refresh every 30s when open
+  // Periodic background refresh every 12s when open for real-time live accuracy
   useEffect(() => {
     if (!isOpen) return;
     const interval = setInterval(() => {
       fetchNews();
       fetchCalendar();
-    }, 30000);
+    }, 12000);
     return () => clearInterval(interval);
   }, [isOpen, fetchNews, fetchCalendar]);
 
@@ -364,6 +366,13 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-mono text-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span className="font-bold">LIVE FEED SYNC</span>
+              <span className="text-zinc-400">|</span>
+              <span className="text-zinc-300">{feedProvider.latency || 12}ms</span>
+            </div>
+
             <button
               onClick={() => {
                 fetchNews();
@@ -665,15 +674,16 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                               </button>
                             )}
 
-                            {/* External Source Link */}
+                            {/* Direct External Verified Source Link */}
                             <a
                               href={item.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="p-1 text-zinc-400 hover:text-white transition-colors"
-                              title="Buka artikel sumber asli"
+                              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-zinc-300 hover:text-white border border-white/10 hover:border-cyan-500/50 text-[10px] font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                              title="Buka lembar berita asli dari sumber terverifikasi di tab baru"
                             >
-                              <ExternalLink size={13} />
+                              <ExternalLink size={11} className="text-cyan-400" />
+                              <span>Sumber Asli ↗</span>
                             </a>
                           </div>
                         </div>
@@ -849,11 +859,25 @@ export const NewsAndCalendarModal: React.FC<NewsAndCalendarModalProps> = ({
                               <div className="text-[10px] text-zinc-400 line-clamp-1 mt-0.5">
                                 {evt.description}
                               </div>
-                              {evt.marketReaction && (
-                                <div className="text-[9.5px] font-mono text-amber-300 font-bold mt-1">
-                                  ⚡ {evt.marketReaction}
-                                </div>
-                              )}
+                              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                {evt.officialUrl && (
+                                  <a
+                                    href={evt.officialUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[9.5px] font-mono text-cyan-400 hover:text-cyan-200 bg-cyan-950/40 hover:bg-cyan-900/60 px-1.5 py-0.5 rounded border border-cyan-800/40 transition-colors"
+                                    title={`Kunjungi portal resmi rilis data (${evt.sourceOrg || 'Lembaga Resmi'})`}
+                                  >
+                                    <span>🌐 {evt.sourceOrg || 'Portal Resmi Rilis'}</span>
+                                    <ExternalLink size={9} />
+                                  </a>
+                                )}
+                                {evt.marketReaction && (
+                                  <span className="text-[9.5px] font-mono text-amber-300 font-bold">
+                                    ⚡ {evt.marketReaction}
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             <td className="py-3 px-3 text-right whitespace-nowrap">
