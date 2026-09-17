@@ -49,6 +49,7 @@ export interface DrawingItem {
   isComplete: boolean;
   label?: string;
   text?: string;
+  symbol?: string;
   // Advanced Tool Settings
   lineWidth?: number; // 1, 2, 3, 4, 6
   lineStyle?: 'solid' | 'dashed' | 'dotted';

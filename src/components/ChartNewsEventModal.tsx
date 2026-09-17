@@ -48,6 +48,7 @@ interface ChartNewsEventModalProps {
   onOpenFullCalendar?: () => void;
   onOpenAiAgent?: (prompt: string) => void;
   activeSymbol?: string;
+  clusterEvents?: ChartNewsEconomicEvent[];
 }
 
 export const ChartNewsEventModal: React.FC<ChartNewsEventModalProps> = ({
@@ -55,7 +56,8 @@ export const ChartNewsEventModal: React.FC<ChartNewsEventModalProps> = ({
   onClose,
   onOpenFullCalendar,
   onOpenAiAgent,
-  activeSymbol = 'BTCUSDT'
+  activeSymbol = 'BTCUSDT',
+  clusterEvents = []
 }) => {
   const [currentEvent, setCurrentEvent] = useState<ChartNewsEconomicEvent>(initialEvent);
   const [now, setNow] = useState<number>(Date.now());
@@ -232,6 +234,36 @@ export const ChartNewsEventModal: React.FC<ChartNewsEventModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Cluster Tabs Switcher */}
+        {clusterEvents && clusterEvents.length > 1 && (
+          <div className="px-5 py-2.5 bg-[#090d16]/90 border-b border-white/5 flex gap-2 overflow-x-auto items-center scrollbar-thin select-none">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap shrink-0 mr-1">
+              Daftar Cluster ({clusterEvents.length}):
+            </span>
+            {clusterEvents.map((evt) => {
+              const isActive = evt.id === currentEvent.id;
+              return (
+                <button
+                  key={evt.id}
+                  onClick={() => {
+                    setCurrentEvent(evt);
+                    tradingAudio.play('PRESET');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                    isActive
+                      ? 'bg-cyan-500/15 border-cyan-500/50 text-cyan-300 font-bold shadow-[0_0_10px_rgba(6,182,212,0.15)]'
+                      : 'bg-white/5 border-white/5 text-zinc-400 hover:text-zinc-200 hover:bg-white/10'
+                  }`}
+                >
+                  <span className="text-sm">{evt.flag}</span>
+                  <span>{evt.event.length > 20 ? evt.event.substring(0, 20) + '...' : evt.event}</span>
+                  <span className={`w-1.5 h-1.5 rounded-full ${evt.impact === 'HIGH' ? 'bg-rose-500' : evt.impact === 'MEDIUM' ? 'bg-amber-500' : 'bg-cyan-500'}`} />
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Modal Body */}
         <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">

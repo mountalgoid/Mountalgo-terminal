@@ -946,6 +946,7 @@ export default function CustomChartWidget({
   // Real-Time News and Economic Event Milestones on Chart (Directly at Event Candle Bars)
   const [chartNewsEvents, setChartNewsEvents] = useState<ChartNewsEconomicEvent[]>([]);
   const [selectedNewsEventModal, setSelectedNewsEventModal] = useState<ChartNewsEconomicEvent | null>(null);
+  const [selectedNewsEventCluster, setSelectedNewsEventCluster] = useState<ChartNewsEconomicEvent[] | null>(null);
   const [hoveredNewsEventId, setHoveredNewsEventId] = useState<string | null>(null);
   const hoveredNewsEventIdRef = useRef<string | null>(null);
   const newsMarkersHitBoxesRef = useRef<Array<{
@@ -1024,6 +1025,47 @@ export default function CustomChartWidget({
                 country: n.categories?.includes('Macro') ? 'US' : 'GLOBAL',
                 currency: n.categories?.includes('Forex') ? 'USD' : activeSymbol.slice(0, 3),
                 flag: n.categories?.includes('Macro') ? '🇺🇸' : '⚡',
+                impact: n.impact || (n.title.toLowerCase().includes('cpi') || n.title.toLowerCase().includes('fomc') ? 'HIGH' : 'MEDIUM'),
+                timestamp: ts,
+                forecast: '-',
+                previous: '-',
+                description: n.body,
+              });
+            }
+          });
+        }
+
+        // Add real news history (riwayat news) on the chart
+        if (newsRes && newsRes.news && Array.isArray(newsRes.news)) {
+          newsRes.news.forEach((n: any) => {
+            const ts = n.publishedAt;
+            if (ts) {
+              // Extract the true currency from n.tags or n.categories
+              let currency = 'GLOBAL';
+              if (n.tags && Array.isArray(n.tags)) {
+                const upperTags = n.tags.map((t: string) => t.toUpperCase());
+                if (upperTags.some((t: string) => t.includes('BTC') || t === 'BITCOIN')) currency = 'BTC';
+                else if (upperTags.some((t: string) => t.includes('ETH') || t === 'ETHEREUM')) currency = 'ETH';
+                else if (upperTags.some((t: string) => t.includes('SOL') || t === 'SOLANA')) currency = 'SOL';
+                else if (upperTags.some((t: string) => t.includes('XAU') || t === 'GOLD' || t === 'BULLION')) currency = 'XAU';
+                else if (upperTags.some((t: string) => t.includes('OIL') || t === 'WTI' || t === 'BRENT' || t === 'USOIL')) currency = 'USOIL';
+                else if (upperTags.some((t: string) => t.includes('EUR') || t === 'ECB')) currency = 'EUR';
+                else if (upperTags.some((t: string) => t.includes('GBP') || t === 'BOE' || t === 'POUND')) currency = 'GBP';
+                else if (upperTags.some((t: string) => t.includes('JPY') || t === 'BOJ' || t === 'YEN')) currency = 'JPY';
+                else if (upperTags.some((t: string) => t.includes('FED') || t === 'USD' || t === 'CPI' || t === 'INFLATION' || t === 'NFP')) currency = 'USD';
+              }
+              if (currency === 'GLOBAL' && n.categories) {
+                const catLower = n.categories.toLowerCase();
+                if (catLower.includes('crypto')) currency = 'BTC'; // Default crypto representation
+                else if (catLower.includes('forex') || catLower.includes('macro')) currency = 'USD';
+              }
+
+              combined.push({
+                id: `news-hist-${n.id}`,
+                event: n.title,
+                country: (currency === 'USD' || currency === 'BTC') ? 'US' : currency === 'GLOBAL' ? 'GLOBAL' : currency,
+                currency,
+                flag: currency === 'BTC' ? '🪙' : currency === 'ETH' ? '🔷' : currency === 'SOL' ? '☀️' : currency === 'XAU' ? '👑' : currency === 'USOIL' ? '🛢️' : currency === 'EUR' ? '🇪🇺' : currency === 'GBP' ? '🇬🇧' : currency === 'JPY' ? '🇯🇵' : '🇺🇸',
                 impact: n.impact || (n.title.toLowerCase().includes('cpi') || n.title.toLowerCase().includes('fomc') ? 'HIGH' : 'MEDIUM'),
                 timestamp: ts,
                 forecast: '-',
@@ -7651,26 +7693,27 @@ export default function CustomChartWidget({
           }
 
           // B. Refined Solid Vertical Event Line through chart bar
+          const pinRadius = isHovered ? 16 : 13;
+          const pinY = Math.max(pinRadius + 4, utils.drawableHeight - pinRadius - 6);
+
           ctx.setLineDash([]); // Clean solid line
           ctx.strokeStyle = isHovered ? baseColor : `${baseColor}66`;
           ctx.lineWidth = isHovered ? 1.5 : 1;
           ctx.beginPath();
           ctx.moveTo(evtX, 8);
-          ctx.lineTo(evtX, utils.chartHeight - 4);
+          ctx.lineTo(evtX, pinY);
           ctx.stroke();
 
           // C. Minimalist Refined Icon Pin / Cluster Pin at bottom axis
-          const pinRadius = isHovered ? 14 : 11;
-          const pinY = Math.max(pinRadius + 4, utils.chartHeight - pinRadius - 8);
 
-          // Register Hit Box for mouse click & touch interactions
+          // Register Hit Box for mouse click & touch interactions (Expanded +/- 24px touch target)
           cluster.events.forEach((evt) => {
             newsMarkersHitBoxesRef.current.push({
               id: evt.id,
-              x1: evtX - 16,
-              y1: pinY - 16,
-              x2: evtX + 16,
-              y2: pinY + 16,
+              x1: evtX - 24,
+              y1: pinY - 24,
+              x2: evtX + 24,
+              y2: pinY + 24,
               event: evt,
             });
           });
@@ -8582,7 +8625,13 @@ export default function CustomChartWidget({
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
           try { navigator.vibrate(10); } catch (e) {}
         }
+        // Find all sibling events in the same cluster that share this coordinate
+        const siblingEvents = newsMarkersHitBoxesRef.current
+          .filter((hb) => hb.x1 === hitNews.x1 && hb.y1 === hitNews.y1)
+          .map((hb) => hb.event);
+
         setSelectedNewsEventModal(hitNews.event);
+        setSelectedNewsEventCluster(siblingEvents.length > 1 ? siblingEvents : [hitNews.event]);
         tradingAudio.play('PRESET');
         return;
       }
@@ -9912,6 +9961,28 @@ export default function CustomChartWidget({
         return;
       }
       lastTouchTapRef.current = { time: now, x: t.clientX, y: t.clientY };
+
+      // Check News / Economic Event Marker Pin hits on Touch (Expanded touch boundaries)
+      if (newsMarkersHitBoxesRef.current && newsMarkersHitBoxesRef.current.length > 0) {
+        const hitNews = newsMarkersHitBoxesRef.current.find(
+          (hb) => touchX >= hb.x1 && touchX <= hb.x2 && touchY >= hb.y1 && touchY <= hb.y2
+        );
+        if (hitNews) {
+          if (aiLongPressTimerRef.current) clearTimeout(aiLongPressTimerRef.current);
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try { navigator.vibrate(10); } catch (e) {}
+          }
+          // Find all sibling events in the same clicked cluster that share this coordinate
+          const siblingEvents = newsMarkersHitBoxesRef.current
+            .filter((hb) => hb.x1 === hitNews.x1 && hb.y1 === hitNews.y1)
+            .map((hb) => hb.event);
+
+          setSelectedNewsEventModal(hitNews.event);
+          setSelectedNewsEventCluster(siblingEvents.length > 1 ? siblingEvents : [hitNews.event]);
+          tradingAudio.play('PRESET');
+          return;
+        }
+      }
 
       const pt = getCanvasPriceAndTime(t.clientX, t.clientY);
 
@@ -12885,7 +12956,10 @@ export default function CustomChartWidget({
       <ChartNewsBeaconHUD
         events={chartNewsEvents}
         activeSymbol={activeSymbol}
-        onSelectEvent={(evt) => setSelectedNewsEventModal(evt)}
+        onSelectEvent={(evt) => {
+          setSelectedNewsEventModal(evt);
+          setSelectedNewsEventCluster(null);
+        }}
         onOpenAiAgent={(prompt) => {
           window.dispatchEvent(new CustomEvent('mountalgo:open-ai-agent', { detail: { prompt } }));
         }}
@@ -12905,13 +12979,19 @@ export default function CustomChartWidget({
       {selectedNewsEventModal && (
         <ChartNewsEventModal
           event={selectedNewsEventModal}
-          onClose={() => setSelectedNewsEventModal(null)}
+          clusterEvents={selectedNewsEventCluster || []}
+          onClose={() => {
+            setSelectedNewsEventModal(null);
+            setSelectedNewsEventCluster(null);
+          }}
           onOpenFullCalendar={() => {
             setSelectedNewsEventModal(null);
+            setSelectedNewsEventCluster(null);
             window.dispatchEvent(new CustomEvent('mountalgo:open-news-modal'));
           }}
           onOpenAiAgent={(prompt) => {
             setSelectedNewsEventModal(null);
+            setSelectedNewsEventCluster(null);
             window.dispatchEvent(new CustomEvent('mountalgo:open-ai-agent', { detail: { prompt } }));
           }}
           activeSymbol={activeSymbol}

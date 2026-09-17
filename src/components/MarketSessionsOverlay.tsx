@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Clock, Globe, Zap, Eye, EyeOff, ShieldCheck, Activity, Flame } from 'lucide-react';
 import { getStoredTimezone, formatTimeInTimezone, getTimezoneMeta } from '../utils/timezone';
 import { TimezoneSelector } from './TimezoneSelector';
+import { useTheme } from '../context/ThemeContext';
 
 interface SessionDef {
   id: string;
@@ -32,6 +33,7 @@ export const MarketSessionsOverlay: React.FC<MarketSessionsOverlayProps> = ({
   onToggleVisibility,
   className = ''
 }) => {
+  const { palette, isHighContrast } = useTheme();
   const [selectedTz, setSelectedTz] = useState<string>(() => getStoredTimezone());
   const [now, setNow] = useState<Date>(new Date());
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
@@ -115,11 +117,20 @@ export const MarketSessionsOverlay: React.FC<MarketSessionsOverlayProps> = ({
       <div className={`inline-block ${className}`}>
         <button
           onClick={handleToggle}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#090d16]/90 border border-cyan-500/30 text-[11px] font-mono text-zinc-400 hover:text-cyan-300 transition-all cursor-pointer shadow-lg backdrop-blur-xl"
-          title="Tampilkan Overlay Sesi Pasar"
+          style={{
+            borderColor: isHighContrast ? '#ffffff' : `${palette.bull}40`,
+            backgroundColor: isHighContrast 
+              ? '#020308' 
+              : (palette.dark ? (palette.dark === '#242119' ? 'rgba(29, 26, 19, 0.92)' : (palette.dark !== '#000000' ? `${palette.dark}e6` : 'rgba(8, 12, 28, 0.9)')) : 'rgba(8, 12, 28, 0.9)'),
+            boxShadow: isHighContrast 
+              ? '0 0 0 1px #ffffff, 0 4px 12px rgba(0,0,0,0.5)' 
+              : `0 4px 12px -2px rgba(0,0,0,0.4), 0 0 8px -2px ${palette.bull}15`
+          }}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-mono text-zinc-300 hover:text-white transition-all cursor-pointer shadow-lg backdrop-blur-xl"
+          title="Tampilkan Sesi Pasar"
         >
-          <Eye size={12} className="text-cyan-400" />
-          <span>Sesi Pasar [OFF]</span>
+          <Globe size={13} style={{ color: palette.bull }} className="animate-pulse" />
+          <span className="font-semibold tracking-wide">SESI PASAR</span>
         </button>
       </div>
     );
@@ -127,53 +138,64 @@ export const MarketSessionsOverlay: React.FC<MarketSessionsOverlayProps> = ({
 
   return (
     <div className={`font-mono text-xs ${className}`}>
-      <div className="bg-gradient-to-r from-[#090d16]/95 via-[#06080f]/95 to-[#04060a]/95 border border-cyan-500/30 rounded-xl p-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(6,182,212,0.15)] backdrop-blur-2xl text-white">
+      <div 
+        style={{
+          borderColor: isHighContrast ? '#ffffff' : `${palette.bull}35`,
+          backgroundColor: isHighContrast 
+            ? '#020308' 
+            : (palette.dark ? (palette.dark === '#242119' ? 'rgba(29, 26, 19, 0.95)' : (palette.dark !== '#000000' ? `${palette.dark}f5` : 'rgba(8, 12, 28, 0.94)')) : 'rgba(8, 12, 28, 0.94)'),
+          boxShadow: isHighContrast 
+            ? '0 0 0 1px #ffffff, 0 12px 36px rgba(0,0,0,0.8)' 
+            : `0 12px 36px -4px rgba(0,0,0,0.6), 0 0 16px -4px ${palette.bull}20`
+        }}
+        className="border rounded-xl p-2.5 shadow-xl backdrop-blur-2xl text-white"
+      >
         {/* Top Control Bar */}
         <div className="flex items-center justify-between gap-3 pb-2 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <Activity size={14} className="text-cyan-400 animate-pulse" />
-            <span className="font-bold text-cyan-300 text-[11px] tracking-wide">SESI PASAR GLOBAL</span>
+            <Globe size={13} style={{ color: palette.bull }} className="animate-pulse" />
+            <span className="font-bold text-[11px] tracking-wide" style={{ color: palette.bull }}>SESI PASAR</span>
             {isWeekend ? (
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-bold flex items-center gap-1">
-                <ShieldCheck size={10} /> PASAR TUTUP - LIBUR AKHIR PEKAN (WEEKEND PAUSE)
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/25 text-[8.5px] font-bold">
+                PASAR TUTUP
               </span>
             ) : isLondonNyOverlap ? (
-              <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[9px] font-black animate-pulse flex items-center gap-1">
-                <Flame size={10} /> OVERLAP LIKUIDITAS TINGGI (LONDON + NY)
+              <span className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/25 text-[8.5px] font-bold animate-pulse">
+                OVERLAP LIKUIDITAS
               </span>
             ) : isTokyoLondonOverlap ? (
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-black flex items-center gap-1">
-                <Zap size={10} /> OVERLAP ASIA + EROPA
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/25 text-[8.5px] font-bold">
+                OVERLAP ASIA+EROPA
               </span>
             ) : activeSessions.length > 0 ? (
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold">
+              <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/25 text-[8.5px] font-bold">
                 {activeSessions.length} SESI BUKA
               </span>
             ) : (
-              <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 text-[9px]">
+              <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 text-[8.5px]">
                 PASAR TUTUP
               </span>
             )}
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Live Synchronized Clock */}
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/50 border border-cyan-500/30 text-[10.5px]">
-              <Clock size={11} className="text-cyan-400" />
-              <span className="font-bold text-white">{formattedNow.timeWithSecsStr}</span>
-              <span className="text-cyan-400 font-bold">{formattedNow.tzAbbr}</span>
+            {/* Live Clock */}
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/40 border border-white/5 text-[10px]">
+              <Clock size={11} style={{ color: palette.bull }} />
+              <span className="font-bold text-white/90">{formattedNow.timeWithSecsStr}</span>
+              <span className="font-semibold" style={{ color: palette.bull }}>{formattedNow.tzAbbr}</span>
             </div>
 
-            {/* Timezone Selector Modal Trigger */}
+            {/* Timezone Badge Trigger */}
             <TimezoneSelector variant="badge" />
 
-            {/* Toggle Visibility Switch */}
+            {/* Toggle Visibility button */}
             <button
               onClick={handleToggle}
               className="p-1 rounded bg-white/5 hover:bg-white/15 border border-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
               title="Sembunyikan Overlay Sesi Pasar"
             >
-              <EyeOff size={13} />
+              <EyeOff size={11} />
             </button>
           </div>
         </div>
@@ -185,24 +207,24 @@ export const MarketSessionsOverlay: React.FC<MarketSessionsOverlayProps> = ({
               key={s.id}
               className={`p-2 rounded-lg border transition-all ${
                 s.isOpen
-                  ? 'bg-gradient-to-b from-cyan-950/40 to-blue-950/20 border-cyan-500/40 shadow-[0_0_12px_rgba(6,182,212,0.15)]'
-                  : 'bg-black/30 border-white/5 opacity-60 hover:opacity-100'
+                  ? 'bg-white/5 border-emerald-500/30'
+                  : 'bg-black/25 border-white/5 opacity-55 hover:opacity-100'
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs">{s.flag}</span>
-                  <span className="font-bold text-[11px] text-white">{s.name}</span>
+                  <span className="font-bold text-[11px] text-white/90">{s.name}</span>
                 </div>
-                <span className={`w-2 h-2 rounded-full ${s.isOpen ? 'bg-emerald-400 animate-ping' : 'bg-zinc-600'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${s.isOpen ? 'bg-emerald-400 animate-ping' : 'bg-zinc-600'}`} />
               </div>
 
-              <div className="mt-1 flex items-center justify-between text-[9.5px]">
+              <div className="mt-1 flex items-center justify-between text-[9px]">
                 <span className={s.isOpen ? s.color : 'text-zinc-500'}>
                   {s.isOpen ? 'BUKA' : 'TUTUP'}
                 </span>
                 <span className="text-zinc-400 font-mono">
-                  {s.isOpen ? `Tutup: ${s.countdownStr}` : `Buka: ${s.countdownStr}`}
+                  {s.countdownStr}
                 </span>
               </div>
             </div>

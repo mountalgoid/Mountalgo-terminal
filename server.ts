@@ -1517,146 +1517,44 @@ async function startServer() {
       // Sort strictly by published date descending (newest first)
       dedupedArticles.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
 
-      // High-accuracy fallback institutional feeds if network rate-limited
-      if (dedupedArticles.length === 0) {
-        const fallbackHeadlines = [
-          { title: "Federal Reserve Signals Data-Dependent Stance on Rate Cuts as Core Inflation Cools", cat: "Macro, USD", sent: "Bullish" as const, src: "Bloomberg Terminal", tags: ["FED", "INFLATION", "USD"] },
-          { title: "Bitcoin Institutional ETF Inflows Accelerate Past $420M Across Global Custodians", cat: "BTC, ETF", sent: "Bullish" as const, src: "Reuters Finance", tags: ["BTC", "INSTITUTIONAL", "ETF"] },
-          { title: "Gold (XAU/USD) Tests Key Resistance at All-Time Highs Amid Geopolitical Hedging Demand", cat: "Gold, Commodities", sent: "Bullish" as const, src: "Financial Times", tags: ["XAUUSD", "COMMODITIES", "GOLD"] },
-          { title: "ECB Holds Benchmark Deposit Rate Steady While Monitoring Eurozone Manufacturing PMI", cat: "Forex, EUR", sent: "Neutral" as const, src: "ECB Press", tags: ["EUR", "ECB", "RATES"] },
-          { title: "Crude Oil (WTI) Consolidates Near $78/bbl as OPEC+ Maintains Voluntary Output Reductions", cat: "Oil, Commodities", sent: "Neutral" as const, src: "MarketWatch", tags: ["USOIL", "OPEC", "ENERGY"] },
-          { title: "Ethereum Layer-2 Total Value Locked (TVL) Reaches New Quarterly Peak on DeFi Activity", cat: "ETH, DeFi", sent: "Bullish" as const, src: "CoinDesk Wire", tags: ["ETH", "DEFI", "TVL"] },
-          { title: "US Dollar Index (DXY) Fluctuates Ahead of Crucial Non-Farm Payrolls and CPI Print", cat: "Forex, USD", sent: "Neutral" as const, src: "FXStreet", tags: ["DXY", "NFP", "USD"] },
-          { title: "Solana Ecosystem DEX Trading Volumes Exceed $2.4B in 24-Hour Settlement Spike", cat: "SOL, Altcoins", sent: "Bullish" as const, src: "Blockworks", tags: ["SOL", "VOLUME", "CRYPTO"] },
-          { title: "Global Central Banks Increase Gold Reserves for Fifth Consecutive Month, Reports WGC", cat: "Macro, Gold", sent: "Bullish" as const, src: "World Gold Council", tags: ["GOLD", "RESERVES", "BANKS"] },
-          { title: "SEC Releases Updated Regulatory Guidance on Digital Asset Custody & Broker-Dealer Clearances", cat: "Regulation", sent: "Neutral" as const, src: "SEC Press", tags: ["REGULATION", "SEC", "POLICY"] },
-        ];
+      liveArticles = dedupedArticles;
 
-        liveArticles = fallbackHeadlines.map((h, i) => ({
-          id: `fb-${i}-${now}`,
-          title: h.title,
-          url: "https://bloomberg.com",
-          source: h.src,
-          publishedAt: now - (i * 90000 + 15000), // Real-time synchronized 1.5m, 3m, 4.5m ago
-          categories: h.cat,
-          tags: h.tags,
-          imageUrl: null,
-          body: `${h.title}. Market participants are positioning their portfolios accordingly.`,
-          sentiment: h.sent
-        }));
-      } else {
-        liveArticles = dedupedArticles;
+      // Generate strictly upcoming scheduled market announcements & catalysts from real-time economic calendar
+      let upcomingNews: any[] = [];
+      if (economicCalendarCache && Array.isArray(economicCalendarCache.data)) {
+        upcomingNews = economicCalendarCache.data
+          .filter((item: any) => {
+            const ts = new Date(item.date).getTime();
+            return ts > now;
+          })
+          .slice(0, 10)
+          .map((item: any, idx: number) => {
+            const ts = new Date(item.date).getTime();
+            const diffMs = ts - now;
+            const hours = Math.floor(diffMs / 3600000);
+            const mins = Math.floor((diffMs % 3600000) / 60000);
+            const currency = String(item.country || 'USD').toUpperCase();
+            const meta = CURRENCY_METADATA_MAP[currency] || { country: currency, flag: '🌐', sourceOrg: 'Lembaga Resmi', officialUrl: 'https://www.bloomberg.com/markets' };
+            const impact = String(item.impact || 'MEDIUM').toUpperCase();
+            return {
+              id: `upcoming-real-${currency}-${idx}-${ts}`,
+              title: `${item.event} (${currency})`,
+              url: meta.officialUrl,
+              source: meta.sourceOrg,
+              scheduledAt: ts,
+              publishedAt: ts,
+              countdownMs: diffMs,
+              countdownStr: `${hours.toString().padStart(2, '0')}j ${mins.toString().padStart(2, '0')}m`,
+              categories: `Macro, ${currency}`,
+              tags: ["UPCOMING", impact, currency],
+              imageUrl: null,
+              body: `Rilis data ekonomi mendatang: ${item.event} (${currency}). Perkiraan dampak volatilitas ${impact}. Konsensus pasar sebelumnya: ${item.previous || '-'}, perkiraan: ${item.forecast || '-'}.`,
+              sentiment: "Neutral",
+              impact: impact,
+              isUpcoming: true
+            };
+          });
       }
-
-      // Generate strictly upcoming scheduled market announcements & catalysts with verified authentic official portals
-      const upcomingSchedulePresets = [
-        { 
-          presetId: "upcoming-news-cpi",
-          title: "US Consumer Price Index (CPI MoM/YoY) Inflation Release", 
-          cat: "Macro, USD", 
-          offsetMinutes: 480, 
-          impact: "HIGH", 
-          sent: "Bullish" as const, 
-          src: "US Bureau of Labor Statistics (BLS)",
-          url: "https://www.bls.gov/cpi/"
-        },
-        { 
-          presetId: "upcoming-news-fomc",
-          title: "Federal Reserve FOMC Policy Statement & Rate Decision", 
-          cat: "Macro, USD", 
-          offsetMinutes: 1440, 
-          impact: "HIGH", 
-          sent: "Neutral" as const, 
-          src: "Federal Reserve Board (FRB)",
-          url: "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
-        },
-        { 
-          presetId: "upcoming-news-ecb",
-          title: "European Central Bank (ECB) Governing Council Rate Decision", 
-          cat: "Forex, EUR", 
-          offsetMinutes: 2160, 
-          impact: "HIGH", 
-          sent: "Neutral" as const, 
-          src: "European Central Bank (ECB)",
-          url: "https://www.ecb.europa.eu/press/govcdec/html/index.en.html"
-        },
-        { 
-          presetId: "upcoming-news-nfp",
-          title: "US Non-Farm Payrolls (NFP) & Unemployment Rate Print", 
-          cat: "Macro, USD", 
-          offsetMinutes: 2880, 
-          impact: "HIGH", 
-          sent: "Bullish" as const, 
-          src: "US Department of Labor (BLS)",
-          url: "https://www.bls.gov/news.release/empsit.nr0.htm"
-        },
-        { 
-          presetId: "upcoming-news-eia",
-          title: "EIA Crude Oil Weekly Strategic Stockpiles Report", 
-          cat: "Oil, Energy", 
-          offsetMinutes: 3600, 
-          impact: "MEDIUM", 
-          sent: "Neutral" as const, 
-          src: "US Energy Information Administration (EIA)",
-          url: "https://www.eia.gov/petroleum/supply/weekly/"
-        },
-        { 
-          presetId: "upcoming-news-sec",
-          title: "SEC Final Regulatory Deadline on Spot Crypto ETF ETP Framework", 
-          cat: "Crypto, Regulation", 
-          offsetMinutes: 4320, 
-          impact: "HIGH", 
-          sent: "Bullish" as const, 
-          src: "US Securities and Exchange Commission (SEC)",
-          url: "https://www.sec.gov/news/press-releases"
-        },
-        { 
-          presetId: "upcoming-news-boe",
-          title: "Bank of England (BOE) Monetary Policy Committee Rate Decision", 
-          cat: "Forex, GBP", 
-          offsetMinutes: 5760, 
-          impact: "HIGH", 
-          sent: "Neutral" as const, 
-          src: "Bank of England (BOE)",
-          url: "https://www.bankofengland.co.uk/monetary-policy"
-        },
-        { 
-          presetId: "upcoming-news-eth",
-          title: "Ethereum Protocol Major Execution Layer Network Upgrade", 
-          cat: "ETH, Tech", 
-          offsetMinutes: 7200, 
-          impact: "HIGH", 
-          sent: "Bullish" as const, 
-          src: "Ethereum Foundation Core Roadmap",
-          url: "https://ethereum.org/en/roadmap/"
-        },
-      ];
-
-      const upcomingNews = upcomingSchedulePresets.map((u) => {
-        const eventTimestamp = getAnchoredTimestamp(u.offsetMinutes);
-        const diffMs = eventTimestamp - now;
-        const isPast = diffMs <= 0;
-        const absDiff = Math.abs(diffMs);
-        const hours = Math.floor(absDiff / 3600000);
-        const mins = Math.floor((absDiff % 3600000) / 60000);
-        return {
-          id: u.presetId,
-          title: u.title,
-          url: u.url,
-          source: u.src,
-          scheduledAt: eventTimestamp,
-          publishedAt: eventTimestamp,
-          countdownMs: diffMs,
-          countdownStr: isPast ? `RILIS (${mins}m lalu)` : `${hours.toString().padStart(2, '0')}j ${mins.toString().padStart(2, '0')}m`,
-          categories: u.cat,
-          tags: ["UPCOMING", u.impact, ...u.cat.split(',').map(s => s.trim())],
-          imageUrl: null,
-          body: `Jadwal pengumuman resmi ${u.title}. Perkiraan pergerakan volatilitas tinggi pada waktu rilis. Akses portal resmi untuk lembar siaran pers.`,
-          sentiment: u.sent,
-          impact: u.impact,
-          isUpcoming: true
-        };
-      });
 
       // Cache for 18 seconds (ultra-fast live refresh)
       newsCache = {
@@ -1892,60 +1790,7 @@ async function startServer() {
       }
 
       if (parsedEvents.length === 0) {
-        // Fallback to high-impact macroeconomic events anchored to server time
-        const fallbackSchedule = [
-          { presetId: "ec-cpi-mom", event: "US Consumer Price Index (CPI) MoM", currency: "USD", impact: "HIGH" as const, offsetMinutes: 180, forecast: "0.2%", previous: "0.3%", actual: "0.3%", unit: "%" },
-          { presetId: "ec-core-cpi", event: "US Core CPI YoY", currency: "USD", impact: "HIGH" as const, offsetMinutes: 480, forecast: "3.2%", previous: "3.3%", actual: null, unit: "%" },
-          { presetId: "ec-ecb-rate", event: "ECB Monetary Policy Decision & Rate", currency: "EUR", impact: "HIGH" as const, offsetMinutes: 720, forecast: "3.25%", previous: "3.50%", actual: null, unit: "%" },
-          { presetId: "ec-jobless-claims", event: "US Initial Jobless Claims", currency: "USD", impact: "MEDIUM" as const, offsetMinutes: 1440, forecast: "218K", previous: "221K", actual: null, unit: "K" },
-          { presetId: "ec-eia-oil", event: "EIA Crude Oil Inventories", currency: "USD", impact: "MEDIUM" as const, offsetMinutes: 2160, forecast: "-1.4M", previous: "-2.5M", actual: null, unit: "Bbl" },
-          { presetId: "ec-fomc-rate", event: "FOMC Policy Statement & Powell Speech", currency: "USD", impact: "HIGH" as const, offsetMinutes: 2880, forecast: "4.75%", previous: "5.00%", actual: null, unit: "%" },
-          { presetId: "ec-nfp-jobs", event: "US Non-Farm Payrolls (NFP)", currency: "USD", impact: "HIGH" as const, offsetMinutes: 4320, forecast: "165K", previous: "142K", actual: null, unit: "K" },
-          { presetId: "ec-boe-rate", event: "Bank of England (BOE) Official Bank Rate", currency: "GBP", impact: "HIGH" as const, offsetMinutes: 5760, forecast: "5.00%", previous: "5.00%", actual: null, unit: "%" },
-          { presetId: "ec-boj-rate", event: "Bank of Japan (BOJ) Interest Rate Review", currency: "JPY", impact: "HIGH" as const, offsetMinutes: 7200, forecast: "0.25%", previous: "0.25%", actual: null, unit: "%" }
-        ];
-
-        parsedEvents = fallbackSchedule.map((item) => {
-          const meta = CURRENCY_METADATA_MAP[item.currency] || { country: item.currency, flag: '🌐', sourceOrg: 'Lembaga Resmi', officialUrl: 'https://www.bls.gov/cpi/' };
-          const eventTimestamp = getAnchoredTimestamp(item.offsetMinutes);
-          const diffMs = eventTimestamp - currentTimestamp;
-          const isPast = diffMs <= 0;
-          const absDiff = Math.abs(diffMs);
-          const hours = Math.floor(absDiff / (1000 * 60 * 60));
-          const mins = Math.floor((absDiff % (1000 * 60 * 60)) / (1000 * 60));
-          const secs = Math.floor((absDiff % (1000 * 60)) / 1000);
-          const countdownStr = isPast ? `RILIS (${mins}m ${secs}s lalu)` : `${hours.toString().padStart(2, '0')}h : ${mins.toString().padStart(2, '0')}m : ${secs.toString().padStart(2, '0')}s`;
-          const eventDate = new Date(eventTimestamp);
-
-          const override = economicEventOverrides[item.presetId] || economicEventOverrides[item.event];
-
-          return {
-            id: item.presetId,
-            event: item.event,
-            country: meta.country,
-            currency: item.currency,
-            flag: meta.flag,
-            impact: item.impact,
-            timestamp: eventTimestamp,
-            dateFormatted: eventDate.toLocaleDateString('id-ID', { weekday: 'short', month: 'short', day: 'numeric' }),
-            timeFormatted: eventDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }),
-            countdownMs: diffMs,
-            countdownStr,
-            isPast,
-            isJustReleased: isPast && absDiff <= 25 * 60 * 1000,
-            forecast: item.forecast,
-            previous: item.previous,
-            actual: override?.actual || (isPast ? item.forecast : item.actual),
-            deviation: override?.deviation || (isPast ? "+0.1%" : null),
-            deviationStatus: override?.deviationStatus || (isPast ? ("BEAT" as const) : null),
-            marketReaction: override?.marketReaction || (isPast ? "HAWKISH / USD BULLISH" : null),
-            unit: item.unit,
-            volatilityRisk: item.impact === 'HIGH' ? 'EXTREME' as const : 'HIGH' as const,
-            description: `Laporan resmi rilis ekonomi ${item.event} (${item.currency}).`,
-            sourceOrg: meta.sourceOrg,
-            officialUrl: meta.officialUrl
-          };
-        });
+        parsedEvents = [];
       }
 
       // Filter and sort events
