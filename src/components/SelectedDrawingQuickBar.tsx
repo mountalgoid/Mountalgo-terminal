@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 import {
   DrawingItem,
   DrawingToolType,
@@ -132,6 +134,7 @@ export default function SelectedDrawingQuickBar({
   currentPalette,
   coords,
 }: SelectedDrawingQuickBarProps) {
+  const { palette, isLight } = useTheme();
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showWidthMenu, setShowWidthMenu] = useState(false);
   const [showStyleMenu, setShowStyleMenu] = useState(false);
@@ -300,17 +303,22 @@ export default function SelectedDrawingQuickBar({
 
   return (
     <div
-      style={isMobile ? {
-        bottom: '12px',
-        left: '50%',
-        transform: `translate(calc(-50% + ${dragOffset.x}px), ${dragOffset.y}px)`,
-        top: 'auto',
-      } : {
-        top: coords ? `${Math.max(12, coords.y - 48 + dragOffset.y)}px` : `${16 + dragOffset.y}px`,
-        left: coords ? `${Math.max(12, coords.x - 120 + dragOffset.x)}px` : '50%',
-        transform: coords ? 'none' : `translate(calc(-50% + ${dragOffset.x}px), ${dragOffset.y}px)`,
+      style={{
+        background: getThemeModalGradient(palette, isLight),
+        borderColor: getThemeCardBorder(palette, false),
+        boxShadow: `0 10px 30px -5px rgba(0,0,0,0.8), 0 0 20px -2px ${hexToRgba(palette.poc || palette.bull, 0.2)}`,
+        ...(isMobile ? {
+          bottom: '12px',
+          left: '50%',
+          transform: `translate(calc(-50% + ${dragOffset.x}px), ${dragOffset.y}px)`,
+          top: 'auto',
+        } : {
+          top: coords ? `${Math.max(12, coords.y - 48 + dragOffset.y)}px` : `${16 + dragOffset.y}px`,
+          left: coords ? `${Math.max(12, coords.x - 120 + dragOffset.x)}px` : '50%',
+          transform: coords ? 'none' : `translate(calc(-50% + ${dragOffset.x}px), ${dragOffset.y}px)`,
+        })
       }}
-      className={`absolute z-[45] flex items-center gap-1 sm:gap-1.5 bg-[var(--color-panel)] border border-[var(--color-border)] text-[var(--color-text)] px-2 sm:px-2.5 py-1.5 sm:py-1.5 rounded-full shadow-2xl backdrop-blur-md select-none text-xs animate-fadeIn font-sans ${isMobile ? 'overflow-x-auto hide-scrollbar max-w-[calc(100vw-24px)]' : ''}`}
+      className={`absolute z-[45] flex items-center gap-1 sm:gap-1.5 border text-[var(--color-text)] px-2 sm:px-2.5 py-1.5 sm:py-1.5 rounded-full shadow-2xl backdrop-blur-2xl select-none text-xs animate-fadeIn font-sans ${isMobile ? 'overflow-x-auto hide-scrollbar max-w-[calc(100vw-24px)]' : ''}`}
     >
       {/* Drag Handle */}
       <div

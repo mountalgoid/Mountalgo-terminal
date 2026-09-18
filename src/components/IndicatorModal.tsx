@@ -24,6 +24,7 @@ import {
   Plus
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 
 import { LiquidityHeatmapGuideModal } from './LiquidityHeatmapGuideModal';
 import { LeftVolumeProfileGuideModal } from './LeftVolumeProfileGuideModal';
@@ -108,7 +109,7 @@ export default function IndicatorModal({
   const [showLiquidityGuide, setShowLiquidityGuide] = useState(false);
   const [showLeftVpGuide, setShowLeftVpGuide] = useState(false);
   const [showIcdCandlesGuide, setShowIcdCandlesGuide] = useState(false);
-  const { palette, theme } = useTheme();
+  const { palette, theme, isLight } = useTheme();
 
   const isEmerald = theme === 'Standard Spartan Edge Theme' || theme === 'Dark ICT Theme' || theme === 'MountAlgo Themes' || theme === 'DEX Deep';
   const isCyan = theme === 'MountAlgo Frost' || theme === 'Deep Sea';
@@ -385,9 +386,20 @@ export default function IndicatorModal({
         onClose={() => setShowIcdCandlesGuide(false)}
       />
       <div 
-        className="bg-[var(--color-panel)]/80 backdrop-blur-xl rounded-2xl shadow-2xl shadow-black/30 border-white/10 w-full sm:w-[480px] md:w-[540px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto border relative"
-        style={{ borderColor: `${palette.bull}40` }}
+        className="backdrop-blur-2xl rounded-2xl shadow-2xl w-full sm:w-[480px] md:w-[540px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto border relative"
+        style={{ 
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false),
+          boxShadow: `0 20px 60px -10px rgba(0,0,0,0.85), 0 0 30px ${hexToRgba(palette.poc || palette.bull, 0.2)}`
+        }}
       >
+        {/* Top Accent Gradient Line */}
+        <div 
+          className="h-[3px] w-full shrink-0 z-10"
+          style={{
+            background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`
+          }}
+        />
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 pointer-events-none" />
         {/* Modal Header */}
         <div className="relative p-3.5 sm:p-4 border-b border-[var(--color-border)]/30 flex items-center justify-between bg-[var(--color-panel)]/40 backdrop-blur-xl">

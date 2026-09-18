@@ -28,6 +28,14 @@ import {
 } from 'lucide-react';
 import MountAlgoLogo from './MountAlgoLogo';
 import { AiAgentSettingsModal } from './AiAgentSettingsModal';
+import { useTheme } from '../context/ThemeContext';
+import { 
+  getThemeCardGradient, 
+  getThemeCardBorder, 
+  getThemeCardBoxShadow, 
+  getThemeModalGradient, 
+  hexToRgba 
+} from '../utils/themeGradient';
 import {
   AiAgentSettings,
   loadAiAgentSettings,
@@ -79,6 +87,7 @@ export const AiAgentTerminalModal: React.FC<AiAgentTerminalModalProps> = ({
   initialPrompt,
   onApplyTradeSetupToChart,
 }) => {
+  const { palette, isLight } = useTheme();
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
       id: 'init-1',
@@ -332,48 +341,86 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
 
   return (
     <div className="fixed inset-0 z-[10002] flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-200">
-      {/* Dark Glassmorphic Backdrop */}
+      {/* Translucent Backdrop - background outside modal/bar is visible */}
       <div 
-        className="absolute inset-0 bg-black/80 backdrop-blur-xl"
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity"
         onClick={onClose}
       />
 
       {/* Main Terminal Container */}
       <div 
-        className="relative w-full max-w-4xl h-[90vh] max-h-[840px] bg-gradient-to-b from-[#090d18]/95 via-[#060810]/95 to-[#04050a]/95 border border-cyan-500/40 rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8),0_0_35px_rgba(6,182,212,0.2)] flex flex-col overflow-hidden text-white font-sans backdrop-blur-2xl pointer-events-auto"
+        style={{
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, true),
+          boxShadow: `0 25px 60px -15px rgba(0,0,0,0.85), 0 0 35px ${hexToRgba(palette.bull, 0.25)}`,
+        }}
+        className="relative w-full max-w-4xl h-[90vh] max-h-[840px] border rounded-2xl flex flex-col overflow-hidden text-white font-sans backdrop-blur-2xl pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Top Theme Accent Bar */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-[2.5px] z-20"
+          style={{
+            background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`,
+            boxShadow: `0 0 12px ${hexToRgba(palette.bull, 0.4)}`
+          }}
+        />
+
         {/* Top Header Bar */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-[var(--color-border)]/30 bg-gradient-to-r from-cyan-950/40 via-transparent to-blue-950/40">
+        <div 
+          style={{
+            borderColor: hexToRgba(palette.bull, 0.25),
+            background: `linear-gradient(90deg, ${hexToRgba(palette.bull, 0.16)} 0%, rgba(0,0,0,0.2) 50%, ${hexToRgba(palette.bear, 0.14)} 100%)`,
+          }}
+          className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b shrink-0"
+        >
           <div className="flex items-center gap-3">
             <div className="relative">
               <MountAlgoLogo size="sm" showGlow className="w-8 h-8" />
-              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-black animate-ping" />
-              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border border-black" />
+              <div 
+                style={{ backgroundColor: palette.bull }}
+                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-black animate-ping" 
+              />
+              <div 
+                style={{ backgroundColor: palette.bull }}
+                className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-black" 
+              />
             </div>
 
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base sm:text-lg font-black tracking-wide font-mono text-white flex items-center gap-1.5">
                   MOUNTALGO
-                  <span className="text-cyan-400 font-extrabold">QUANT AGENT</span>
+                  <span style={{ color: palette.bull }} className="font-extrabold">QUANT AGENT</span>
                 </h2>
                 <button
                   type="button"
                   onClick={() => setIsSettingsOpen(true)}
-                  className="text-[9.5px] font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-bold border border-cyan-500/30 flex items-center gap-1 transition-colors cursor-pointer group"
+                  style={{
+                    backgroundColor: hexToRgba(palette.bull, 0.15),
+                    borderColor: hexToRgba(palette.bull, 0.35),
+                    color: palette.bull,
+                  }}
+                  className="text-[9.5px] font-mono px-2.5 py-0.5 rounded-full hover:brightness-125 font-bold border flex items-center gap-1 transition-colors cursor-pointer group"
                   title="Klik untuk membuka Pengaturan AI Agent & Multi-Model API Keys"
                 >
-                  <Zap size={10} className="fill-current text-cyan-400 group-hover:scale-110 transition-transform" />
+                  <Zap size={10} style={{ color: palette.bull }} className="fill-current group-hover:scale-110 transition-transform" />
                   <span>
                     {(AI_PROVIDERS_METADATA[aiSettings.activeProvider]?.name || 'GEMINI').toUpperCase()} · {aiSettings.providers[aiSettings.activeProvider]?.model?.toUpperCase() || 'FLASH'}
                   </span>
-                  <Settings size={10} className="text-cyan-400 ml-0.5" />
+                  <Settings size={10} style={{ color: palette.bull }} className="ml-0.5" />
                 </button>
 
                 {/* Live Indicator Deep Scan Badge */}
-                <div className="hidden lg:flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[9px] font-mono text-emerald-300 font-bold">
-                  <Activity size={10} className="animate-pulse text-emerald-400" />
+                <div 
+                  style={{
+                    backgroundColor: hexToRgba(palette.bull, 0.12),
+                    borderColor: hexToRgba(palette.bull, 0.3),
+                    color: palette.bull,
+                  }}
+                  className="hidden lg:flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-mono font-bold"
+                >
+                  <Activity size={10} style={{ color: palette.bull }} className="animate-pulse" />
                   <span>ALL INDICATORS SYNCED</span>
                 </div>
               </div>
@@ -385,8 +432,14 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
 
           {/* Right Live Context Badge & Actions */}
           <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--color-bg)]/50 border border-[var(--color-border)]/30 text-xs font-mono">
-              <span className="font-black text-cyan-300">{activeSymbol}</span>
+            <div 
+              style={{
+                backgroundColor: isLight ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.35)',
+                borderColor: hexToRgba(palette.bull, 0.25),
+              }}
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-mono"
+            >
+              <span style={{ color: palette.bull }} className="font-black">{activeSymbol}</span>
               <span className="text-zinc-500">·</span>
               <span className="text-white font-bold">${currentPrice ? (currentPrice < 1 ? currentPrice.toFixed(6) : currentPrice.toLocaleString()) : 'N/A'}</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${priceChange24h >= 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
@@ -397,16 +450,20 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
             <button
               type="button"
               onClick={() => setIsSettingsOpen(true)}
-              className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-cyan-500/20 border border-[var(--color-border)]/30 hover:border-cyan-500/40 text-zinc-300 hover:text-cyan-300 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-mono"
+              style={{
+                borderColor: hexToRgba(palette.bull, 0.25),
+              }}
+              className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border text-zinc-300 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-mono"
               title="Pengaturan AI Agent (GPT, Claude, OpenRouter, Gemini, DeepSeek)"
             >
-              <Settings size={13} className="text-cyan-400" />
+              <Settings size={13} style={{ color: palette.bull }} />
               <span className="hidden md:inline text-[11px] font-semibold">Pengaturan AI</span>
             </button>
 
             <button
               onClick={() => setMessages([messages[0]])}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-[var(--color-border)]/30 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              style={{ borderColor: hexToRgba(palette.bull, 0.2) }}
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border text-zinc-400 hover:text-white transition-colors cursor-pointer"
               title="Bersihkan Percakapan"
             >
               <RotateCcw size={14} />
@@ -414,7 +471,8 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
 
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 border border-[var(--color-border)]/30 hover:border-rose-500/40 text-zinc-400 hover:text-rose-300 transition-colors cursor-pointer"
+              style={{ borderColor: hexToRgba(palette.bull, 0.2) }}
+              className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 border hover:border-rose-500/40 text-zinc-400 hover:text-rose-300 transition-colors cursor-pointer"
               title="Tutup Modal"
             >
               <X size={16} />
@@ -449,16 +507,36 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
               className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               {msg.sender === 'agent' && (
-                <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0 text-cyan-400 mt-1 shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+                <div 
+                  style={{
+                    backgroundColor: hexToRgba(palette.bull, 0.15),
+                    borderColor: hexToRgba(palette.bull, 0.35),
+                    color: palette.bull,
+                    boxShadow: `0 0 15px ${hexToRgba(palette.bull, 0.25)}`,
+                  }}
+                  className="w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 mt-1"
+                >
                   <Bot size={16} />
                 </div>
               )}
 
               <div
+                style={
+                  msg.sender === 'user'
+                    ? {
+                        background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`,
+                        boxShadow: `0 4px 15px ${hexToRgba(palette.bull, 0.3)}`,
+                      }
+                    : {
+                        background: getThemeCardGradient(palette, isLight, false),
+                        borderColor: getThemeCardBorder(palette, false),
+                        boxShadow: getThemeCardBoxShadow(palette, false),
+                      }
+                }
                 className={`max-w-[85%] rounded-2xl p-4 transition-all ${
                   msg.sender === 'user'
-                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-tr-none shadow-lg'
-                    : 'bg-[#0e1424]/90 border border-cyan-500/20 text-zinc-200 rounded-tl-none shadow-xl backdrop-blur-md'
+                    ? 'text-white rounded-tr-none'
+                    : 'border text-zinc-200 rounded-tl-none backdrop-blur-md'
                 }`}
               >
                 {/* Message Body with clean formatting */}
@@ -468,8 +546,17 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
 
                 {/* Structured Trade Setup Card with "Tandai Level di Chart" action */}
                 {msg.tradeSetup && (
-                  <div className="mt-3.5 p-3 rounded-xl bg-black/40 border border-cyan-500/30 space-y-2 font-mono">
-                    <div className="flex items-center justify-between border-b border-[var(--color-border)]/30 pb-1.5">
+                  <div 
+                    style={{
+                      background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(0,0,0,0.45)',
+                      borderColor: hexToRgba(palette.bull, 0.3),
+                    }}
+                    className="mt-3.5 p-3 rounded-xl border space-y-2 font-mono"
+                  >
+                    <div 
+                      style={{ borderColor: hexToRgba(palette.bull, 0.2) }}
+                      className="flex items-center justify-between border-b pb-1.5"
+                    >
                       <div className="flex items-center gap-1.5">
                         <span className={`px-2 py-0.5 rounded font-black text-[10px] ${
                           msg.tradeSetup.direction === 'BUY' 
@@ -482,7 +569,7 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
                       </div>
 
                       {msg.tradeSetup.riskReward && (
-                        <span className="text-[10px] text-cyan-300 font-bold">
+                        <span style={{ color: palette.bull }} className="text-[10px] font-bold">
                           R:R {msg.tradeSetup.riskReward}
                         </span>
                       )}
@@ -491,7 +578,7 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px]">
                       <div className="p-1.5 rounded bg-white/5 border border-white/5">
                         <div className="text-zinc-400 text-[8.5px]">AREA ENTRY</div>
-                        <div className="font-bold text-cyan-300">${msg.tradeSetup.entry?.toFixed(msg.tradeSetup.entry < 1 ? 6 : 2)}</div>
+                        <div style={{ color: palette.bull }} className="font-bold">${msg.tradeSetup.entry?.toFixed(msg.tradeSetup.entry < 1 ? 6 : 2)}</div>
                       </div>
                       <div className="p-1.5 rounded bg-rose-950/30 border border-rose-500/20">
                         <div className="text-rose-400 text-[8.5px]">STOP LOSS</div>
@@ -509,7 +596,7 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
 
                     {msg.tradeSetup.keyLevelName && (
                       <div className="text-[9.5px] text-zinc-300 bg-white/5 px-2 py-1 rounded flex items-center gap-1">
-                        <span className="text-cyan-400 font-bold">ZONA KUNCI:</span>
+                        <span style={{ color: palette.bull }} className="font-bold">ZONA KUNCI:</span>
                         <span>{msg.tradeSetup.keyLevelName}</span>
                       </div>
                     )}
@@ -518,11 +605,16 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
                     <button
                       type="button"
                       onClick={() => handleApplySetup(msg.tradeSetup, msg.id)}
-                      className={`w-full mt-2 py-2 px-3 rounded-lg font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ${
+                      style={
                         markedSetupId === msg.id
-                          ? 'bg-emerald-500 text-black shadow-emerald-500/30'
-                          : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-black shadow-cyan-500/25 active:scale-[0.98]'
-                      }`}
+                          ? { backgroundColor: '#10b981', color: '#000000', boxShadow: '0 4px 15px rgba(16,185,129,0.4)' }
+                          : { 
+                              background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bull}ee 100%)`, 
+                              color: '#000000', 
+                              boxShadow: `0 4px 15px ${hexToRgba(palette.bull, 0.35)}` 
+                            }
+                      }
+                      className="w-full mt-2 py-2 px-3 rounded-lg font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-[0.98]"
                       title="Klik untuk menggambar Long/Short Position tool, Entry, SL, TP1, TP2, dan Zona Order Block langsung di Chart"
                     >
                       {markedSetupId === msg.id ? (
@@ -543,7 +635,7 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
                 {/* Agent Engine Badge if agent response */}
                 {msg.sender === 'agent' && (msg.providerUsed || msg.modelUsed) && (
                   <div className="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-white/5 text-[10px] font-mono text-zinc-400">
-                    <span className="text-cyan-400 font-semibold">{msg.providerUsed || 'MountAlgo AI'}</span>
+                    <span style={{ color: palette.bull }} className="font-semibold">{msg.providerUsed || 'MountAlgo AI'}</span>
                     <span className="text-zinc-600">·</span>
                     <span className="text-slate-300">{msg.modelUsed}</span>
                     {typeof msg.latencyMs === 'number' && msg.latencyMs > 0 && (
@@ -569,7 +661,14 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
               </div>
 
               {msg.sender === 'user' && (
-                <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0 text-blue-400 mt-1 shadow-md">
+                <div 
+                  style={{
+                    backgroundColor: hexToRgba(palette.bull, 0.2),
+                    borderColor: hexToRgba(palette.bull, 0.4),
+                    color: palette.bull,
+                  }}
+                  className="w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 mt-1 shadow-md"
+                >
                   <User size={16} />
                 </div>
               )}
@@ -579,14 +678,29 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
           {/* Loading Indicator */}
           {isLoading && (
             <div className="flex gap-3 justify-start items-center">
-              <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+              <div 
+                style={{
+                  backgroundColor: hexToRgba(palette.bull, 0.2),
+                  borderColor: hexToRgba(palette.bull, 0.4),
+                  color: palette.bull,
+                  boxShadow: `0 0 15px ${hexToRgba(palette.bull, 0.3)}`,
+                }}
+                className="w-8 h-8 rounded-xl border flex items-center justify-center shrink-0"
+              >
                 <Bot size={16} className="animate-spin" />
               </div>
-              <div className="bg-[#0e1424]/90 border border-cyan-500/30 rounded-2xl rounded-tl-none p-3.5 flex items-center gap-3 text-xs font-mono text-cyan-300 backdrop-blur-md">
+              <div 
+                style={{
+                  background: getThemeCardGradient(palette, isLight, false),
+                  borderColor: hexToRgba(palette.bull, 0.3),
+                  color: palette.bull,
+                }}
+                className="rounded-2xl rounded-tl-none p-3.5 flex items-center gap-3 text-xs font-mono border backdrop-blur-md"
+              >
                 <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping delay-100" />
-                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping delay-200" />
+                  <span style={{ backgroundColor: palette.bull }} className="w-2 h-2 rounded-full animate-ping" />
+                  <span style={{ backgroundColor: palette.bull }} className="w-2 h-2 rounded-full animate-ping delay-100" />
+                  <span style={{ backgroundColor: palette.bull }} className="w-2 h-2 rounded-full animate-ping delay-200" />
                 </div>
                 <span>
                   {retryStatus || `MountAlgo Quant Agent sedang melakukan deep scan indikator & komputasi...`}
@@ -599,9 +713,15 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
         </div>
 
         {/* Quick Prompts Bar */}
-        <div className="px-4 sm:px-6 py-2 bg-black/40 border-t border-[var(--color-border)]/20 flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0">
-          <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider shrink-0 flex items-center gap-1">
-            <Sparkles size={11} className="text-cyan-400" />
+        <div 
+          style={{
+            borderColor: hexToRgba(palette.bull, 0.2),
+            background: isLight ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)',
+          }}
+          className="px-4 sm:px-6 py-2 border-t flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0"
+        >
+          <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
+            <Sparkles size={11} style={{ color: palette.bull }} />
             Quick:
           </span>
           {quickPrompts.map((qp, idx) => (
@@ -609,7 +729,11 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
               key={idx}
               disabled={isLoading}
               onClick={() => handleSendMessage(qp.prompt)}
-              className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-cyan-500/20 border border-white/5 hover:border-cyan-500/30 text-[11px] font-sans text-zinc-300 hover:text-cyan-300 transition-all whitespace-nowrap cursor-pointer disabled:opacity-50"
+              style={{
+                borderColor: hexToRgba(palette.bull, 0.2),
+                background: isLight ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.05)',
+              }}
+              className="px-2.5 py-1 rounded-lg border text-[11px] font-sans text-zinc-300 hover:text-white hover:brightness-125 transition-all whitespace-nowrap cursor-pointer disabled:opacity-50"
             >
               {qp.label}
             </button>
@@ -617,7 +741,15 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
         </div>
 
         {/* Bottom Input Area */}
-        <div className="p-4 sm:px-6 sm:py-3.5 bg-gradient-to-t from-[#04050a] to-[#090d18] border-t border-[var(--color-border)]/30 shrink-0">
+        <div 
+          style={{
+            borderColor: hexToRgba(palette.bull, 0.25),
+            background: isLight 
+              ? 'linear-gradient(to top, rgba(240,244,250,0.95), rgba(255,255,255,0.9))' 
+              : 'linear-gradient(to top, rgba(4,6,12,0.95), rgba(9,13,24,0.9))',
+          }}
+          className="p-4 sm:px-6 sm:py-3.5 border-t shrink-0"
+        >
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -633,14 +765,23 @@ Silakan pilih prompt cepat di bawah atau ajukan pertanyaan spesifik Anda.`,
                 onChange={(e) => setInputPrompt(e.target.value)}
                 placeholder={`Tanyakan strategi, setup entry/SL/TP, atau analisis indikator ${activeSymbol}...`}
                 disabled={isLoading}
-                className="w-full bg-[#0d1322]/90 border border-cyan-500/30 focus:border-cyan-400 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-cyan-400 transition-all font-sans"
+                style={{
+                  background: isLight ? 'rgba(255,255,255,0.85)' : 'rgba(13,19,34,0.85)',
+                  borderColor: hexToRgba(palette.bull, 0.35),
+                }}
+                className="w-full border focus:border-white/50 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-white/30 transition-all font-sans"
               />
             </div>
 
             <button
               type="submit"
               disabled={!inputPrompt.trim() || isLoading}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-black text-xs sm:text-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/20 shrink-0"
+              style={{
+                background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`,
+                boxShadow: `0 4px 15px ${hexToRgba(palette.bull, 0.35)}`,
+                color: '#ffffff',
+              }}
+              className="px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 hover:brightness-110"
             >
               <Send size={14} />
               <span className="hidden sm:inline">Kirim</span>

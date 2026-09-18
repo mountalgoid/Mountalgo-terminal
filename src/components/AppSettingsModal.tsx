@@ -16,6 +16,13 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { ColorThemeName, THEME_PALETTES } from '../context/ThemeContext';
 import { 
+  hexToRgba, 
+  getThemeModalGradient, 
+  getThemeCardGradient, 
+  getThemeCardBorder, 
+  getThemeButtonGradient 
+} from '../utils/themeGradient';
+import { 
   resetTerminalWorkspace, 
   resetTerminalExceptAccounts,
   exportWorkspaceConfiguration,
@@ -69,7 +76,8 @@ export default function AppSettingsModal({
     setIsCustomDarkBg,
     customAccentColor,
     setCustomAccentColor,
-    isSystemDark
+    isSystemDark,
+    isLight
   } = useTheme();
 
   const [audioConfig, setAudioConfig] = useState<AudioEngineConfig>(tradingAudio.getConfig());
@@ -169,13 +177,35 @@ export default function AppSettingsModal({
   const activePalette = THEME_PALETTES[currentTheme] || THEME_PALETTES['MountAlgo Themes'];
 
   return (
-    <div className="fixed inset-0 z-modal-ultimate flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-3 md:p-4 animate-in fade-in duration-150 select-none">
+    <div 
+      className="fixed inset-0 z-modal-ultimate flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-3 md:p-4 animate-in fade-in duration-150 select-none"
+      onClick={onClose}
+    >
       <div 
-        className="bg-[var(--color-panel)] rounded-xl sm:rounded-xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
-        style={{ border: `1px solid ${palette.bull}60` }}
+        onClick={(e) => e.stopPropagation()}
+        className="rounded-2xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden backdrop-blur-2xl animate-in zoom-in-95 duration-150 border"
+        style={{ 
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false),
+          boxShadow: `0 25px 60px -15px rgba(0,0,0,0.9), 0 0 35px ${hexToRgba(palette.bull, 0.22)}`
+        }}
       >
+        {/* Top Accent Gradient Line */}
+        <div 
+          className="h-[3px] w-full shrink-0"
+          style={{
+            background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`
+          }}
+        />
+
         {/* Modal Header */}
-        <div className="px-3 sm:px-5 py-2.5 sm:py-3.5 border-b border-[var(--color-border)] flex items-center justify-between bg-[var(--color-panel)]">
+        <div 
+          className="px-3 sm:px-5 py-2.5 sm:py-3.5 border-b flex items-center justify-between"
+          style={{
+            background: `linear-gradient(90deg, ${hexToRgba(palette.bull, 0.12)} 0%, rgba(255,255,255,0.02) 50%, ${hexToRgba(palette.bear, 0.12)} 100%)`,
+            borderBottomColor: getThemeCardBorder(palette, false)
+          }}
+        >
           <div className="flex items-center gap-2.5">
             <MountAlgoLogo size="sm" className="w-7 h-7" />
             <div>
@@ -200,10 +230,11 @@ export default function AppSettingsModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             {/* Auto OS Color Scheme Detection Card */}
             <div 
-              style={{ borderColor: isAutoOsTheme ? palette.bull : 'var(--color-border)' }}
-              className={`p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col justify-between overflow-hidden ${
-                isAutoOsTheme ? 'bg-[var(--color-card)] shadow-md' : 'bg-[var(--color-card)]/60'
-              }`}
+              style={{ 
+                background: getThemeCardGradient(palette, isLight, isAutoOsTheme),
+                borderColor: isAutoOsTheme ? palette.bull : getThemeCardBorder(palette, false) 
+              }}
+              className="p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col justify-between overflow-hidden shadow-sm backdrop-blur-md"
             >
               <div className="flex items-center justify-between gap-3 mb-2">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -253,10 +284,11 @@ export default function AppSettingsModal({
 
             {/* High-Contrast Mode */}
             <div 
-              style={{ borderColor: isHighContrast ? palette.bull : 'var(--color-border)' }}
-              className={`p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col justify-between overflow-hidden ${
-                isHighContrast ? 'bg-[var(--color-card)] shadow-md' : 'bg-[var(--color-card)]/60'
-              }`}
+              style={{ 
+                background: getThemeCardGradient(palette, isLight, isHighContrast),
+                borderColor: isHighContrast ? palette.bull : getThemeCardBorder(palette, false) 
+              }}
+              className="p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col justify-between overflow-hidden shadow-sm backdrop-blur-md"
             >
               <div className="flex items-center justify-between gap-3 mb-2">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -302,10 +334,11 @@ export default function AppSettingsModal({
 
             {/* Custom Obsidian Dark Background #242119 */}
             <div 
-              style={{ borderColor: isCustomDarkBg ? '#d4af37' : 'var(--color-border)' }}
-              className={`p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col justify-between overflow-hidden ${
-                isCustomDarkBg ? 'bg-[var(--color-card)] shadow-md' : 'bg-[var(--color-card)]/60'
-              }`}
+              style={{ 
+                background: getThemeCardGradient(palette, isLight, isCustomDarkBg),
+                borderColor: isCustomDarkBg ? '#d4af37' : getThemeCardBorder(palette, false) 
+              }}
+              className="p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col justify-between overflow-hidden shadow-sm backdrop-blur-md"
             >
               <div className="flex items-center justify-between gap-3 mb-2">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -354,10 +387,11 @@ export default function AppSettingsModal({
 
             {/* Lock Workspace Card */}
             <div 
-              style={{ borderColor: isWorkspaceLocked ? '#f59e0b' : 'var(--color-border)' }}
-              className={`p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col justify-between overflow-hidden ${
-                isWorkspaceLocked ? 'bg-[var(--color-card)] shadow-md' : 'bg-[var(--color-card)]/60'
-              }`}
+              style={{ 
+                background: getThemeCardGradient(palette, isLight, isWorkspaceLocked),
+                borderColor: isWorkspaceLocked ? '#f59e0b' : getThemeCardBorder(palette, false) 
+              }}
+              className="p-3 sm:p-3.5 rounded-xl border transition-all flex flex-col justify-between overflow-hidden shadow-sm backdrop-blur-md"
             >
               <div className="flex items-center justify-between gap-3 mb-2">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -437,10 +471,11 @@ export default function AppSettingsModal({
               <button
                 type="button"
                 onClick={() => setIsThemeDropdownOpen(prev => !prev)}
-                className="w-full flex items-center justify-between p-3 rounded-xl border bg-[var(--color-card)] hover:bg-[var(--color-hover)] text-left transition-all cursor-pointer shadow-sm"
+                className="w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all cursor-pointer shadow-sm backdrop-blur-md"
                 style={{
-                  borderColor: isThemeDropdownOpen ? palette.bull : 'var(--color-border)',
-                  boxShadow: isThemeDropdownOpen ? `0 0 0 2px ${palette.bull}30` : undefined,
+                  background: getThemeCardGradient(palette, isLight, isThemeDropdownOpen),
+                  borderColor: isThemeDropdownOpen ? palette.bull : getThemeCardBorder(palette, false),
+                  boxShadow: isThemeDropdownOpen ? `0 0 0 2px ${hexToRgba(palette.bull, 0.3)}` : undefined,
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -474,8 +509,12 @@ export default function AppSettingsModal({
               {/* Dropdown Menu Popover */}
               {isThemeDropdownOpen && (
                 <div 
-                  className="absolute left-0 right-0 top-full mt-1.5 z-50 max-h-72 overflow-y-auto custom-scrollbar rounded-xl border bg-[var(--color-panel)] shadow-2xl p-1.5 space-y-1 animate-in fade-in duration-100"
-                  style={{ borderColor: `${palette.bull}60` }}
+                  className="absolute left-0 right-0 top-full mt-1.5 z-50 max-h-72 overflow-y-auto custom-scrollbar rounded-xl border shadow-2xl p-1.5 space-y-1 animate-in fade-in duration-100 backdrop-blur-xl"
+                  style={{ 
+                    background: getThemeModalGradient(palette, isLight),
+                    borderColor: getThemeCardBorder(palette, true),
+                    boxShadow: `0 15px 35px -5px rgba(0,0,0,0.8), 0 0 20px ${hexToRgba(palette.bull, 0.2)}`
+                  }}
                 >
                   {themes.map((th) => {
                     const itemPalette = THEME_PALETTES[th.id];
@@ -527,7 +566,13 @@ export default function AppSettingsModal({
             </div>
 
             {/* Active Theme Color Swatch Bar Preview Card */}
-            <div className="mt-2.5 p-3 rounded-xl bg-[var(--color-card)]/70 border border-[var(--color-border)] flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 text-xs">
+            <div 
+              className="mt-2.5 p-3 rounded-xl border flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 text-xs backdrop-blur-md shadow-sm"
+              style={{
+                background: getThemeCardGradient(palette, isLight, false),
+                borderColor: getThemeCardBorder(palette, false)
+              }}
+            >
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider shrink-0">Palet Hex:</span>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -556,7 +601,13 @@ export default function AppSettingsModal({
             </div>
 
             {/* Custom Accent Color Harmonizer (WCAG AAA) */}
-            <div className="mt-3 p-3.5 rounded-xl bg-[var(--color-card)]/80 border border-[var(--color-border)] space-y-2.5">
+            <div 
+              className="mt-3 p-3.5 rounded-xl border space-y-2.5 backdrop-blur-md shadow-sm"
+              style={{
+                background: getThemeCardGradient(palette, isLight, false),
+                borderColor: getThemeCardBorder(palette, false)
+              }}
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles size={14} style={{ color: palette.bull }} />
@@ -1072,27 +1123,40 @@ export default function AppSettingsModal({
           {/* 6. Terminal Maintenance & Full Reset (Preserving Trading Accounts) */}
           <div className="pt-4 border-t border-[var(--color-border)]">
             <div 
-              className="flex items-center gap-2 mb-2 font-bold text-xs uppercase tracking-wider"
-              style={{ color: palette.bull }}
+              className="flex items-center gap-2 mb-2.5 font-bold text-xs uppercase tracking-wider text-rose-400"
             >
-              <RefreshCw size={15} /> Pemulihan & Atur Ulang Terminal
+              <RefreshCw size={13} className="animate-spin-slow" /> Pemulihan & Atur Ulang Terminal
             </div>
 
-            <div className="p-3 sm:p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-[var(--color-panel)] border border-[var(--color-border)] text-[var(--color-bull)] shrink-0">
-                  <ShieldCheck size={20} style={{ color: palette.bull }} />
+            <div 
+              style={{
+                background: isLight ? 'rgba(241, 245, 249, 0.7)' : 'rgba(15, 23, 42, 0.4)',
+                backdropFilter: 'blur(12px)',
+                borderColor: isLight ? 'rgba(226, 232, 240, 0.8)' : 'rgba(255, 255, 255, 0.05)',
+                boxShadow: isLight ? '0 4px 6px -1px rgba(0,0,0,0.05)' : '0 4px 20px rgba(0,0,0,0.2)'
+              }}
+              className="p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all"
+            >
+              <div className="flex items-start gap-3.5">
+                <div 
+                  style={{
+                    background: isLight ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.15)',
+                    borderColor: 'rgba(16, 185, 129, 0.25)'
+                  }}
+                  className="p-2.5 rounded-xl border text-emerald-400 shrink-0"
+                >
+                  <ShieldCheck size={22} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-xs text-[var(--color-text)]">Atur Ulang Lengkap (Kecuali Akun Trading)</span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                    <span className="font-bold text-[13px] text-[var(--color-text)] tracking-tight">Atur Ulang Lengkap (Kecuali Akun Trading)</span>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black tracking-wider uppercase">
                       🛡️ Akun Aman
                     </span>
                   </div>
-                  <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5 leading-relaxed">
+                  <p className="text-[11px] text-[var(--color-text-muted)] mt-1 leading-relaxed">
                     Kembalikan tema, layout widget, preset chart, gambar indikator, audio synth, dan hotkey ke setelan awal pabrik. 
-                    <strong className="text-[var(--color-text)]"> Semua akun trading, saldo, open position, dan histori Anda 100% aman dan tidak dihapus.</strong>
+                    <strong className="text-[var(--color-text)] block mt-0.5 font-semibold">Semua akun trading, saldo, open position, dan histori Anda 100% aman dan tidak dihapus.</strong>
                   </p>
                 </div>
               </div>
@@ -1100,7 +1164,7 @@ export default function AppSettingsModal({
               <button
                 type="button"
                 onClick={() => setShowFullResetConfirm(true)}
-                className="px-3.5 py-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                className="px-4 py-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 active:scale-98 text-xs font-bold whitespace-nowrap transition-all duration-150 cursor-pointer flex items-center justify-center gap-2 shrink-0 shadow-sm"
               >
                 <RotateCcw size={14} />
                 <span>Atur Ulang Lengkap</span>
@@ -1231,49 +1295,88 @@ export default function AppSettingsModal({
         {/* Full Reset Confirmation Dialog */}
         {showFullResetConfirm && (
           <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-[var(--color-panel)] border border-red-500/50 rounded-xl p-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-              <div className="flex items-center gap-3 text-red-400 mb-3 font-bold text-sm">
-                <div className="p-2 rounded-lg bg-red-500/20 border border-red-500/30">
-                  <AlertTriangle size={20} />
+            <div 
+              style={{
+                background: isLight ? 'rgba(255, 255, 255, 0.98)' : 'rgba(8, 14, 28, 0.96)',
+                borderColor: 'rgba(239, 68, 68, 0.4)',
+                boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+              }}
+              className="w-full max-w-md border rounded-2xl p-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+            >
+              <div className="flex items-center gap-3 text-red-400 mb-3.5 font-bold text-sm">
+                <div className="p-2 rounded-xl bg-red-500/15 border border-red-500/25">
+                  <AlertTriangle size={18} className="animate-pulse" />
                 </div>
-                <span>Konfirmasi Atur Ulang Lengkap</span>
+                <div className="flex flex-col">
+                  <span className="text-[13px] font-black uppercase tracking-wider text-rose-500">Konfirmasi Atur Ulang Lengkap</span>
+                  <span className="text-[10px] text-gray-400 font-normal">Tindakan ini tidak dapat dibatalkan</span>
+                </div>
               </div>
 
-              <div className="space-y-2 text-xs text-[var(--color-text-muted)] mb-4">
-                <p className="text-[var(--color-text)] font-semibold">
-                  Apakah Anda yakin ingin mengatur ulang seluruh konfigurasi terminal ke setelan default pabrik?
+              <div className="space-y-3 text-xs mb-4">
+                <p className="text-[var(--color-text)] font-semibold leading-relaxed text-[11px]">
+                  Apakah Anda yakin ingin mengatur ulang seluruh konfigurasi workspace terminal ke setelan default pabrik?
                 </p>
-                <div className="p-2.5 rounded-lg bg-[var(--color-card)] border border-[var(--color-border)] space-y-1.5">
-                  <div className="flex items-center gap-2 text-emerald-400 font-semibold text-[11px]">
-                    <ShieldCheck size={14} />
+                
+                {/* SAFE DATA */}
+                <div 
+                  style={{
+                    background: isLight ? 'rgba(16, 185, 129, 0.05)' : 'rgba(16, 185, 129, 0.07)',
+                    borderColor: 'rgba(16, 185, 129, 0.15)'
+                  }}
+                  className="p-3 rounded-xl border space-y-1.5"
+                >
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-[10px] tracking-wider uppercase">
+                    <ShieldCheck size={13} />
                     <span>TIDAK DIHAPUS (100% AMAN):</span>
                   </div>
-                  <ul className="list-disc list-inside text-[11px] pl-1 text-[var(--color-text)]">
-                    <li>Akun Trading Broker & Simulasi Demo</li>
-                    <li>Saldo Akun, Equity & Margin</li>
-                    <li>Semua Posisi Trading Aktif & Riwayat Transaksi</li>
+                  <ul className="text-[11px] pl-1.5 text-[var(--color-text)] space-y-1 font-mono">
+                    <li className="flex items-center gap-1.5">
+                      <span className="text-emerald-400">●</span> Akun Trading Broker & Akun Simulasi
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <span className="text-emerald-400">●</span> Saldo Akun, Ekuitas & Margin Perdagangan
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <span className="text-emerald-400">●</span> Posisi Trading Aktif & Riwayat Transaksi
+                    </li>
                   </ul>
                 </div>
-                <div className="p-2.5 rounded-lg bg-[var(--color-card)] border border-[var(--color-border)] space-y-1.5">
-                  <div className="flex items-center gap-2 text-amber-400 font-semibold text-[11px]">
-                    <RefreshCw size={14} />
+
+                {/* RESET DATA */}
+                <div 
+                  style={{
+                    background: isLight ? 'rgba(245, 158, 11, 0.05)' : 'rgba(245, 158, 11, 0.07)',
+                    borderColor: 'rgba(245, 158, 11, 0.15)'
+                  }}
+                  className="p-3 rounded-xl border space-y-1.5"
+                >
+                  <div className="flex items-center gap-2 text-amber-400 font-bold text-[10px] tracking-wider uppercase">
+                    <RefreshCw size={12} className="animate-spin-slow" />
                     <span>YANG DIATUR ULANG KE DEFAULT:</span>
                   </div>
-                  <ul className="list-disc list-inside text-[11px] pl-1 text-[var(--color-text-muted)]">
-                    <li>Tema & Kontras Tampilan</li>
-                    <li>Tata Letak Widget & Orientasi Multi-Chart</li>
-                    <li>Konfigurasi Karakter Suara & Audio Synth</li>
-                    <li>Preset Volume, Hotkey & Sinkronisasi Crosshair</li>
-                    <li>Cache Gambar Indikator Chart</li>
+                  <ul className="text-[10.5px] pl-1.5 text-[var(--color-text-muted)] space-y-1 font-mono">
+                    <li className="flex items-center gap-1.5">
+                      <span className="text-amber-400">○</span> Tema Warna, Kontras, & Layout Multi-Chart
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <span className="text-amber-400">○</span> Konfigurasi Audio Synth & Preset Volume
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <span className="text-amber-400">○</span> Hotkey Pintasan & Sinkronisasi Crosshair
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <span className="text-amber-400">○</span> Cache Gambar Indikator & Preset Filter
+                    </li>
                   </ul>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2.5">
+              <div className="flex items-center justify-end gap-2.5 pt-1.5">
                 <button
                   type="button"
                   onClick={() => setShowFullResetConfirm(false)}
-                  className="px-3.5 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xs font-semibold cursor-pointer transition-colors"
+                  className="px-4 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xs font-bold cursor-pointer transition-all active:scale-98"
                 >
                   Batal
                 </button>
@@ -1284,7 +1387,7 @@ export default function AppSettingsModal({
                     setShowFullResetConfirm(false);
                     window.location.reload();
                   }}
-                  className="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold cursor-pointer transition-colors shadow-lg flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold cursor-pointer transition-all active:scale-98 shadow-md flex items-center gap-1.5"
                 >
                   <RotateCcw size={13} />
                   <span>Ya, Atur Ulang Sekarang</span>
@@ -1295,12 +1398,18 @@ export default function AppSettingsModal({
         )}
 
         {/* Modal Footer */}
-        <div className="px-3 sm:px-5 py-2.5 sm:py-3 border-t border-[var(--color-border)] bg-[var(--color-panel)] flex items-center justify-between">
+        <div 
+          className="px-3 sm:px-5 py-2.5 sm:py-3 border-t flex items-center justify-between backdrop-blur-md"
+          style={{
+            background: `linear-gradient(90deg, ${hexToRgba(palette.bull, 0.08)} 0%, rgba(255,255,255,0.02) 50%, ${hexToRgba(palette.bear, 0.08)} 100%)`,
+            borderTopColor: getThemeCardBorder(palette, false)
+          }}
+        >
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setShowFullResetConfirm(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs font-mono transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-500/25 bg-rose-500/10 text-rose-400 hover:bg-rose-500/15 text-xs font-mono transition-all cursor-pointer active:scale-98 shadow-sm"
               title="Atur ulang seluruh pengaturan terminal kecuali akun trading"
             >
               <RotateCcw size={13} />
@@ -1312,8 +1421,12 @@ export default function AppSettingsModal({
           <button
             type="button"
             onClick={onClose}
-            style={{ backgroundColor: palette.bull, color: '#000000' }}
-            className="px-5 py-1.5 rounded-lg text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-md"
+            style={{ 
+              background: `linear-gradient(135deg, ${palette.bull} 0%, ${hexToRgba(palette.bull, 0.85)} 100%)`, 
+              color: '#000000',
+              boxShadow: `0 0 15px ${hexToRgba(palette.bull, 0.35)}`
+            }}
+            className="px-5 py-1.5 rounded-lg text-xs font-bold hover:brightness-110 transition-all cursor-pointer shadow-md font-mono"
           >
             Selesai
           </button>

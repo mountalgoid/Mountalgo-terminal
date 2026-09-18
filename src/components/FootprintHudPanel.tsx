@@ -14,6 +14,13 @@ import {
 } from 'lucide-react';
 import { FootprintCandleData, formatVol } from '../utils/footprints';
 import { useTheme } from '../context/ThemeContext';
+import { 
+  hexToRgba, 
+  getThemeModalGradient, 
+  getThemeCardBorder, 
+  getThemeCardGradient, 
+  getThemeCardBoxShadow 
+} from '../utils/themeGradient';
 
 interface FootprintHudPanelProps {
   footprintData: FootprintCandleData[];
@@ -32,7 +39,7 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
   onPositionChange,
   onClose
 }: FootprintHudPanelProps) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
   const [activeTab, setActiveTab] = useState<'all' | 'charts' | 'distribution'>('all');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -77,16 +84,22 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
   const isVertical = position === 'left' || position === 'right';
 
   // Width class mapping for vertical mode
-  const widthClass = panelWidth === 'narrow' ? 'w-48 sm:w-60 md:w-64' : panelWidth === 'medium' ? 'w-56 sm:w-72 md:w-80' : 'w-64 sm:w-80 lg:w-96';
+  const widthClass = panelWidth === 'narrow' ? 'w-80 sm:w-88 md:w-96' : panelWidth === 'medium' ? 'w-96 sm:w-[420px] md:w-[460px]' : 'w-[420px] sm:w-[480px] md:w-[540px]';
 
   // Minimized Compact Bar View
   if (isMinimized) {
     // Vertical side dock minimized state (Left or Right)
     if (position === 'left' || position === 'right') {
       return (
-        <div className={`bg-[var(--color-panel)]/80 backdrop-blur-xl text-[var(--color-text)] font-sans text-xs select-none shadow-2xl shadow-black/30 flex flex-col items-center justify-between py-2.5 px-1 border-[var(--color-border)] z-20 shrink-0 ${
-          position === 'left' ? 'border-r w-11 sm:w-12 h-full' : 'border-l w-11 sm:w-12 h-full'
-        }`}>
+        <div 
+          style={{
+            background: getThemeModalGradient(palette, isLight),
+            borderColor: getThemeCardBorder(palette, false)
+          }}
+          className={`backdrop-blur-2xl text-[var(--color-text)] font-sans text-xs select-none shadow-2xl flex flex-col items-center justify-between py-2.5 px-1 z-20 shrink-0 ${
+            position === 'left' ? 'border-r w-11 sm:w-12 h-full' : 'border-l w-11 sm:w-12 h-full'
+          }`}
+        >
           {/* Top Control */}
           <div className="flex flex-col items-center gap-2 font-mono text-[10px]">
             <button
@@ -148,9 +161,15 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
 
     // Horizontal top or bottom minimized state
     return (
-      <div className={`bg-[var(--color-panel)]/80 backdrop-blur-xl text-[var(--color-text)] font-sans text-xs select-none shadow-2xl shadow-black/30 flex items-center justify-between px-3 py-1.5 border-[var(--color-border)] chart-layer-indicators-hud ${
-        position === 'bottom' ? 'border-t w-full' : 'border-b w-full'
-      }`}>
+      <div 
+        style={{
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false)
+        }}
+        className={`backdrop-blur-2xl text-[var(--color-text)] font-sans text-xs select-none shadow-2xl flex items-center justify-between px-3 py-1.5 chart-layer-indicators-hud ${
+          position === 'bottom' ? 'border-t w-full' : 'border-b w-full'
+        }`}
+      >
         <div className="flex items-center gap-3 font-mono text-[10.5px] overflow-x-auto no-scrollbar">
           <div 
             style={{ backgroundColor: `${palette.bull}25`, borderColor: palette.bull, color: palette.bull }}
@@ -185,13 +204,28 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
   }
 
   return (
-    <div className={`bg-[var(--color-panel)] text-[var(--color-text)] font-sans text-xs select-none shadow-2xl transition-all flex flex-col ${
-      position === 'left' 
-        ? `${widthClass} border-r border-[var(--color-border)] h-full chart-layer-indicators-hud shrink-0` 
-        : position === 'right' 
-        ? `${widthClass} border-l border-[var(--color-border)] h-full chart-layer-indicators-hud shrink-0` 
-        : 'w-full border-t border-[var(--color-border)]'
-    }`}>
+    <div 
+      style={{
+        background: getThemeModalGradient(palette, isLight),
+        borderColor: getThemeCardBorder(palette, false),
+        boxShadow: `0 20px 50px rgba(0,0,0,0.85), 0 0 25px ${hexToRgba(palette.bull, 0.2)}`
+      }}
+      className={`relative text-[var(--color-text)] font-sans text-xs select-none shadow-2xl transition-all flex flex-col backdrop-blur-2xl overflow-hidden ${
+        position === 'left' 
+          ? `${widthClass} border-r h-full chart-layer-indicators-hud shrink-0` 
+          : position === 'right' 
+          ? `${widthClass} border-l h-full chart-layer-indicators-hud shrink-0` 
+          : 'w-full border-t'
+      }`}
+    >
+      {/* Top Accent Gradient Bar like News Bar & Calendar News */}
+      <div 
+        className="absolute top-0 left-0 right-0 h-[2.5px] z-20 pointer-events-none"
+        style={{
+          background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`,
+          boxShadow: `0 0 10px ${hexToRgba(palette.bull, 0.4)}`
+        }}
+      />
       {/* Header Bar */}
       <div className="bg-[var(--color-panel-header)] px-2.5 py-1.5 border-b border-[var(--color-border)] flex flex-wrap items-center justify-between gap-1.5 shrink-0">
         <div className="flex items-center gap-1.5">
@@ -295,15 +329,30 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
       </div>
 
       {/* Grid Charts Container */}
-      <div className={`p-2 sm:p-2.5 grid gap-2 sm:gap-2.5 overflow-y-auto ${
+      <div className={`p-2.5 sm:p-3 grid gap-3 overflow-y-auto custom-scrollbar ${
         isVertical 
-          ? 'grid-cols-1 flex-1 max-h-full' 
-          : `grid-cols-1 md:grid-cols-2 lg:grid-cols-3 ${isExpanded ? 'max-h-96' : 'max-h-56'}`
+          ? 'grid-cols-1 flex-1 max-h-full min-h-0' 
+          : `grid-cols-1 md:grid-cols-2 lg:grid-cols-3 ${isExpanded ? 'max-h-[600px]' : 'max-h-[420px]'}`
       }`}>
         
         {/* 1. COLUMN CHART: Buy Vol vs Sell Vol per Bar */}
         {(activeTab === 'all' || activeTab === 'charts') && (
-          <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-lg p-2.5 flex flex-col justify-between">
+          <div 
+            style={{
+              borderColor: getThemeCardBorder(palette, false),
+              boxShadow: getThemeCardBoxShadow(palette, false),
+              background: getThemeCardGradient(palette, isLight, false),
+            }}
+            className="group relative p-3 pl-4 rounded-xl border transition-all duration-300 flex flex-col justify-between backdrop-blur-xl hover:border-white/30 overflow-hidden min-h-[175px]"
+          >
+            {/* Side Theme Accent Bar */}
+            <div 
+              className="absolute left-0 top-0 bottom-0 w-[3.5px]"
+              style={{
+                backgroundColor: palette.bull,
+                boxShadow: `0 0 10px ${hexToRgba(palette.bull, 0.5)}`
+              }}
+            />
             <div className="flex items-center justify-between mb-1.5">
               <span className="font-bold text-[var(--color-text-muted)] font-mono text-[11px] flex items-center gap-1">
                 <BarChart3 size={13} style={{ color: palette.poc }} /> Column Chart (Buy/Sell Vol)
@@ -379,7 +428,22 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
 
         {/* 2. PIE / DONUT CHART: Buy % vs Sell % Ratio */}
         {(activeTab === 'all' || activeTab === 'distribution') && (
-          <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-lg p-2.5 flex flex-col justify-between">
+          <div 
+            style={{
+              borderColor: getThemeCardBorder(palette, false),
+              boxShadow: getThemeCardBoxShadow(palette, false),
+              background: getThemeCardGradient(palette, isLight, false),
+            }}
+            className="group relative p-3 pl-4 rounded-xl border transition-all duration-300 flex flex-col justify-between backdrop-blur-xl hover:border-white/30 overflow-hidden min-h-[175px]"
+          >
+            {/* Side Theme Accent Bar */}
+            <div 
+              className="absolute left-0 top-0 bottom-0 w-[3.5px]"
+              style={{
+                backgroundColor: palette.poc || palette.bull,
+                boxShadow: `0 0 10px ${hexToRgba(palette.poc || palette.bull, 0.5)}`
+              }}
+            />
             <div className="flex items-center justify-between mb-1">
               <span className="font-bold text-[var(--color-text-muted)] font-mono text-[11px] flex items-center gap-1">
                 <PieChart size={13} style={{ color: palette.poc }} /> Pie Chart (Buy/Sell Ratio)
@@ -440,7 +504,22 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
 
         {/* 3. LINE / AREA CHART: CVD Trajectory Line */}
         {(activeTab === 'all' || activeTab === 'charts') && (
-          <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-lg p-2.5 flex flex-col justify-between">
+          <div 
+            style={{
+              borderColor: getThemeCardBorder(palette, false),
+              boxShadow: getThemeCardBoxShadow(palette, false),
+              background: getThemeCardGradient(palette, isLight, false),
+            }}
+            className="group relative p-3 pl-4 rounded-xl border transition-all duration-300 flex flex-col justify-between backdrop-blur-xl hover:border-white/30 overflow-hidden min-h-[175px]"
+          >
+            {/* Side Theme Accent Bar */}
+            <div 
+              className="absolute left-0 top-0 bottom-0 w-[3.5px]"
+              style={{
+                backgroundColor: currentCvd >= 0 ? palette.bull : palette.bear,
+                boxShadow: `0 0 10px ${hexToRgba(currentCvd >= 0 ? palette.bull : palette.bear, 0.5)}`
+              }}
+            />
             <div className="flex items-center justify-between mb-1.5">
               <span className="font-bold text-[var(--color-text-muted)] font-mono text-[11px] flex items-center gap-1">
                 <LineChart size={13} className="text-blue-400" /> Line Chart (Cumulative Delta)
@@ -504,7 +583,22 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
 
         {/* 4. BAR CHART: Horizontal Delta Levels Profile */}
         {(activeTab === 'all' || activeTab === 'distribution') && currentBar && currentBar.levels && (
-          <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-lg p-2.5 flex flex-col justify-between">
+          <div 
+            style={{
+              borderColor: getThemeCardBorder(palette, false),
+              boxShadow: getThemeCardBoxShadow(palette, false),
+              background: getThemeCardGradient(palette, isLight, false),
+            }}
+            className="group relative p-3 pl-4 rounded-xl border transition-all duration-300 flex flex-col justify-between backdrop-blur-xl hover:border-white/30 overflow-hidden min-h-[175px]"
+          >
+            {/* Side Theme Accent Bar */}
+            <div 
+              className="absolute left-0 top-0 bottom-0 w-[3.5px]"
+              style={{
+                backgroundColor: palette.poc,
+                boxShadow: `0 0 10px ${hexToRgba(palette.poc, 0.5)}`
+              }}
+            />
             <div className="flex items-center justify-between mb-1.5">
               <span className="font-bold text-[var(--color-text-muted)] font-mono text-[11px] flex items-center gap-1">
                 <BarChart3 size={13} style={{ color: palette.poc }} className="transform rotate-90" /> Bar Chart (Delta Levels)
@@ -549,7 +643,22 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
 
         {/* 5. METRIC CARDS & REAL-TIME AUCTION STATUS */}
         {activeTab === 'all' && (
-          <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-lg p-2.5 flex flex-col justify-between">
+          <div 
+            style={{
+              borderColor: getThemeCardBorder(palette, false),
+              boxShadow: getThemeCardBoxShadow(palette, false),
+              background: getThemeCardGradient(palette, isLight, false),
+            }}
+            className="group relative p-3 pl-4 rounded-xl border transition-all duration-300 flex flex-col justify-between backdrop-blur-xl hover:border-white/30 overflow-hidden min-h-[175px]"
+          >
+            {/* Side Theme Accent Bar */}
+            <div 
+              className="absolute left-0 top-0 bottom-0 w-[3.5px]"
+              style={{
+                backgroundColor: palette.bull,
+                boxShadow: `0 0 10px ${hexToRgba(palette.bull, 0.5)}`
+              }}
+            />
             <div className="flex items-center justify-between mb-1.5">
               <span className="font-bold text-[var(--color-text-muted)] font-mono text-[11px] flex items-center gap-1">
                 <Zap size={13} className="text-yellow-400" /> Key Metrics & Signals

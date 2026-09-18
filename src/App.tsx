@@ -115,6 +115,9 @@ export default function App() {
 
   // Splash screen state
   const [showSplash, setShowSplash] = useState(true);
+  const handleSplashComplete = useCallback(() => {
+    setShowSplash(false);
+  }, []);
 
 
 
@@ -553,7 +556,7 @@ export default function App() {
     <>
     {/* Landing Page → Splash Screen → Terminal */}
     {showLanding && <LandingPage onEnterTerminal={handleEnterTerminal} />}
-    {!showLanding && showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+    {!showLanding && showSplash && <SplashScreen onComplete={handleSplashComplete} />}
 
     <div 
       id="app-layout"

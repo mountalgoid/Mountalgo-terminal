@@ -7,6 +7,7 @@ import {
   PenTool, FolderOpen, Layers
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder, getThemeCardGradient } from '../utils/themeGradient';
 import { DRAWING_TOOL_GROUPS, getToolDef, ToolItem } from '../utils/drawingToolbarGroups';
 
 export interface FloatingDrawingToolbarProps {
@@ -96,7 +97,7 @@ export default function FloatingDrawingToolbar({
         '#38bdf8', '#a855f7', '#f59e0b', '#10b981', '#ffffff', '#ef4444', '#a1a1aa', '#000000'
       ]))
     : presetColors;
-  const { palette, isHighContrast } = useTheme();
+  const { palette, isHighContrast, isLight } = useTheme();
   const [showColorPalette, setShowColorPalette] = useState<boolean>(false);
   const [showMagnetMenu, setShowMagnetMenu] = useState<boolean>(false);
   const [showPinManager, setShowPinManager] = useState<boolean>(false);
@@ -265,13 +266,11 @@ export default function FloatingDrawingToolbar({
         {isMinimized ? (
           <div 
             style={{
-              borderColor: isHighContrast ? '#ffffff' : `${palette.bull}40`,
-              backgroundColor: isHighContrast 
-                ? '#020308' 
-                : (palette.dark ? (palette.dark === '#242119' ? 'rgba(29, 26, 19, 0.92)' : (palette.dark !== '#000000' ? `${palette.dark}e6` : 'rgba(8, 12, 28, 0.9)')) : 'rgba(8, 12, 28, 0.9)'),
+              borderColor: getThemeCardBorder(palette, false),
+              background: getThemeModalGradient(palette, isLight),
               boxShadow: isHighContrast 
                 ? '0 0 0 1px #ffffff, 0 8px 32px rgba(0,0,0,0.8)'
-                : `0 8px 32px -4px rgba(0,0,0,0.6), 0 0 16px -4px ${palette.bull}25`
+                : `0 8px 32px -4px rgba(0,0,0,0.6), 0 0 16px -4px ${hexToRgba(palette.bull, 0.25)}`
             }}
             className="flex items-center gap-1 px-2 py-1.5 rounded-xl border backdrop-blur-xl animate-in fade-in duration-150"
           >
@@ -326,13 +325,11 @@ export default function FloatingDrawingToolbar({
           /* EXPANDED MOBILE: Draggable Floating Toolbar */
           <div 
             style={{
-              borderColor: isHighContrast ? '#ffffff' : `${palette.bull}40`,
-              backgroundColor: isHighContrast 
-                ? '#020308' 
-                : (palette.dark ? (palette.dark === '#242119' ? 'rgba(29, 26, 19, 0.94)' : (palette.dark !== '#000000' ? `${palette.dark}f0` : 'rgba(8, 12, 28, 0.92)')) : 'rgba(8, 12, 28, 0.92)'),
+              borderColor: getThemeCardBorder(palette, false),
+              background: getThemeModalGradient(palette, isLight),
               boxShadow: isHighContrast 
                 ? '0 0 0 1px #ffffff, 0 16px 40px rgba(0,0,0,0.9)' 
-                : `0 16px 40px -4px rgba(0,0,0,0.7), 0 0 20px -4px ${palette.bull}20`
+                : `0 16px 40px -4px rgba(0,0,0,0.7), 0 0 20px -4px ${hexToRgba(palette.bull, 0.2)}`
             }}
             className="flex flex-col rounded-2xl border backdrop-blur-2xl animate-in fade-in duration-150 overflow-hidden"
           >
@@ -586,13 +583,11 @@ export default function FloatingDrawingToolbar({
       {isMinimized ? (
         <div 
           style={{
-            borderColor: isHighContrast ? '#ffffff' : `${palette.bull}40`,
-            backgroundColor: isHighContrast 
-              ? '#020308' 
-              : (palette.dark ? (palette.dark === '#242119' ? 'rgba(29, 26, 19, 0.92)' : (palette.dark !== '#000000' ? `${palette.dark}e6` : 'rgba(8, 12, 28, 0.9)')) : 'rgba(8, 12, 28, 0.9)'),
+            borderColor: getThemeCardBorder(palette, false),
+            background: getThemeModalGradient(palette, isLight),
             boxShadow: isHighContrast 
               ? '0 0 0 1px #ffffff, 0 8px 32px rgba(0,0,0,0.8)' 
-              : `0 8px 32px -4px rgba(0,0,0,0.6), 0 0 16px -4px ${palette.bull}25`
+              : `0 8px 32px -4px rgba(0,0,0,0.6), 0 0 16px -4px ${hexToRgba(palette.bull, 0.25)}`
           }}
           className="flex items-center gap-1 px-1.5 py-1 rounded-full border backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150"
         >
@@ -641,13 +636,11 @@ export default function FloatingDrawingToolbar({
         /* EXPANDED FULL FLOATING TOOLBAR */
         <div 
           style={{
-            borderColor: isHighContrast ? '#ffffff' : `${palette.bull}40`,
-            backgroundColor: isHighContrast 
-              ? '#020308' 
-              : (palette.dark ? (palette.dark === '#242119' ? 'rgba(29, 26, 19, 0.94)' : (palette.dark !== '#000000' ? `${palette.dark}f0` : 'rgba(8, 12, 28, 0.92)')) : 'rgba(8, 12, 28, 0.92)'),
+            borderColor: getThemeCardBorder(palette, false),
+            background: getThemeModalGradient(palette, isLight),
             boxShadow: isHighContrast 
               ? '0 0 0 1px #ffffff, 0 16px 40px rgba(0,0,0,0.9)' 
-              : `0 16px 40px -4px rgba(0,0,0,0.7), 0 0 20px -4px ${palette.bull}20`
+              : `0 16px 40px -4px rgba(0,0,0,0.7), 0 0 20px -4px ${hexToRgba(palette.bull, 0.2)}`
           }}
           className="flex flex-col gap-1 p-1 rounded-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[45vh] overflow-hidden border"
         >

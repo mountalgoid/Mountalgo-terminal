@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTrade } from '../context/TradeContext';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 import InstitutionalAlgoPanel from './InstitutionalAlgoPanel';
 import { 
   Activity, Clock, Sliders, TrendingDown, TrendingUp, X, 
@@ -24,7 +25,7 @@ interface ChartTradePanelProps {
 }
 
 const ChartTradePanel = React.memo(function ChartTradePanel({ symbol, currentPrice, isForex, riskManagerData }: ChartTradePanelProps) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
   const { 
     balance = 0, equity = 0, positions = [], pendingOrders = [], tradeHistory = [], 
     executeOrder, cancelPendingOrder, cancelAllPendingOrders, closePosition, reversePosition, closeAllPositions, toggleAutoBE, updatePositionBracket,
@@ -199,7 +200,13 @@ const ChartTradePanel = React.memo(function ChartTradePanel({ symbol, currentPri
   };
 
   return (
-    <div className={`w-full h-full panel-material flex flex-col font-sans overflow-hidden ${volatilityGlow ? `volatility-glow-${volatilityGlow}` : ''}`}>
+    <div 
+      style={{
+        background: getThemeModalGradient(palette, isLight),
+        borderColor: getThemeCardBorder(palette, false)
+      }}
+      className={`w-full h-full panel-material flex flex-col font-sans overflow-hidden backdrop-blur-2xl border-l ${volatilityGlow ? `volatility-glow-${volatilityGlow}` : ''}`}
+    >
       {/* Toast Notification */}
       {toastMessage && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 animate-bounce">
@@ -214,7 +221,13 @@ const ChartTradePanel = React.memo(function ChartTradePanel({ symbol, currentPri
       )}
 
       {/* Account Info & Broker Switcher Header Bar */}
-      <div className="bg-[var(--color-panel)]/80 backdrop-blur-xl border-b border-white/10 shadow-2xl shadow-black/30 p-1.5 flex items-center justify-between gap-1.5 relative">
+      <div 
+        style={{
+          background: getThemeModalGradient(palette, isLight),
+          borderBottomColor: getThemeCardBorder(palette, false)
+        }}
+        className="backdrop-blur-2xl border-b shadow-lg p-1.5 flex items-center justify-between gap-1.5 relative"
+      >
         <div className="relative flex-1 min-w-0">
           <button
             onClick={() => setShowAccountDropdown(!showAccountDropdown)}
@@ -244,8 +257,12 @@ const ChartTradePanel = React.memo(function ChartTradePanel({ symbol, currentPri
                 onClick={() => setShowAccountDropdown(false)} 
               />
               <div 
-                className="absolute left-0 top-full mt-1 w-64 bg-[var(--color-panel)] border border-[var(--color-border)] rounded-xl shadow-2xl z-50 p-1 space-y-1 animate-in fade-in slide-in-from-top-1"
-                style={{ boxShadow: `0 10px 30px rgba(0,0,0,0.7), 0 0 10px ${palette.bull}20` }}
+                className="absolute left-0 top-full mt-1 w-64 border rounded-xl shadow-2xl z-50 p-1 space-y-1 animate-in fade-in slide-in-from-top-1 backdrop-blur-2xl"
+                style={{ 
+                  background: getThemeModalGradient(palette, isLight),
+                  borderColor: getThemeCardBorder(palette, false),
+                  boxShadow: `0 12px 36px rgba(0,0,0,0.8), 0 0 15px ${hexToRgba(palette.bull, 0.2)}` 
+                }}
               >
                 <div className="px-2 py-1 text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider flex justify-between items-center border-b border-[var(--color-border)]">
                   <span>Pilih Akun Aktif</span>
@@ -308,7 +325,13 @@ const ChartTradePanel = React.memo(function ChartTradePanel({ symbol, currentPri
       </div>
 
       {/* Tabs - Mobile optimized */}
-      <div className="flex bg-[var(--color-panel)]/80 backdrop-blur-xl border-b border-white/10 p-0.5 sm:p-1 gap-0.5 sm:gap-1 overflow-x-auto hide-scrollbar">
+      <div 
+        style={{
+          background: getThemeModalGradient(palette, isLight),
+          borderBottomColor: getThemeCardBorder(palette, false)
+        }}
+        className="flex backdrop-blur-2xl border-b p-0.5 sm:p-1 gap-0.5 sm:gap-1 overflow-x-auto hide-scrollbar"
+      >
         {[
           { id: 'trade', icon: Zap, label: 'Trade' },
           { id: 'pending', icon: Clock, label: `Pending (${pendingOrders.length})` },
@@ -373,7 +396,13 @@ const ChartTradePanel = React.memo(function ChartTradePanel({ symbol, currentPri
         {activeTab === 'trade' && (
           <div className="flex flex-col h-full gap-3">
             {/* Account Info & Status Badges */}
-            <div className="flex flex-col gap-1.5 bg-[var(--color-panel)] p-2 rounded border border-[var(--color-border)]">
+            <div 
+              style={{
+                borderColor: getThemeCardBorder(palette, false),
+                background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.02)'
+              }}
+              className="flex flex-col gap-1.5 p-2 rounded-lg border backdrop-blur-md"
+            >
               <div className="flex justify-between items-center">
                 <div className="flex flex-col">
                   <span className="text-[9.5px] text-[var(--color-text-muted)] font-bold tracking-wider">EQUITY ({activeAccount?.currency || 'USDT'})</span>
@@ -401,7 +430,13 @@ const ChartTradePanel = React.memo(function ChartTradePanel({ symbol, currentPri
             </div>
 
             {/* Order Type Selector */}
-            <div className="flex flex-col gap-1 bg-[var(--color-panel)] p-1 rounded border border-[var(--color-border)]">
+            <div 
+              style={{
+                borderColor: getThemeCardBorder(palette, false),
+                background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.02)'
+              }}
+              className="flex flex-col gap-1 p-1.5 rounded-lg border backdrop-blur-md"
+            >
               <span className="text-[9px] font-bold text-[var(--color-text-muted)] px-1 uppercase tracking-wider flex justify-between items-center">
                 <span>Order Type Execution</span>
                 <span className={`text-[8.5px] font-mono px-1 rounded font-bold ${wsStatus === 'CONNECTED' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}`}>

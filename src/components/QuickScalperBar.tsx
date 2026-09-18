@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Zap, TrendingUp, TrendingDown, XCircle, RotateCcw, Shield, Keyboard, AlertOctagon, Flame, X } from 'lucide-react';
 import { useTrade } from '../context/TradeContext';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 
 interface QuickScalperBarProps {
   symbol: string;
@@ -24,7 +25,7 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
   onFocusChart,
   className = ''
 }: QuickScalperBarProps) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
   const {
     focusedSymbol,
     focusedChartId,
@@ -80,10 +81,14 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
         setFocusedChart(chartId, symbol);
       }}
       style={{
-        borderColor: isCurrentFocus ? `${palette.bull}70` : 'var(--color-border)',
-        boxShadow: isCurrentFocus ? `0 0 15px -3px ${palette.bull}20` : 'none',
+        background: getThemeModalGradient(palette, isLight),
+        borderColor: isCurrentFocus ? palette.bull : getThemeCardBorder(palette, false),
+        boxShadow: isCurrentFocus 
+          ? `0 10px 30px rgba(0,0,0,0.6), 0 0 20px ${hexToRgba(palette.bull, 0.3)}` 
+          : `0 8px 24px rgba(0,0,0,0.5), 0 0 12px ${hexToRgba(palette.bull, 0.1)}`,
+        ...flashStyle
       }}
-      className={`bg-[var(--color-panel)]/80 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/30 rounded-lg sm:rounded-xl px-1.5 sm:px-3 py-1 sm:py-1.5 flex flex-wrap items-center justify-between gap-1 sm:gap-1.5 md:gap-2 text-[10px] sm:text-xs transition-all select-none relative tap-fix ${className}`}
+      className={`backdrop-blur-2xl border rounded-lg sm:rounded-xl px-1.5 sm:px-3 py-1 sm:py-1.5 flex flex-wrap items-center justify-between gap-1 sm:gap-1.5 md:gap-2 text-[10px] sm:text-xs transition-all select-none relative tap-fix ${className}`}
     >      {/* 1. Left: Focus Indicator & Symbol */}
       <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
         <button

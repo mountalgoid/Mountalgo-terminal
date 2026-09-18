@@ -18,6 +18,13 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { ColorThemeName } from '../context/ThemeContext';
 import { tradingAudio } from '../utils/audioSynth';
+import { 
+  getThemeModalGradient, 
+  getThemeCardGradient, 
+  getThemeCardBorder, 
+  getThemeCardBoxShadow, 
+  hexToRgba 
+} from '../utils/themeGradient';
 
 interface WorkspacePresetsModalProps {
   isOpen: boolean;
@@ -34,7 +41,7 @@ export const WorkspacePresetsModal: React.FC<WorkspacePresetsModalProps> = ({
   currentOrientation,
   onApplyPreset,
 }) => {
-  const { theme, palette } = useTheme();
+  const { theme, palette, isLight } = useTheme();
   const [presets, setPresets] = useState<WorkspacePreset[]>(() => getStoredWorkspacePresets());
   const [activePresetId, setActivePresetId] = useState<string>(() => getActiveWorkspacePresetId());
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -170,19 +177,51 @@ export const WorkspacePresetsModal: React.FC<WorkspacePresetsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-modal-ultimate flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-3 md:p-4 animate-in fade-in duration-150 select-none">
+    <div className="fixed inset-0 z-modal-ultimate flex items-center justify-center p-2 sm:p-3 md:p-4 animate-in fade-in duration-150 select-none">
+      {/* Translucent Backdrop - background outside modal is visible */}
       <div 
-        className="bg-[var(--color-panel)] rounded-xl sm:rounded-xl w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
-        style={{ border: `1px solid ${palette.bull}60` }}
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity"
+        onClick={onClose}
+      />
+
+      <div 
+        className="relative rounded-xl sm:rounded-2xl w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border backdrop-blur-2xl pointer-events-auto"
+        style={{ 
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false),
+          boxShadow: `0 25px 60px -15px rgba(0,0,0,0.85), 0 0 35px ${hexToRgba(palette.bull, 0.25)}`
+        }}
+        onClick={(e) => e.stopPropagation()}
       >
+        {/* Top Theme Accent Bar with bull -> poc -> bear */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-[2.5px] z-20"
+          style={{
+            background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`,
+            boxShadow: `0 0 12px ${hexToRgba(palette.bull, 0.4)}`
+          }}
+        />
+
         {/* Modal Header */}
-        <div className="px-3 sm:px-5 py-2.5 sm:py-3.5 border-b border-[var(--color-border)] flex items-center justify-between bg-[var(--color-panel)]">
+        <div 
+          style={{
+            background: `linear-gradient(90deg, ${hexToRgba(palette.bull, 0.14)} 0%, rgba(255,255,255,0.02) 50%, ${hexToRgba(palette.bear, 0.12)} 100%)`,
+          }}
+          className="px-3 sm:px-5 py-2.5 sm:py-3.5 border-b border-white/10 flex items-center justify-between"
+        >
           <div className="flex items-center gap-2.5">
             <MountAlgoLogo size="sm" className="w-8 h-8" />
             <div>
               <h2 className="text-sm sm:text-base font-bold text-[var(--color-text)] tracking-wide flex items-center gap-2">
                 Workspace Presets <span>𝙈𝙤𝙪𝙣𝙩𝘼𝙡𝙜𝙤</span>
-                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold" style={{ backgroundColor: `${palette.bull}20`, color: palette.bull }}>
+                <span 
+                  className="text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase" 
+                  style={{ 
+                    background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.22)} 0%, ${hexToRgba(palette.bear, 0.16)} 100%)`, 
+                    color: palette.bull,
+                    border: `1px solid ${hexToRgba(palette.bull, 0.4)}`
+                  }}
+                >
                   1-CLICK SWITCH
                 </span>
               </h2>
@@ -193,24 +232,29 @@ export const WorkspacePresetsModal: React.FC<WorkspacePresetsModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1 rounded-md hover:bg-[var(--color-panel)] transition-colors cursor-pointer"
+            className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* Categories Bar & Action button */}
-        <div className="px-3 sm:px-5 py-2 sm:py-2.5 bg-[var(--color-bg)]/60 border-b border-[var(--color-border)]/60 flex items-center justify-between gap-1.5 sm:gap-2 overflow-x-auto hide-scrollbar">
+        <div className="px-3 sm:px-5 py-2 sm:py-2.5 bg-black/20 border-b border-[var(--color-border)]/60 flex items-center justify-between gap-1.5 sm:gap-2 overflow-x-auto hide-scrollbar">
           <div className="flex items-center gap-1.5 shrink-0">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                style={selectedCategory === cat ? { backgroundColor: palette.bull, color: '#000000' } : {}}
+                style={selectedCategory === cat ? { 
+                  background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+                  color: '#ffffff',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+                  boxShadow: `0 2px 10px -2px ${hexToRgba(palette.bull, 0.4)}`
+                } : {}}
                 className={`text-[11px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap ${
                   selectedCategory === cat
                     ? 'shadow-md'
-                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-panel)]'
+                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
                 }`}
               >
                 {cat}
@@ -248,8 +292,12 @@ export const WorkspacePresetsModal: React.FC<WorkspacePresetsModalProps> = ({
 
             <button
               onClick={() => setIsCreating(!isCreating)}
-              style={{ borderColor: palette.bull, color: palette.bull }}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border text-xs font-bold hover:bg-[var(--color-bull)]/10 transition-colors cursor-pointer"
+              style={{ 
+                background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.16)} 0%, ${hexToRgba(palette.bear, 0.10)} 100%)`,
+                borderColor: hexToRgba(palette.bull, 0.4), 
+                color: palette.bull 
+              }}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border text-xs font-bold hover:brightness-125 transition-all cursor-pointer"
             >
               {isCreating ? <X size={13} /> : <Plus size={13} />}
               <span className="hidden sm:inline">{isCreating ? 'Batal' : 'Simpan Layout Saat Ini'}</span>
@@ -264,7 +312,11 @@ export const WorkspacePresetsModal: React.FC<WorkspacePresetsModalProps> = ({
           {isCreating && (
             <form 
               onSubmit={handleSaveCurrentAsPreset}
-              className="p-4 rounded-xl border border-[var(--color-bull)]/40 bg-[var(--color-bg)]/90 space-y-3 animate-in fade-in zoom-in-95 duration-150"
+              style={{
+                background: getThemeCardGradient(palette, isLight, false),
+                borderColor: hexToRgba(palette.bull, 0.4),
+              }}
+              className="p-4 rounded-xl border space-y-3 animate-in fade-in zoom-in-95 duration-150 backdrop-blur-md"
             >
               <div className="flex items-center justify-between border-b border-[var(--color-border)]/60 pb-2">
                 <span className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5">
@@ -331,8 +383,13 @@ export const WorkspacePresetsModal: React.FC<WorkspacePresetsModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  style={{ backgroundColor: palette.bull, color: '#000000' }}
-                  className="px-4 py-1.5 rounded-lg text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-md flex items-center gap-1.5"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+                    color: '#ffffff',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+                    boxShadow: `0 4px 15px -2px ${hexToRgba(palette.bull, 0.4)}`
+                  }}
+                  className="px-4 py-1.5 rounded-lg text-xs font-bold hover:opacity-90 hover:brightness-110 transition-all cursor-pointer shadow-md flex items-center gap-1.5"
                 >
                   <Check size={13} strokeWidth={3} />
                   Simpan Preset
@@ -350,11 +407,18 @@ export const WorkspacePresetsModal: React.FC<WorkspacePresetsModalProps> = ({
                 <div
                   key={preset.id}
                   onClick={() => handleSelectPreset(preset)}
-                  style={isActive ? { borderColor: palette.bull, boxShadow: `0 0 16px ${palette.bull}25` } : {}}
-                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative group flex flex-col justify-between ${
+                  style={isActive ? { 
+                    background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.16)} 0%, ${hexToRgba(palette.bear, 0.10)} 100%)`,
+                    borderColor: hexToRgba(palette.bull, 0.6), 
+                    boxShadow: `0 8px 25px -4px ${hexToRgba(palette.bull, 0.25)}` 
+                  } : {
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative group flex flex-col justify-between backdrop-blur-md ${
                     isActive
-                      ? 'bg-[var(--color-panel)]'
-                      : 'bg-[var(--color-panel)] border-[var(--color-border)] hover:border-[var(--color-bull)]/60 hover:bg-[var(--color-bg)]/40'
+                      ? 'ring-1 ring-[var(--color-bull)]/40'
+                      : 'hover:border-[var(--color-bull)]/60'
                   }`}
                 >
                   <div>
@@ -362,10 +426,12 @@ export const WorkspacePresetsModal: React.FC<WorkspacePresetsModalProps> = ({
                       <div className="flex items-center gap-2.5">
                         <div
                           style={{
-                            backgroundColor: isActive ? palette.bull : `${palette.bull}15`,
-                            color: isActive ? '#000000' : palette.bull,
+                            background: isActive 
+                              ? `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)` 
+                              : `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.2)} 0%, ${hexToRgba(palette.bear, 0.15)} 100%)`,
+                            color: isActive ? '#ffffff' : palette.bull,
                           }}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors shadow-sm"
                         >
                           <Icon size={16} />
                         </div>
@@ -375,7 +441,11 @@ export const WorkspacePresetsModal: React.FC<WorkspacePresetsModalProps> = ({
                               {preset.name}
                             </h4>
                             <span 
-                              style={{ backgroundColor: `${palette.bull}15`, color: palette.bull }}
+                              style={{ 
+                                background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.18)} 0%, ${hexToRgba(palette.bear, 0.12)} 100%)`, 
+                                color: palette.bull,
+                                border: `1px solid ${hexToRgba(palette.bull, 0.3)}`
+                              }}
                               className="text-[9px] font-mono px-1.5 py-0.2 rounded font-bold uppercase"
                             >
                               {preset.category}
@@ -399,8 +469,11 @@ export const WorkspacePresetsModal: React.FC<WorkspacePresetsModalProps> = ({
                         )}
                         {isActive && (
                           <span 
-                            style={{ backgroundColor: palette.bull, color: '#000000' }}
-                            className="p-1 rounded-full text-xs font-bold"
+                            style={{ 
+                              background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+                              color: '#ffffff' 
+                            }}
+                            className="p-1 rounded-full text-xs font-bold shadow-sm"
                           >
                             <Check size={12} strokeWidth={3} />
                           </span>
@@ -440,8 +513,11 @@ export const WorkspacePresetsModal: React.FC<WorkspacePresetsModalProps> = ({
                       {preset.widgetOrder.map((w, idx) => (
                         <div
                           key={idx}
-                          style={{ borderColor: palette.bull }}
-                          className="w-6 h-4 rounded-sm border bg-[var(--color-bull)]/20 flex items-center justify-center text-[7px] font-mono text-[var(--color-text)]"
+                          style={{ 
+                            borderColor: hexToRgba(palette.bull, 0.6),
+                            background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.25)} 0%, ${hexToRgba(palette.bear, 0.15)} 100%)`
+                          }}
+                          className="w-6 h-4 rounded-sm border flex items-center justify-center text-[7px] font-mono text-[var(--color-text)] font-bold"
                         >
                           {idx + 1}
                         </div>
@@ -463,13 +539,18 @@ export const WorkspacePresetsModal: React.FC<WorkspacePresetsModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-3 sm:px-5 py-2.5 sm:py-3 border-t border-[var(--color-border)] bg-[var(--color-panel)] flex items-center justify-between text-[11px] sm:text-xs text-[var(--color-text-muted)]">
+        <div className="px-3 sm:px-5 py-2.5 sm:py-3 border-t border-white/10 bg-black/20 flex items-center justify-between text-[11px] sm:text-xs text-[var(--color-text-muted)]">
           <span className="hidden sm:inline">Preset dapat diubah kapan saja dengan animasi otomatis.</span>
           <span className="sm:hidden">Preset tersimpan otomatis.</span>
           <button
             onClick={onClose}
-            style={{ backgroundColor: palette.bull, color: '#000000' }}
-            className="px-4 py-1.5 rounded-lg text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer shadow-md"
+            style={{ 
+              background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+              color: '#ffffff',
+              textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+              boxShadow: `0 2px 10px -2px ${hexToRgba(palette.bull, 0.4)}`
+            }}
+            className="px-4 py-1.5 rounded-lg text-xs font-bold hover:opacity-90 hover:brightness-110 transition-all cursor-pointer shadow-md"
           >
             Tutup
           </button>

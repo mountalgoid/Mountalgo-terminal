@@ -34,6 +34,12 @@ import {
   saveAiAgentSettings,
   DEFAULT_AI_SETTINGS
 } from '../types/aiSettings';
+import { useTheme } from '../context/ThemeContext';
+import { 
+  getThemeModalGradient, 
+  getThemeCardBorder, 
+  hexToRgba 
+} from '../utils/themeGradient';
 
 interface AiAgentSettingsModalProps {
   isOpen: boolean;
@@ -46,6 +52,7 @@ export const AiAgentSettingsModal: React.FC<AiAgentSettingsModalProps> = ({
   onClose,
   onSettingsSaved
 }) => {
+  const { palette, isLight } = useTheme();
   const [settings, setSettings] = useState<AiAgentSettings>(DEFAULT_AI_SETTINGS);
   const [selectedTab, setSelectedTab] = useState<AiProvider>('openai');
   const [showKey, setShowKey] = useState<Record<AiProvider, boolean>>({
@@ -250,15 +257,46 @@ export const AiAgentSettingsModal: React.FC<AiAgentSettingsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl border border-white/10 bg-gradient-to-b from-[#0e131f]/95 via-[#0b0f19]/95 to-[#06080e]/98 shadow-2xl shadow-cyan-950/30 overflow-hidden text-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+      {/* Translucent Backdrop - background outside modal is visible */}
+      <div 
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity"
+        onClick={onClose}
+      />
+
+      <div 
+        style={{
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, true),
+          boxShadow: `0 25px 60px -15px rgba(0,0,0,0.85), 0 0 35px ${hexToRgba(palette.bull, 0.2)}`,
+        }}
+        className="relative w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl border overflow-hidden text-slate-100 backdrop-blur-2xl pointer-events-auto"
+      >
         
         {/* Header with gradient bar */}
-        <div className="relative px-6 py-4 border-b border-white/10 bg-white/[0.02] flex items-center justify-between shrink-0">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-cyan-500 via-indigo-500 to-fuchsia-500" />
+        <div 
+          style={{
+            borderColor: hexToRgba(palette.bull, 0.25),
+            background: `linear-gradient(90deg, ${hexToRgba(palette.bull, 0.15)} 0%, rgba(0,0,0,0.2) 50%, ${hexToRgba(palette.bear, 0.12)} 100%)`,
+          }}
+          className="relative px-6 py-4 border-b flex items-center justify-between shrink-0"
+        >
+          <div 
+            style={{
+              background: `linear-gradient(to right, ${palette.bull}, ${palette.poc || '#6366f1'}, ${palette.bear})`,
+            }}
+            className="absolute top-0 left-0 right-0 h-[2px]" 
+          />
           
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/20 border border-indigo-500/30 text-cyan-400 shadow-inner">
+            <div 
+              style={{
+                background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.25)}, ${hexToRgba(palette.bear, 0.15)})`,
+                borderColor: hexToRgba(palette.bull, 0.35),
+                color: palette.bull,
+              }}
+              className="p-2.5 rounded-xl border shadow-inner"
+            >
               <Bot className="w-5 h-5" />
             </div>
             <div>
@@ -266,7 +304,14 @@ export const AiAgentSettingsModal: React.FC<AiAgentSettingsModalProps> = ({
                 <h2 className="text-lg font-semibold tracking-wide text-white">
                   PENGATURAN AI AGENT
                 </h2>
-                <span className="px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                <span 
+                  style={{
+                    backgroundColor: hexToRgba(palette.bull, 0.12),
+                    borderColor: hexToRgba(palette.bull, 0.3),
+                    color: palette.bull,
+                  }}
+                  className="px-2 py-0.5 text-[10px] font-mono font-medium rounded-full border"
+                >
                   MULTI-MODEL ENGINE
                 </span>
               </div>
@@ -278,15 +323,20 @@ export const AiAgentSettingsModal: React.FC<AiAgentSettingsModalProps> = ({
 
           <div className="flex items-center gap-2">
             {/* Active Provider indicator */}
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-lg bg-black/40 border border-white/10 text-xs text-slate-300">
+            <div 
+              style={{
+                borderColor: hexToRgba(palette.bull, 0.2),
+              }}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-lg bg-black/40 border text-xs text-slate-300"
+            >
               <span className="text-slate-400 text-[11px]">AI Aktif:</span>
-              <span className="font-semibold text-cyan-400 uppercase tracking-wider">
+              <span style={{ color: palette.bull }} className="font-semibold uppercase tracking-wider">
                 {AI_PROVIDERS_METADATA[settings.activeProvider]?.name.split(' ')[0]}
               </span>
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>

@@ -7,6 +7,13 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { tradingAudio } from '../utils/audioSynth';
+import { 
+  getThemeModalGradient, 
+  getThemeCardGradient, 
+  getThemeCardBorder, 
+  getThemeCardBoxShadow, 
+  hexToRgba 
+} from '../utils/themeGradient';
 
 interface PerformanceMetrics {
   fps: number;
@@ -31,7 +38,7 @@ export const SystemPerformanceHud: React.FC = React.memo(() => {
   const [batteryStatus, setBatteryStatus] = useState<{ level: number; charging: boolean } | null>(null);
   const [purgeToast, setPurgeToast] = useState<string | null>(null);
 
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
 
   const [metrics, setMetrics] = useState<PerformanceMetrics>({
     fps: 60,
@@ -289,7 +296,14 @@ export const SystemPerformanceHud: React.FC = React.memo(() => {
       <button
         ref={buttonRef}
         onClick={toggleOpen}
-        style={{ backgroundColor: 'var(--color-bg)', borderColor: isOpen ? statusInfo.color : 'var(--color-border)', position: 'relative', zIndex: 99999 }}
+        style={{ 
+          background: isOpen 
+            ? `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.18)} 0%, ${hexToRgba(palette.bear, 0.12)} 100%)` 
+            : 'var(--color-bg)', 
+          borderColor: isOpen ? hexToRgba(palette.bull, 0.5) : 'var(--color-border)', 
+          position: 'relative', 
+          zIndex: 99999 
+        }}
         className="flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[10px] sm:text-xs font-mono font-bold cursor-pointer transition-all hover:opacity-90 active:scale-95 shadow-md shrink-0"
         title="Buka System Performance & Memory Telemetry Monitor HUD"
       >
@@ -326,14 +340,28 @@ export const SystemPerformanceHud: React.FC = React.memo(() => {
         <div
           ref={portalRef}
           style={{
-            backgroundColor: 'var(--color-panel)',
-            borderColor: 'var(--color-border)',
-            boxShadow: '0 20px 45px rgba(0,0,0,0.65), 0 0 1px var(--color-border)',
+            background: getThemeModalGradient(palette, isLight),
+            borderColor: getThemeCardBorder(palette, true),
+            boxShadow: `0 25px 50px -10px rgba(0,0,0,0.8), 0 0 25px ${hexToRgba(palette.bull, 0.2)}`,
           }}
-          className="fixed right-4 top-12 w-72 sm:w-84 rounded-xl border p-3.5 space-y-3 backdrop-blur-xl text-[var(--color-text)] shadow-2xl animate-in fade-in zoom-in-95 duration-150 z-[99999]"
+          className="fixed right-4 top-12 w-72 sm:w-84 rounded-xl border p-3.5 space-y-3 backdrop-blur-2xl text-[var(--color-text)] shadow-2xl animate-in fade-in zoom-in-95 duration-150 z-[99999] overflow-hidden"
         >
+          {/* Top Theme Accent Bar */}
+          <div 
+            className="absolute top-0 left-0 right-0 h-[2px] z-20"
+            style={{
+              background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`,
+              boxShadow: `0 0 10px ${hexToRgba(palette.bull, 0.3)}`
+            }}
+          />
+
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-[var(--color-border)]/60 pb-2">
+          <div 
+            style={{
+              background: `linear-gradient(90deg, ${hexToRgba(palette.bull, 0.12)} 0%, rgba(255,255,255,0.02) 50%, ${hexToRgba(palette.bear, 0.10)} 100%)`,
+            }}
+            className="flex items-center justify-between border-b border-white/10 -mx-3.5 -mt-3.5 px-3.5 py-2.5"
+          >
             <div className="flex items-center gap-2">
               <div
                 style={{ backgroundColor: statusInfo.bg, color: statusInfo.color }}
@@ -358,7 +386,7 @@ export const SystemPerformanceHud: React.FC = React.memo(() => {
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer transition-colors"
+                className="p-1 rounded hover:bg-white/10 text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer transition-colors"
               >
                 <X size={13} />
               </button>
@@ -374,7 +402,10 @@ export const SystemPerformanceHud: React.FC = React.memo(() => {
 
           {/* Engine Status Banner */}
           <div 
-            style={{ backgroundColor: statusInfo.bg, borderColor: `${statusInfo.color}40` }}
+            style={{ 
+              background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.15)} 0%, ${hexToRgba(palette.bear, 0.10)} 100%)`,
+              borderColor: hexToRgba(palette.bull, 0.3)
+            }}
             className="flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs font-mono font-bold"
           >
             <span className="flex items-center gap-1.5" style={{ color: statusInfo.color }}>
@@ -387,7 +418,13 @@ export const SystemPerformanceHud: React.FC = React.memo(() => {
           </div>
 
           {/* FPS Gauge & Metrics Grid */}
-          <div className="bg-[var(--color-bg)]/80 border border-[var(--color-border)] rounded-lg p-2.5 space-y-2">
+          <div 
+            style={{
+              background: getThemeCardGradient(palette, isLight, false),
+              borderColor: getThemeCardBorder(palette, false),
+            }}
+            className="border rounded-lg p-2.5 space-y-2 backdrop-blur-md"
+          >
             <div className="flex items-center justify-between text-xs">
               <span className="text-[var(--color-text-muted)] font-bold text-[10px] uppercase tracking-wider flex items-center gap-1">
                 <Zap size={11} style={{ color: statusInfo.color }} />
@@ -401,10 +438,16 @@ export const SystemPerformanceHud: React.FC = React.memo(() => {
             {/* Sparkline Graph */}
             <div className="w-full h-10 overflow-hidden relative">
               <svg viewBox={`0 0 ${sparkWidth} ${sparkHeight}`} className="w-full h-full">
+                <defs>
+                  <linearGradient id="fpsSparklineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor={palette.bull} />
+                    <stop offset="100%" stopColor={palette.bear} />
+                  </linearGradient>
+                </defs>
                 <polyline
                   points={sparkPoints}
                   fill="none"
-                  stroke={statusInfo.color}
+                  stroke="url(#fpsSparklineGrad)"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -430,23 +473,29 @@ export const SystemPerformanceHud: React.FC = React.memo(() => {
           </div>
 
           {/* Memory Heap Allocation HUD */}
-          <div className="bg-[var(--color-bg)]/80 border border-[var(--color-border)] rounded-lg p-2.5 space-y-2">
+          <div 
+            style={{
+              background: getThemeCardGradient(palette, isLight, false),
+              borderColor: getThemeCardBorder(palette, false),
+            }}
+            className="border rounded-lg p-2.5 space-y-2 backdrop-blur-md"
+          >
             <div className="flex items-center justify-between text-xs font-mono">
               <span className="text-[var(--color-text-muted)] font-bold text-[10px] uppercase tracking-wider flex items-center gap-1">
-                <HardDrive size={11} className="text-cyan-400" />
+                <HardDrive size={11} style={{ color: palette.bull }} />
                 Memory Heap Usage
               </span>
-              <span className="font-bold text-cyan-400">
+              <span className="font-bold" style={{ color: palette.bull }}>
                 {metrics.usedMemoryMb} <span className="text-[9px] text-[var(--color-text-muted)]">/ {metrics.totalMemoryMb > 0 ? `${metrics.totalMemoryMb} MB` : 'Dynamic'}</span>
               </span>
             </div>
 
-            {/* Progress Bar */}
-            <div className="w-full bg-[var(--color-border)] h-1.5 rounded-full overflow-hidden">
+            {/* Progress Bar with bull -> bear gradient */}
+            <div className="w-full bg-[var(--color-border)]/50 h-1.5 rounded-full overflow-hidden">
               <div
                 style={{
                   width: `${Math.min(100, Math.max(5, (metrics.usedMemoryMb / (metrics.totalMemoryMb || 128)) * 100))}%`,
-                  backgroundColor: metrics.usedMemoryMb > 150 ? palette.bear : '#06b6d4',
+                  background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.bear} 100%)`,
                 }}
                 className="h-full rounded-full transition-all duration-300"
               />
@@ -459,7 +508,13 @@ export const SystemPerformanceHud: React.FC = React.memo(() => {
           </div>
 
           {/* Hardware Eco-Mode & Thermal Throttling Auto-Detect */}
-          <div className="bg-[var(--color-bg)]/80 border border-[var(--color-border)] rounded-lg p-2.5 space-y-1.5">
+          <div 
+            style={{
+              background: getThemeCardGradient(palette, isLight, false),
+              borderColor: getThemeCardBorder(palette, false),
+            }}
+            className="border rounded-lg p-2.5 space-y-1.5 backdrop-blur-md"
+          >
             <div className="flex items-center justify-between text-xs">
               <span className="text-[var(--color-text-muted)] font-bold text-[10px] uppercase tracking-wider flex items-center gap-1">
                 <Shield size={11} className="text-emerald-400" />

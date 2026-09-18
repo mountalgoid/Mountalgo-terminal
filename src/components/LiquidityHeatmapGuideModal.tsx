@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, BookOpen, Flame, Activity, Zap, Shield, TrendingUp, Layers, Crosshair, Sparkles, BarChart3 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 
 interface Props {
   isOpen: boolean;
@@ -8,14 +9,19 @@ interface Props {
 }
 
 export function LiquidityHeatmapGuideModal({ isOpen, onClose }: Props) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
   
   if (!isOpen) return null;
   
   return (
     <div className="fixed top-[60px] left-4 right-4 sm:left-auto bottom-4 z-[200] flex flex-col justify-start pointer-events-none animate-fadeIn">
       <div 
-        className="bg-[var(--color-panel)]/85 backdrop-blur-2xl rounded-2xl shadow-[0_0_35px_rgba(0,0,0,0.2)] w-full sm:w-[540px] md:w-[600px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto border border-[var(--color-border)]/40 relative"
+        style={{
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false),
+          boxShadow: `0 25px 50px -12px rgba(0,0,0,0.85), 0 0 35px ${hexToRgba(palette.bull, 0.25)}`
+        }}
+        className="backdrop-blur-2xl rounded-2xl shadow-2xl w-full sm:w-[540px] md:w-[600px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto border relative"
       >
         <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-amber-500/5 pointer-events-none" />
         {/* Header */}

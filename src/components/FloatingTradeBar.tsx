@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { ArrowUp, ArrowDown, Power, GripHorizontal } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 
 interface FloatingTradeBarProps {
   symbol: string;
@@ -10,7 +11,7 @@ interface FloatingTradeBarProps {
 }
 
 const FloatingTradeBar: React.FC<FloatingTradeBarProps> = ({ symbol, onExecute, currentPrice, onClose }) => {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
   const [size, setSize] = useState<string>('1.00');
   const [sizeType, setSizeType] = useState<'LOT' | 'USD'>('LOT');
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -52,10 +53,13 @@ const FloatingTradeBar: React.FC<FloatingTradeBarProps> = ({ symbol, onExecute, 
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      className="absolute z-[80] flex items-center gap-1 p-1 backdrop-blur-xl rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5)] select-none"
+      className="absolute z-[80] flex items-center gap-1 p-1.5 backdrop-blur-2xl rounded-full shadow-2xl select-none"
       style={{
-        backgroundColor: 'var(--color-panel)',
-        border: '1px solid var(--color-border)',
+        background: getThemeModalGradient(palette, isLight),
+        borderColor: getThemeCardBorder(palette, false),
+        borderWidth: 1,
+        borderStyle: 'solid',
+        boxShadow: `0 12px 36px rgba(0,0,0,0.7), 0 0 20px ${hexToRgba(palette.poc || palette.bull, 0.25)}`,
         bottom: 34,
         right: 12,
         transform: `translate(${pos.x}px, ${pos.y}px)`,

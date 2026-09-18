@@ -49,7 +49,9 @@ import {
   Sparkles,
   BookOpen,
   PenTool,
-  Settings
+  Settings,
+  Filter,
+  Globe
 } from 'lucide-react';
 import { IndicatorSettings, 
   DEFAULT_INDICATOR_SETTINGS,
@@ -84,6 +86,7 @@ import {
 } from '../utils/liquidityHeatmapEngine';
 import { LODManager } from '../utils/lodManager';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder, getThemeCardGradient, hexToRgbTuple } from '../utils/themeGradient';
 import FloatingDrawingToolbar from './FloatingDrawingToolbar';
 import TopDrawingMenu from './TopDrawingMenu';
 import SelectedDrawingQuickBar from './SelectedDrawingQuickBar';
@@ -4098,55 +4101,101 @@ export default function CustomChartWidget({
       if (footprintSettings.showBuySellVolume && visibleCandles.length > 0) {
         const lastBar = footprintData[footprintData.length - 1];
         if (lastBar) {
-          const hudW = 165;
-          const hudH = 75;
+          const hudW = 230;
+          const hudH = 92;
           const hudX = chartWidth - hudW - 12;
           const hudY = 38;
 
           ctx.save();
-          ctx.fillStyle = 'rgba(8, 10, 18, 0.90)';
-          ctx.strokeStyle = `${bullCol}40`;
+
+          // 1. Background rounded rectangle with precise theme gradient
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(hudX, hudY, hudW, hudH, 10);
+          } else {
+            ctx.rect(hudX, hudY, hudW, hudH);
+          }
+
+          const cardGrad = ctx.createLinearGradient(hudX, hudY, hudX + hudW, hudY + hudH);
+          const [rBull, gBull, bBull] = hexToRgbTuple(bullCol, [81, 52, 255]);
+          const [rBear, gBear, bBear] = hexToRgbTuple(bearCol, [23, 156, 116]);
+          const [darkR, darkG, darkB] = hexToRgbTuple(
+            currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
+            [6, 9, 19]
+          );
+
+          if (isLight) {
+            cardGrad.addColorStop(0, `rgba(${rBull}, ${gBull}, ${bBull}, 0.16)`);
+            cardGrad.addColorStop(0.5, `rgba(255, 255, 255, 0.94)`);
+            cardGrad.addColorStop(1, `rgba(${rBear}, ${gBear}, ${bBear}, 0.08)`);
+          } else {
+            cardGrad.addColorStop(0, `rgba(${rBull}, ${gBull}, ${bBull}, 0.20)`);
+            cardGrad.addColorStop(0.5, `rgba(${darkR + 6}, ${darkG + 8}, ${darkB + 14}, 0.88)`);
+            cardGrad.addColorStop(1, `rgba(${rBear}, ${gBear}, ${bBear}, 0.12)`);
+          }
+
+          ctx.fillStyle = cardGrad;
+          ctx.fill();
+
+          // 2. Card Border
+          ctx.strokeStyle = `${bullCol}60`;
           ctx.lineWidth = 1;
-          ctx.fillRect(hudX, hudY, hudW, hudH);
-          ctx.strokeRect(hudX, hudY, hudW, hudH);
+          ctx.stroke();
+
+          // 3. Top Accent Gradient Bar (matching News Bar & Calendar News)
+          const topGrad = ctx.createLinearGradient(hudX, hudY, hudX + hudW, hudY);
+          topGrad.addColorStop(0, bullCol);
+          topGrad.addColorStop(0.5, pocCol || '#6366f1');
+          topGrad.addColorStop(1, bearCol);
+
+          ctx.beginPath();
+          ctx.rect(hudX + 2, hudY, hudW - 4, 3);
+          ctx.fillStyle = topGrad;
+          ctx.fill();
+
+          // 4. Left Side Accent Bar
+          ctx.beginPath();
+          ctx.rect(hudX, hudY + 3, 3.5, hudH - 6);
+          ctx.fillStyle = bullCol;
+          ctx.fill();
 
           // HUD Title
-          ctx.fillStyle = '#9ca3af';
-          ctx.font = 'bold 8.5px monospace';
+          ctx.fillStyle = isLight ? '#4b5563' : '#9ca3af';
+          ctx.font = 'bold 9.5px monospace';
           ctx.textAlign = 'left';
-          ctx.fillText('ORDER FLOW HUD (V7.2)', hudX + 8, hudY + 12);
+          ctx.fillText('ORDER FLOW HUD (V7.2)', hudX + 12, hudY + 17);
 
           // Net Bar Delta
-          ctx.font = 'bold 8px monospace';
-          ctx.fillStyle = '#d1d5db';
-          ctx.fillText('Bar Delta:', hudX + 8, hudY + 26);
+          ctx.font = 'bold 9px monospace';
+          ctx.fillStyle = isLight ? '#374151' : '#d1d5db';
+          ctx.fillText('Bar Delta:', hudX + 12, hudY + 33);
           ctx.fillStyle = lastBar.delta >= 0 ? bullCol : bearCol;
           ctx.textAlign = 'right';
-          ctx.fillText(`${lastBar.delta > 0 ? '+' : ''}${formatVol(lastBar.delta)} (${lastBar.deltaPct}%)`, hudX + hudW - 8, hudY + 26);
+          ctx.fillText(`${lastBar.delta > 0 ? '+' : ''}${formatVol(lastBar.delta)} (${lastBar.deltaPct}%)`, hudX + hudW - 10, hudY + 33);
 
           // Total Bar Vol
           ctx.textAlign = 'left';
-          ctx.fillStyle = '#d1d5db';
-          ctx.fillText('Total Volume:', hudX + 8, hudY + 40);
-          ctx.fillStyle = '#ffffff';
+          ctx.fillStyle = isLight ? '#374151' : '#d1d5db';
+          ctx.fillText('Total Volume:', hudX + 12, hudY + 48);
+          ctx.fillStyle = isLight ? '#111827' : '#ffffff';
           ctx.textAlign = 'right';
-          ctx.fillText(`${formatVol(lastBar.totalVolume)}`, hudX + hudW - 8, hudY + 40);
+          ctx.fillText(`${formatVol(lastBar.totalVolume)}`, hudX + hudW - 10, hudY + 48);
 
           // CVD
           ctx.textAlign = 'left';
-          ctx.fillStyle = '#d1d5db';
-          ctx.fillText('Cumulative CVD:', hudX + 8, hudY + 54);
+          ctx.fillStyle = isLight ? '#374151' : '#d1d5db';
+          ctx.fillText('Cumulative CVD:', hudX + 12, hudY + 63);
           ctx.fillStyle = lastBar.cumulativeDelta >= 0 ? '#38bdf8' : '#f43f5e';
           ctx.textAlign = 'right';
-          ctx.fillText(`${formatVol(lastBar.cumulativeDelta)}`, hudX + hudW - 8, hudY + 54);
+          ctx.fillText(`${formatVol(lastBar.cumulativeDelta)}`, hudX + hudW - 10, hudY + 63);
 
           // POC
           ctx.textAlign = 'left';
-          ctx.fillStyle = '#d1d5db';
-          ctx.fillText('Bar POC Price:', hudX + 8, hudY + 68);
+          ctx.fillStyle = isLight ? '#374151' : '#d1d5db';
+          ctx.fillText('Bar POC Price:', hudX + 12, hudY + 78);
           ctx.fillStyle = pocCol;
           ctx.textAlign = 'right';
-          ctx.fillText(`$${lastBar.pocPrice.toFixed(2)}`, hudX + hudW - 8, hudY + 68);
+          ctx.fillText(`$${lastBar.pocPrice.toFixed(2)}`, hudX + hudW - 10, hudY + 78);
 
           ctx.restore();
         }
@@ -5001,14 +5050,28 @@ export default function CustomChartWidget({
 
         if (badgeX > -badgeW && badgeX < chartWidth + 20) {
           const badgeBgGrad = ctx.createLinearGradient(badgeX, badgeY, badgeX + badgeW, badgeY + badgeH);
-          badgeBgGrad.addColorStop(0, 'rgba(8, 12, 22, 0.94)');
-          badgeBgGrad.addColorStop(1, isMitigated ? 'rgba(30, 41, 59, 0.88)' : (isBuy ? `${themeBull}30` : `${themeBear}30`));
+          const [rBull, gBull, bBull] = hexToRgbTuple(themeBull, [81, 52, 255]);
+          const [rBear, gBear, bBear] = hexToRgbTuple(themeBear, [23, 156, 116]);
+          const [darkR, darkG, darkB] = hexToRgbTuple(
+            currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
+            [6, 9, 19]
+          );
+
+          if (isLight) {
+            badgeBgGrad.addColorStop(0, isMitigated ? 'rgba(241, 245, 249, 0.96)' : (isBuy ? `rgba(${rBull}, ${gBull}, ${bBull}, 0.16)` : `rgba(${rBear}, ${gBear}, ${bBear}, 0.16)`));
+            badgeBgGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.95)');
+            badgeBgGrad.addColorStop(1, 'rgba(248, 250, 252, 0.92)');
+          } else {
+            badgeBgGrad.addColorStop(0, isMitigated ? 'rgba(15, 23, 42, 0.96)' : (isBuy ? `rgba(${rBull}, ${gBull}, ${bBull}, 0.22)` : `rgba(${rBear}, ${gBear}, ${bBear}, 0.22)`));
+            badgeBgGrad.addColorStop(0.5, `rgba(${darkR + 4}, ${darkG + 6}, ${darkB + 10}, 0.92)`);
+            badgeBgGrad.addColorStop(1, 'rgba(11, 15, 26, 0.88)');
+          }
 
           ctx.fillStyle = badgeBgGrad;
-          ctx.strokeStyle = isMitigated ? '#94a3b8' : (intensity > 0.75 ? thermalHeatColor : baseColor);
-          ctx.lineWidth = intensity > 0.75 ? 1.2 : 0.8;
+          ctx.strokeStyle = isMitigated ? '#64748b' : (intensity > 0.75 ? thermalHeatColor : baseColor);
+          ctx.lineWidth = intensity > 0.75 ? 1.4 : 0.8;
           ctx.shadowColor = typeof ctx.strokeStyle === 'string' ? ctx.strokeStyle : '#10b981';
-          ctx.shadowBlur = isMitigated ? 1 : glowBlur / 2;
+          ctx.shadowBlur = isMitigated ? 1 : glowBlur / 4;
 
           if (typeof (ctx as any).roundRect === 'function') {
             (ctx as any).roundRect(badgeX, badgeY, badgeW, badgeH, 3 * zoomScale);
@@ -5604,6 +5667,48 @@ export default function CustomChartWidget({
       ctx.fillStyle = chartScaleBg;
       ctx.fillRect(0, panelTop, chartWidth, volHeight);
 
+      // Premium Glassmorphism Header Bar
+      const headerBarY_1 = panelTop;
+      const headerBarH_1 = 22;
+      const headerGrad_1 = ctx.createLinearGradient(0, headerBarY_1, chartWidth, headerBarY_1 + headerBarH_1);
+      const [darkR_1, darkG_1, darkB_1] = hexToRgbTuple(
+        currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
+        [6, 9, 19]
+      );
+
+      if (isLight) {
+        headerGrad_1.addColorStop(0, 'rgba(241, 245, 249, 0.85)');
+        headerGrad_1.addColorStop(0.5, 'rgba(255, 255, 255, 0.90)');
+        headerGrad_1.addColorStop(1, 'rgba(241, 245, 249, 0.80)');
+      } else {
+        headerGrad_1.addColorStop(0, `rgba(${darkR_1 + 4}, ${darkG_1 + 6}, ${darkB_1 + 10}, 0.75)`);
+        headerGrad_1.addColorStop(0.5, 'rgba(11, 15, 26, 0.80)');
+        headerGrad_1.addColorStop(1, `rgba(${darkR_1 + 2}, ${darkG_1 + 3}, ${darkB_1 + 5}, 0.65)`);
+      }
+
+      ctx.fillStyle = headerGrad_1;
+      ctx.fillRect(0, headerBarY_1, chartWidth, headerBarH_1);
+
+      // Accent border at bottom of header bar
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, headerBarY_1 + headerBarH_1);
+      ctx.lineTo(chartWidth, headerBarY_1 + headerBarH_1);
+      ctx.stroke();
+
+      // Top accent gradient bar line
+      const topAccGrad_1 = ctx.createLinearGradient(0, headerBarY_1, chartWidth, headerBarY_1);
+      topAccGrad_1.addColorStop(0, currentPalette.bull || '#10b981');
+      topAccGrad_1.addColorStop(0.5, currentPalette.poc || '#6366f1');
+      topAccGrad_1.addColorStop(1, currentPalette.bear || '#ef4444');
+      ctx.strokeStyle = topAccGrad_1;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, headerBarY_1);
+      ctx.lineTo(chartWidth, headerBarY_1);
+      ctx.stroke();
+
       const maxVol = Math.max(...visibleCandles.map((c) => c.volume), 1);
       visibleCandles.forEach((c, idx) => {
         const globalIdx = startIndex + idx;
@@ -5639,6 +5744,48 @@ export default function CustomChartWidget({
       ctx.strokeRect(0, panelTop, width, volDeltaHeight);
       ctx.fillStyle = chartScaleBg;
       ctx.fillRect(0, panelTop, chartWidth, volDeltaHeight);
+
+      // Premium Glassmorphism Header Bar
+      const headerBarY_2 = panelTop;
+      const headerBarH_2 = 22;
+      const headerGrad_2 = ctx.createLinearGradient(0, headerBarY_2, chartWidth, headerBarY_2 + headerBarH_2);
+      const [darkR_2, darkG_2, darkB_2] = hexToRgbTuple(
+        currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
+        [6, 9, 19]
+      );
+
+      if (isLight) {
+        headerGrad_2.addColorStop(0, 'rgba(241, 245, 249, 0.85)');
+        headerGrad_2.addColorStop(0.5, 'rgba(255, 255, 255, 0.90)');
+        headerGrad_2.addColorStop(1, 'rgba(241, 245, 249, 0.80)');
+      } else {
+        headerGrad_2.addColorStop(0, `rgba(${darkR_2 + 4}, ${darkG_2 + 6}, ${darkB_2 + 10}, 0.75)`);
+        headerGrad_2.addColorStop(0.5, 'rgba(11, 15, 26, 0.80)');
+        headerGrad_2.addColorStop(1, `rgba(${darkR_2 + 2}, ${darkG_2 + 3}, ${darkB_2 + 5}, 0.65)`);
+      }
+
+      ctx.fillStyle = headerGrad_2;
+      ctx.fillRect(0, headerBarY_2, chartWidth, headerBarH_2);
+
+      // Accent border at bottom of header bar
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, headerBarY_2 + headerBarH_2);
+      ctx.lineTo(chartWidth, headerBarY_2 + headerBarH_2);
+      ctx.stroke();
+
+      // Top accent gradient bar line
+      const topAccGrad_2 = ctx.createLinearGradient(0, headerBarY_2, chartWidth, headerBarY_2);
+      topAccGrad_2.addColorStop(0, currentPalette.bull || '#10b981');
+      topAccGrad_2.addColorStop(0.5, currentPalette.poc || '#6366f1');
+      topAccGrad_2.addColorStop(1, currentPalette.bear || '#ef4444');
+      ctx.strokeStyle = topAccGrad_2;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, headerBarY_2);
+      ctx.lineTo(chartWidth, headerBarY_2);
+      ctx.stroke();
 
       const deltaMidY = panelTop + volDeltaHeight / 2;
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
@@ -5750,6 +5897,48 @@ export default function CustomChartWidget({
       ctx.strokeRect(0, panelTop, width, candleCvdHeight);
       ctx.fillStyle = chartScaleBg;
       ctx.fillRect(0, panelTop, chartWidth, candleCvdHeight);
+
+      // Premium Glassmorphism Header Bar
+      const headerBarY_2b = panelTop;
+      const headerBarH_2b = 22;
+      const headerGrad_2b = ctx.createLinearGradient(0, headerBarY_2b, chartWidth, headerBarY_2b + headerBarH_2b);
+      const [darkR_2b, darkG_2b, darkB_2b] = hexToRgbTuple(
+        currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
+        [6, 9, 19]
+      );
+
+      if (isLight) {
+        headerGrad_2b.addColorStop(0, 'rgba(241, 245, 249, 0.85)');
+        headerGrad_2b.addColorStop(0.5, 'rgba(255, 255, 255, 0.90)');
+        headerGrad_2b.addColorStop(1, 'rgba(241, 245, 249, 0.80)');
+      } else {
+        headerGrad_2b.addColorStop(0, `rgba(${darkR_2b + 4}, ${darkG_2b + 6}, ${darkB_2b + 10}, 0.75)`);
+        headerGrad_2b.addColorStop(0.5, 'rgba(11, 15, 26, 0.80)');
+        headerGrad_2b.addColorStop(1, `rgba(${darkR_2b + 2}, ${darkG_2b + 3}, ${darkB_2b + 5}, 0.65)`);
+      }
+
+      ctx.fillStyle = headerGrad_2b;
+      ctx.fillRect(0, headerBarY_2b, chartWidth, headerBarH_2b);
+
+      // Accent border at bottom of header bar
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, headerBarY_2b + headerBarH_2b);
+      ctx.lineTo(chartWidth, headerBarY_2b + headerBarH_2b);
+      ctx.stroke();
+
+      // Top accent gradient bar line
+      const topAccGrad_2b = ctx.createLinearGradient(0, headerBarY_2b, chartWidth, headerBarY_2b);
+      topAccGrad_2b.addColorStop(0, currentPalette.bull || '#10b981');
+      topAccGrad_2b.addColorStop(0.5, currentPalette.poc || '#6366f1');
+      topAccGrad_2b.addColorStop(1, currentPalette.bear || '#ef4444');
+      ctx.strokeStyle = topAccGrad_2b;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, headerBarY_2b);
+      ctx.lineTo(chartWidth, headerBarY_2b);
+      ctx.stroke();
 
       const midY = panelTop + candleCvdHeight / 2;
 
@@ -6164,6 +6353,48 @@ export default function CustomChartWidget({
       ctx.fillStyle = chartScaleBg;
       ctx.fillRect(0, panelTop, chartWidth, rsiHeight);
 
+      // Premium Glassmorphism Header Bar
+      const headerBarY_3 = panelTop;
+      const headerBarH_3 = 22;
+      const headerGrad_3 = ctx.createLinearGradient(0, headerBarY_3, chartWidth, headerBarY_3 + headerBarH_3);
+      const [darkR_3, darkG_3, darkB_3] = hexToRgbTuple(
+        currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
+        [6, 9, 19]
+      );
+
+      if (isLight) {
+        headerGrad_3.addColorStop(0, 'rgba(241, 245, 249, 0.85)');
+        headerGrad_3.addColorStop(0.5, 'rgba(255, 255, 255, 0.90)');
+        headerGrad_3.addColorStop(1, 'rgba(241, 245, 249, 0.80)');
+      } else {
+        headerGrad_3.addColorStop(0, `rgba(${darkR_3 + 4}, ${darkG_3 + 6}, ${darkB_3 + 10}, 0.75)`);
+        headerGrad_3.addColorStop(0.5, 'rgba(11, 15, 26, 0.80)');
+        headerGrad_3.addColorStop(1, `rgba(${darkR_3 + 2}, ${darkG_3 + 3}, ${darkB_3 + 5}, 0.65)`);
+      }
+
+      ctx.fillStyle = headerGrad_3;
+      ctx.fillRect(0, headerBarY_3, chartWidth, headerBarH_3);
+
+      // Accent border at bottom of header bar
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, headerBarY_3 + headerBarH_3);
+      ctx.lineTo(chartWidth, headerBarY_3 + headerBarH_3);
+      ctx.stroke();
+
+      // Top accent gradient bar line
+      const topAccGrad_3 = ctx.createLinearGradient(0, headerBarY_3, chartWidth, headerBarY_3);
+      topAccGrad_3.addColorStop(0, currentPalette.bull || '#10b981');
+      topAccGrad_3.addColorStop(0.5, currentPalette.poc || '#6366f1');
+      topAccGrad_3.addColorStop(1, currentPalette.bear || '#ef4444');
+      ctx.strokeStyle = topAccGrad_3;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, headerBarY_3);
+      ctx.lineTo(chartWidth, headerBarY_3);
+      ctx.stroke();
+
       const rsiY = (val: number) => panelTop + rsiHeight - (val / 100) * (rsiHeight - 12) - 6;
 
       ctx.strokeStyle = 'rgba(255,255,255,0.1)';
@@ -6210,6 +6441,48 @@ export default function CustomChartWidget({
       ctx.strokeRect(0, panelTop, width, macdHeight);
       ctx.fillStyle = chartScaleBg;
       ctx.fillRect(0, panelTop, chartWidth, macdHeight);
+
+      // Premium Glassmorphism Header Bar
+      const headerBarY_4 = panelTop;
+      const headerBarH_4 = 22;
+      const headerGrad_4 = ctx.createLinearGradient(0, headerBarY_4, chartWidth, headerBarY_4 + headerBarH_4);
+      const [darkR_4, darkG_4, darkB_4] = hexToRgbTuple(
+        currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
+        [6, 9, 19]
+      );
+
+      if (isLight) {
+        headerGrad_4.addColorStop(0, 'rgba(241, 245, 249, 0.85)');
+        headerGrad_4.addColorStop(0.5, 'rgba(255, 255, 255, 0.90)');
+        headerGrad_4.addColorStop(1, 'rgba(241, 245, 249, 0.80)');
+      } else {
+        headerGrad_4.addColorStop(0, `rgba(${darkR_4 + 4}, ${darkG_4 + 6}, ${darkB_4 + 10}, 0.75)`);
+        headerGrad_4.addColorStop(0.5, 'rgba(11, 15, 26, 0.80)');
+        headerGrad_4.addColorStop(1, `rgba(${darkR_4 + 2}, ${darkG_4 + 3}, ${darkB_4 + 5}, 0.65)`);
+      }
+
+      ctx.fillStyle = headerGrad_4;
+      ctx.fillRect(0, headerBarY_4, chartWidth, headerBarH_4);
+
+      // Accent border at bottom of header bar
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, headerBarY_4 + headerBarH_4);
+      ctx.lineTo(chartWidth, headerBarY_4 + headerBarH_4);
+      ctx.stroke();
+
+      // Top accent gradient bar line
+      const topAccGrad_4 = ctx.createLinearGradient(0, headerBarY_4, chartWidth, headerBarY_4);
+      topAccGrad_4.addColorStop(0, currentPalette.bull || '#10b981');
+      topAccGrad_4.addColorStop(0.5, currentPalette.poc || '#6366f1');
+      topAccGrad_4.addColorStop(1, currentPalette.bear || '#ef4444');
+      ctx.strokeStyle = topAccGrad_4;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, headerBarY_4);
+      ctx.lineTo(chartWidth, headerBarY_4);
+      ctx.stroke();
 
       let minMacd = 0;
       let maxMacd = 0;
@@ -6589,21 +6862,21 @@ export default function CustomChartWidget({
 
       // Time Badge — aligned 1:1 with crosshair vertical line across current/past/future time anchor
       const tbTimeStr = formatCrosshairTime(crosshairTime, useLocalTime, timeframe);
-      ctx.font = '10px monospace';
+      ctx.font = 'bold 10px monospace';
       const tbTextW = ctx.measureText(tbTimeStr).width + 14;
       const tbClampedX = Math.max(tbTextW / 2, Math.min(chartWidth - tbTextW / 2, crosshairRef.current.x));
       ctx.save();
-      ctx.fillStyle = '#0369a1';
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.roundRect(tbClampedX - tbTextW / 2, fullHeight + 2, tbTextW, 18, 3);
       ctx.fill();
-      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 1;
       ctx.stroke();
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = '#000000';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(tbTimeStr, tbClampedX, fullHeight + 13);
+      ctx.fillText(tbTimeStr, tbClampedX, fullHeight + 12);
       ctx.restore();
 
       // Y-axis Price Badge
@@ -6621,97 +6894,189 @@ export default function CustomChartWidget({
       ctx.textAlign = 'left';
       ctx.fillText(hoveredPrice.toFixed(hoveredPrice > 100 ? 2 : 4), chartWidth + 6, crosshairRef.current.y + 3.5);
 
-      // Institutional Crosshair Liquidity Inspector Tooltip (Queue Estimator & Resting Depth)
-      if (indicators.showLiquidityHeatmap && indicators.liquidityHeatmapConfig?.showCrosshairInspector && liquidityHeatmapData) {
-        const queueEst = estimateQueuePosition(hoveredPrice, 500, liquidityHeatmapData, currentPrice);
-        const matchLvl = liquidityHeatmapData.profileLadder.find(
-          (l) => Math.abs(l.price - hoveredPrice) <= liquidityHeatmapData.priceStep * 0.65
-        );
-        const restingVol = matchLvl ? matchLvl.totalVolume : Math.round(1000 + (hoveredPrice % 10) * 150);
-        const notionalK = ((restingVol * (hoveredPrice > 100 ? hoveredPrice : 10000)) / 1000).toFixed(0);
-
-        const tooltipX = Math.min(chartWidth - 195, Math.max(15, crosshairRef.current.x + 16));
-        const tooltipY = Math.min(fullHeight - 55, Math.max(25, crosshairRef.current.y - 48));
-
-        ctx.save();
-        ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.95)' : (currentPalette?.dark === '#242119' ? 'rgba(36, 33, 25, 0.96)' : 'rgba(8, 14, 24, 0.94)');
-        ctx.strokeStyle = queueEst.side === 'bid' ? (currentPalette.bull || '#10b981') : (currentPalette.bear || '#f43f5e');
-        ctx.lineWidth = 1;
-
-        if (typeof (ctx as any).roundRect === 'function') {
-          ctx.beginPath();
-          (ctx as any).roundRect(tooltipX, tooltipY, 185, 46, 4);
-          ctx.fill();
-          ctx.stroke();
-        } else {
-          ctx.fillRect(tooltipX, tooltipY, 185, 46);
-          ctx.strokeRect(tooltipX, tooltipY, 185, 46);
-        }
-
-        ctx.font = 'bold 8px monospace';
-        ctx.fillStyle = isLight ? '#475569' : (currentPalette?.dark === '#242119' ? '#a39986' : '#94a3b8');
-        ctx.textAlign = 'left';
-        ctx.fillText(`DEPTH @ $${hoveredPrice.toFixed(2)} (${queueEst.side.toUpperCase()})`, tooltipX + 7, tooltipY + 12);
-
-        ctx.font = 'bold 8.5px monospace';
-        ctx.fillStyle = isLight ? '#0f172a' : '#ffffff';
-        ctx.fillText(`Vol: ${restingVol.toLocaleString()} (~$${notionalK}K)`, tooltipX + 7, tooltipY + 25);
-
-        ctx.font = 'bold 7.5px monospace';
-        ctx.fillStyle = queueEst.fillProbability >= 70 ? (currentPalette.bull || '#86efac') : '#fde047';
-        ctx.fillText(`Queue #${queueEst.queueRank} | Fill: ${queueEst.fillProbability}% (~${queueEst.estTimeToFillSec}s)`, tooltipX + 7, tooltipY + 38);
-
-        ctx.restore();
-      }
-
-      // Heatmap Cluster Hover Highlight (#9): glow effect + tooltip for nearby clusters
+      // Institutional Crosshair Liquidity Inspector Tooltip (Unified Queue & Liquidation Cluster)
       if (indicators.showLiquidityHeatmap && liquidityHeatmapData && crosshairRef.current.active) {
-        const hoveredP = getPriceFromY(crosshairRef.current.y);
+        // 1. Calculate Queue Position
+        const queueEst = indicators.liquidityHeatmapConfig?.showCrosshairInspector 
+          ? estimateQueuePosition(hoveredPrice, 500, liquidityHeatmapData, currentPrice)
+          : null;
+        
+        // 2. Calculate Nearby Liquidation Cluster
         const clusters = liquidityHeatmapData.liquidationRadar?.clusters || [];
         const nearbyThreshold = liquidityHeatmapData.priceStep * 2.5;
         let closestDist = Infinity;
         let closestCluster: typeof clusters[0] | null = null;
         for (const cl of clusters) {
-          const d = Math.abs(cl.price - hoveredP);
+          const d = Math.abs(cl.price - hoveredPrice);
           if (d < nearbyThreshold && d < closestDist) {
             closestDist = d;
             closestCluster = cl;
           }
         }
-        if (closestCluster) {
-          const clY = getY(closestCluster.price);
-          const proximityFade = 1 - (closestDist / nearbyThreshold);
+
+        // Only draw if we have queueEst OR closestCluster
+        if (queueEst || closestCluster) {
+          const hasQueue = !!queueEst;
+          const hasCluster = !!closestCluster;
+
+          const boxW = 210;
+          const boxH = (hasQueue && hasCluster) ? 82 : hasQueue ? 52 : 36;
+
+          // Align tooltip position relative to crosshair cursor
+          let tooltipX = crosshairRef.current.x + 16;
+          let tooltipY = crosshairRef.current.y - (boxH / 2);
+
+          // Boundaries clamp
+          if (tooltipX + boxW > chartWidth - 10) {
+            tooltipX = crosshairRef.current.x - boxW - 16;
+          }
+          if (tooltipY < 15) tooltipY = 15;
+          if (tooltipY + boxH > fullHeight - 35) tooltipY = fullHeight - boxH - 35;
+
           ctx.save();
-          // Glow ring
-          ctx.strokeStyle = closestCluster.side === 'long_liq'
-            ? `rgba(16, 185, 129, ${0.6 * proximityFade})`
-            : `rgba(244, 63, 94, ${0.6 * proximityFade})`;
-          ctx.lineWidth = 2.5 * proximityFade;
-          ctx.shadowColor = closestCluster.side === 'long_liq' ? '#10b981' : '#f43f5e';
-          ctx.shadowBlur = 12 * proximityFade;
+
+          // 3. Premium Glassmorphic Gradient Lighter/Darker
+          const bgGrad = ctx.createLinearGradient(tooltipX, tooltipY, tooltipX + boxW, tooltipY + boxH);
+          const [rBull, gBull, bBull] = hexToRgbTuple(currentPalette.bull || '#10b981', [81, 52, 255]);
+          const [rBear, gBear, bBear] = hexToRgbTuple(currentPalette.bear || '#ef4444', [23, 156, 116]);
+          const [darkR, darkG, darkB] = hexToRgbTuple(
+            currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
+            [6, 9, 19]
+          );
+
+          // Primary accent color based on context
+          let accentCol = '#6366f1'; // neutral/indigo
+          if (hasCluster && closestCluster) {
+            accentCol = closestCluster.side === 'long_liq' ? (currentPalette.bull || '#10b981') : (currentPalette.bear || '#ef4444');
+          } else if (hasQueue && queueEst) {
+            accentCol = queueEst.side === 'bid' ? (currentPalette.bull || '#10b981') : (currentPalette.bear || '#f43f5e');
+          }
+
+          if (isLight) {
+            bgGrad.addColorStop(0, accentCol + '16');
+            bgGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.95)');
+            bgGrad.addColorStop(1, 'rgba(248, 250, 252, 0.92)');
+          } else {
+            bgGrad.addColorStop(0, accentCol + '22');
+            bgGrad.addColorStop(0.5, `rgba(${darkR + 4}, ${darkG + 6}, ${darkB + 10}, 0.94)`);
+            bgGrad.addColorStop(1, 'rgba(11, 15, 26, 0.88)');
+          }
+
+          ctx.fillStyle = bgGrad;
+          ctx.strokeStyle = accentCol;
+          ctx.lineWidth = 1.2;
+
+          // Draw Rounded Rect Card
+          if (typeof (ctx as any).roundRect === 'function') {
+            ctx.beginPath();
+            (ctx as any).roundRect(tooltipX, tooltipY, boxW, boxH, 6);
+            ctx.fill();
+            ctx.stroke();
+          } else {
+            ctx.fillRect(tooltipX, tooltipY, boxW, boxH);
+            ctx.strokeRect(tooltipX, tooltipY, boxW, boxH);
+          }
+
+          // Draw Top Accent Gradient Bar Line (for the tooltip box)
+          const topAccGrad = ctx.createLinearGradient(tooltipX, tooltipY, tooltipX + boxW, tooltipY);
+          topAccGrad.addColorStop(0, currentPalette.bull || '#10b981');
+          topAccGrad.addColorStop(0.5, currentPalette.poc || '#6366f1');
+          topAccGrad.addColorStop(1, currentPalette.bear || '#ef4444');
+          ctx.strokeStyle = topAccGrad;
+          ctx.lineWidth = 1.8;
           ctx.beginPath();
-          ctx.arc(chartWidth - 8, clY, 5 + 3 * proximityFade, 0, Math.PI * 2);
+          ctx.moveTo(tooltipX + 1, tooltipY);
+          ctx.lineTo(tooltipX + boxW - 1, tooltipY);
           ctx.stroke();
-          ctx.shadowBlur = 0;
-          // Tooltip
-          const clTooltipX = Math.min(chartWidth - 200, Math.max(10, crosshairRef.current.x + 14));
-          const clTooltipY = Math.min(fullHeight - 30, Math.max(10, clY - 12));
-          ctx.fillStyle = isLight ? 'rgba(255,255,255,0.94)' : 'rgba(8,14,24,0.92)';
-          ctx.beginPath();
-          (ctx as any).roundRect?.(clTooltipX, clTooltipY, 170, 24, 4) ?? ctx.rect(clTooltipX, clTooltipY, 170, 24);
-          ctx.fill();
-          ctx.strokeStyle = closestCluster.side === 'long_liq' ? '#10b98180' : '#f43f5e80';
-          ctx.lineWidth = 1;
-          ctx.stroke();
-          ctx.fillStyle = closestCluster.side === 'long_liq' ? '#10b981' : '#f43f5e';
-          ctx.font = 'bold 9px monospace';
-          ctx.textAlign = 'left';
-          const clType = closestCluster.side === 'long_liq' ? 'LIQ LONG' : 'LIQ SHORT';
-          const clPct = closestCluster.distancePct ? ` (${closestCluster.distancePct.toFixed(2)}%)` : '';
-          ctx.fillText(`${clType} ${closestCluster.price.toFixed(closestCluster.price > 100 ? 2 : 4)}${clPct}`, clTooltipX + 6, clTooltipY + 16);
+
+          let curY = tooltipY + 12;
+
+          // Draw Section A: FIFO Queue Position
+          if (hasQueue && queueEst) {
+            const matchLvl = liquidityHeatmapData.profileLadder.find(
+              (l) => Math.abs(l.price - hoveredPrice) <= liquidityHeatmapData.priceStep * 0.65
+            );
+            const restingVol = matchLvl ? matchLvl.totalVolume : Math.round(1000 + (hoveredPrice % 10) * 150);
+            const notionalK = ((restingVol * (hoveredPrice > 100 ? hoveredPrice : 10000)) / 1000).toFixed(0);
+
+            // Title Line
+            ctx.font = 'bold 8px monospace';
+            ctx.fillStyle = isLight ? '#475569' : (currentPalette?.dark === '#242119' ? '#a39986' : '#94a3b8');
+            ctx.textAlign = 'left';
+            ctx.fillText(`QUEUE ESTIMATOR @ $${hoveredPrice.toFixed(2)} (${queueEst.side.toUpperCase()})`, tooltipX + 8, curY);
+            
+            curY += 12;
+            
+            // Vol & Notional Line
+            ctx.font = 'bold 8.5px monospace';
+            ctx.fillStyle = isLight ? '#0f172a' : '#ffffff';
+            ctx.fillText(`Vol: ${restingVol.toLocaleString()} (~$${notionalK}K)`, tooltipX + 8, curY);
+
+            curY += 12;
+
+            // Rank & Fill Probability
+            ctx.font = 'bold 7.5px monospace';
+            ctx.fillStyle = queueEst.fillProbability >= 70 ? (currentPalette.bull || '#86efac') : '#fde047';
+            ctx.fillText(`Queue #${queueEst.queueRank} | Fill: ${queueEst.fillProbability}% (~${queueEst.estTimeToFillSec}s)`, tooltipX + 8, curY);
+
+            curY += 11;
+          }
+
+          // Draw Separator line if BOTH are active
+          if (hasQueue && hasCluster) {
+            ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(tooltipX + 6, curY - 4);
+            ctx.lineTo(tooltipX + boxW - 6, curY - 4);
+            ctx.stroke();
+          }
+
+          // Draw Section B: Liquidation Cluster Info
+          if (hasCluster && closestCluster) {
+            const isLongLiq = closestCluster.side === 'long_liq';
+            const clType = isLongLiq ? '💥 LIQ LONG (SQUEEZE)' : '💥 LIQ SHORT (FLUSH)';
+            const clColor = isLongLiq ? (currentPalette.bull || '#10b981') : (currentPalette.bear || '#ef4444');
+            const clPct = closestCluster.distancePct ? ` (${closestCluster.distancePct.toFixed(2)}%)` : '';
+
+            // Title line
+            ctx.font = 'bold 8px monospace';
+            ctx.fillStyle = clColor;
+            ctx.textAlign = 'left';
+            ctx.fillText(clType, tooltipX + 8, curY + 4);
+
+            // Price & Leverage info
+            ctx.font = 'bold 8.5px monospace';
+            ctx.fillStyle = isLight ? '#0f172a' : '#ffffff';
+            ctx.fillText(`Price: $${closestCluster.price.toFixed(closestCluster.price > 100 ? 2 : 4)}${clPct}`, tooltipX + 8, curY + 14);
+
+            // Distance
+            ctx.font = '7.5px monospace';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText(`Leverage: ${closestCluster.leverageTier} | Dist: ${closestCluster.distanceTicks} Ticks`, tooltipX + 8, curY + 23);
+          }
+
+          // Draw proximity glow ring around the cluster node
+          if (hasCluster && closestCluster) {
+            const clY = getY(closestCluster.price);
+            const proximityFade = 1 - (closestDist / nearbyThreshold);
+            ctx.strokeStyle = closestCluster.side === 'long_liq'
+              ? `rgba(16, 185, 129, ${0.7 * proximityFade})`
+              : `rgba(244, 63, 94, ${0.7 * proximityFade})`;
+            ctx.lineWidth = 2.5 * proximityFade;
+            ctx.shadowColor = closestCluster.side === 'long_liq' ? '#10b981' : '#f43f5e';
+            ctx.shadowBlur = 12 * proximityFade;
+            ctx.beginPath();
+            ctx.arc(chartWidth - 8, clY, 6 + 4 * proximityFade, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+          }
+
           ctx.restore();
         }
       }
+
+      // Heatmap Cluster Hover Highlight integrated into unified tooltip above
 
       // Whale Volume Cluster Hover Inspector Tooltip
       if (
@@ -6730,30 +7095,79 @@ export default function CustomChartWidget({
 
         if (hoveredWhale) {
           const hasXInfo = !!hoveredWhale.crossExchangeInfo;
-          const boxW = 240;
-          const boxH = hasXInfo ? 94 : 76;
-          const wX = Math.min(chartWidth - boxW - 10, Math.max(15, crosshairRef.current.x + 18));
-          const wY = Math.min(fullHeight - boxH - 10, Math.max(25, crosshairRef.current.y - boxH - 10));
+          const boxW = 285;
+          const boxH = hasXInfo ? 104 : 85;
+
+          // Determine side opposite to the Unified Tooltip to prevent overlap
+          const unifiedOnLeft = (crosshairRef.current.x + 16 + 210 > chartWidth - 10);
+          
+          let wX;
+          if (unifiedOnLeft) {
+            // Unified is on the left, so place Whale on the right
+            wX = crosshairRef.current.x + 18;
+            if (wX + boxW > chartWidth - 10) {
+              wX = Math.max(15, crosshairRef.current.x - boxW - 18);
+            }
+          } else {
+            // Unified is on the right, so place Whale on the left
+            wX = crosshairRef.current.x - boxW - 18;
+            if (wX < 15) {
+              wX = Math.min(chartWidth - boxW - 10, crosshairRef.current.x + 18);
+            }
+          }
+
+          const wY = Math.min(fullHeight - boxH - 15, Math.max(25, crosshairRef.current.y - (boxH / 2)));
 
           ctx.save();
-          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.97)' : 'rgba(5, 10, 22, 0.96)';
+          const whaleBgGrad = ctx.createLinearGradient(wX, wY, wX + boxW, wY + boxH);
+          const [rBull, gBull, bBull] = hexToRgbTuple(currentPalette.bull || '#10b981', [81, 52, 255]);
+          const [rBear, gBear, bBear] = hexToRgbTuple(currentPalette.bear || '#ef4444', [23, 156, 116]);
+          const [darkR, darkG, darkB] = hexToRgbTuple(
+            currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
+            [6, 9, 19]
+          );
+
           const sideColor = hoveredWhale.isAbsorption 
             ? '#ffd600' 
             : hoveredWhale.side === 'sell_dominant' 
               ? (currentPalette.bear || '#ef4444') 
               : (currentPalette.bull || '#10b981');
+
+          if (isLight) {
+            whaleBgGrad.addColorStop(0, hoveredWhale.side === 'sell_dominant' ? `rgba(${rBear}, ${gBear}, ${bBear}, 0.14)` : `rgba(${rBull}, ${gBull}, ${bBull}, 0.14)`);
+            whaleBgGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.95)');
+            whaleBgGrad.addColorStop(1, 'rgba(248, 250, 252, 0.92)');
+          } else {
+            whaleBgGrad.addColorStop(0, hoveredWhale.side === 'sell_dominant' ? `rgba(${rBear}, ${gBear}, ${bBear}, 0.22)` : `rgba(${rBull}, ${gBull}, ${bBull}, 0.22)`);
+            whaleBgGrad.addColorStop(0.5, `rgba(${darkR + 4}, ${darkG + 6}, ${darkB + 10}, 0.94)`);
+            whaleBgGrad.addColorStop(1, 'rgba(11, 15, 26, 0.88)');
+          }
+
+          ctx.fillStyle = whaleBgGrad;
           ctx.strokeStyle = sideColor;
-          ctx.lineWidth = 1.5;
+          ctx.lineWidth = 1.3;
 
           if (typeof (ctx as any).roundRect === 'function') {
             ctx.beginPath();
-            (ctx as any).roundRect(wX, wY, boxW, boxH, 4);
+            (ctx as any).roundRect(wX, wY, boxW, boxH, 6);
             ctx.fill();
             ctx.stroke();
           } else {
             ctx.fillRect(wX, wY, boxW, boxH);
             ctx.strokeRect(wX, wY, boxW, boxH);
           }
+
+          // Draw Top Accent line
+          const topAccGrad = ctx.createLinearGradient(wX, wY, wX + boxW, wY);
+          topAccGrad.addColorStop(0, currentPalette.bull || '#10b981');
+          topAccGrad.addColorStop(0.5, '#ffd600');
+          topAccGrad.addColorStop(1, currentPalette.bear || '#ef4444');
+          ctx.strokeStyle = topAccGrad;
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          ctx.moveTo(wX + 1, wY);
+          ctx.lineTo(wX + boxW - 1, wY);
+          ctx.stroke();
 
           // Header
           ctx.font = 'bold 8.5px monospace';
@@ -6772,36 +7186,40 @@ export default function CustomChartWidget({
           const notionalStr = hoveredWhale.notionalUsd >= 1_000_000
             ? `$${(hoveredWhale.notionalUsd / 1_000_000).toFixed(2)}M`
             : `$${(hoveredWhale.notionalUsd / 1_000).toFixed(0)}K`;
-          ctx.fillText(`Vol: ${hoveredWhale.totalVolume.toLocaleString()} (~${notionalStr})`, wX + 8, wY + 39);
+          ctx.fillText(`Vol: ${hoveredWhale.totalVolume.toLocaleString()} (~${notionalStr})`, wX + 8, wY + 38);
 
           // Details line 3: Buy/Sell ratio and Z-score anomaly
           ctx.font = 'bold 7.5px monospace';
           ctx.fillStyle = isLight ? '#475569' : '#94a3b8';
           const deltaSign = hoveredWhale.delta >= 0 ? '+' : '';
-          const lineStatus = hoveredWhale.isMitigated ? 'Ray: Mitigated' : 'Ray: Active Unmitigated';
-          ctx.fillText(`Δ: ${deltaSign}${hoveredWhale.delta.toLocaleString()} (${deltaSign}${hoveredWhale.deltaPct.toFixed(1)}%) | Z: +${hoveredWhale.zScore.toFixed(1)}σ | ${lineStatus}`, wX + 8, wY + 52);
+          ctx.fillText(`Δ: ${deltaSign}${hoveredWhale.delta.toLocaleString()} (${deltaSign}${hoveredWhale.deltaPct.toFixed(1)}%) | Z: +${hoveredWhale.zScore.toFixed(1)}σ`, wX + 8, wY + 50);
 
-          // Details line 4: Iceberg Campaign or Exhaustion Alert or Limit Wall
+          // Details line 4: Ray Mitigation status
+          const lineStatus = hoveredWhale.isMitigated ? 'Ray: Mitigated (Fully Filled)' : 'Ray: Active Unmitigated Order Level';
+          ctx.fillStyle = hoveredWhale.isMitigated ? '#94a3b8' : '#34d399';
+          ctx.fillText(lineStatus, wX + 8, wY + 62);
+
+          // Details line 5: Iceberg Campaign or Exhaustion Alert or Limit Wall
           if (hoveredWhale.exhaustionAlertId) {
             ctx.fillStyle = '#ff1744';
-            ctx.fillText(`⚠️ Exhaustion Climax Active | Mean Reversion Target`, wX + 8, wY + 65);
+            ctx.fillText(`⚠️ Exhaustion Climax Active | Mean Reversion Target`, wX + 8, wY + 74);
           } else if (hoveredWhale.campaignId) {
             ctx.fillStyle = '#00e5ff';
-            ctx.fillText(`🧊 Iceberg Campaign Member | TWAP Group Sliced`, wX + 8, wY + 65);
+            ctx.fillText(`🧊 Iceberg Campaign Member | TWAP Group Sliced`, wX + 8, wY + 74);
           } else if (hoveredWhale.restingWallCollision) {
             ctx.fillStyle = '#ffd600';
-            ctx.fillText(`⚡ Passive Limit Wall Collision Absorption`, wX + 8, wY + 65);
+            ctx.fillText(`⚡ Passive Limit Wall Collision Absorption`, wX + 8, wY + 74);
           } else {
             ctx.fillStyle = isLight ? '#64748b' : '#94a3b8';
-            ctx.fillText(`📐 Order Flow Level Ray: Support / Resistance`, wX + 8, wY + 65);
+            ctx.fillText(`📐 Order Flow Level: Support / Resistance`, wX + 8, wY + 74);
           }
 
-          // Details line 5: Cross-Exchange Multi-Venue Breakdown
+          // Details line 6: Cross-Exchange Multi-Venue Breakdown
           if (hoveredWhale.crossExchangeInfo) {
             const xInfo = hoveredWhale.crossExchangeInfo;
             ctx.fillStyle = '#38bdf8';
             ctx.font = 'bold 7px monospace';
-            ctx.fillText(`🌐 Multi-Venue: ${xInfo.primaryLeadVenue.replace('_FUTURES', '').replace('_PERP', '')} Sweep | Spot Hedge: ${xInfo.hedgeAbsorptionRatio}% (Arb: ${xInfo.arbSpreadBps} bps)`, wX + 8, wY + 80);
+            ctx.fillText(`🌐 Multi-Venue: ${xInfo.primaryLeadVenue.replace('_FUTURES', '').replace('_PERP', '')} Sweep | Hedge: ${xInfo.hedgeAbsorptionRatio}% (Arb: ${xInfo.arbSpreadBps} bps)`, wX + 8, wY + 86);
           }
 
           ctx.restore();
@@ -6869,7 +7287,25 @@ export default function CustomChartWidget({
           if (tipY + boxH > fullHeight - 35) tipY = fullHeight - boxH - 35;
 
           // Background card with glassmorphic aesthetic
-          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 42, 0.95)';
+          const gexBgGrad = ctx.createLinearGradient(tipX, tipY, tipX + boxW, tipY + boxH);
+          const [rBull, gBull, bBull] = hexToRgbTuple(currentPalette.bull || '#10b981', [81, 52, 255]);
+          const [rBear, gBear, bBear] = hexToRgbTuple(currentPalette.bear || '#ef4444', [23, 156, 116]);
+          const [darkR, darkG, darkB] = hexToRgbTuple(
+            currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
+            [6, 9, 19]
+          );
+
+          if (isLight) {
+            gexBgGrad.addColorStop(0, accentCol + '20');
+            gexBgGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.95)');
+            gexBgGrad.addColorStop(1, 'rgba(248, 250, 252, 0.92)');
+          } else {
+            gexBgGrad.addColorStop(0, accentCol + '30');
+            gexBgGrad.addColorStop(0.5, `rgba(${darkR + 4}, ${darkG + 6}, ${darkB + 10}, 0.94)`);
+            gexBgGrad.addColorStop(1, 'rgba(11, 15, 26, 0.88)');
+          }
+
+          ctx.fillStyle = gexBgGrad;
           ctx.strokeStyle = accentCol;
           ctx.lineWidth = 1.2;
           ctx.beginPath();
@@ -6939,21 +7375,22 @@ export default function CustomChartWidget({
           // Synced Time Badge on Time Scale
           const timeStr = formatCrosshairTime(globalCrosshair.time, useLocalTime, timeframe);
           
-          ctx.font = '10px monospace';
+          ctx.font = 'bold 10px monospace';
           const textW = ctx.measureText(timeStr).width + 14;
           const badgeX = Math.max(textW / 2, Math.min(chartWidth - textW / 2, syncX));
           
-          ctx.fillStyle = '#0369a1';
+          ctx.fillStyle = '#ffffff';
           ctx.beginPath();
           ctx.roundRect(badgeX - textW / 2, fullHeight + 2, textW, 18, 3);
           ctx.fill();
-          ctx.strokeStyle = '#38bdf8';
+          ctx.strokeStyle = '#cbd5e1';
           ctx.lineWidth = 1;
           ctx.stroke();
           
-          ctx.fillStyle = '#ffffff';
+          ctx.fillStyle = '#000000';
           ctx.textAlign = 'center';
-          ctx.fillText(timeStr, badgeX, fullHeight + 14);
+          ctx.textBaseline = 'middle';
+          ctx.fillText(timeStr, badgeX, fullHeight + 12);
         }
 
         if (isYVisible) {
@@ -7676,7 +8113,7 @@ export default function CustomChartWidget({
           const hasHighImpact = cluster.events.some((e) => e.impact === 'HIGH');
           const isHovered = cluster.events.some((e) => e.id === hoveredNewsEventId);
 
-          const baseColor = hasHighImpact ? '#f43f5e' : cluster.events.some((e) => e.impact === 'MEDIUM') ? '#f59e0b' : '#06b6d4';
+          const baseColor = hasHighImpact ? '#f43f5e' : cluster.events.some((e) => e.impact === 'MEDIUM') ? '#f59e0b' : currentPalette.bull;
           const glowColor = hasHighImpact ? 'rgba(244, 63, 94, 0.4)' : 'rgba(245, 158, 11, 0.35)';
 
           ctx.save();
@@ -8095,7 +8532,25 @@ export default function CustomChartWidget({
           const hudX = Math.min(utils.chartWidth - 230, Math.max(15, (visualDragState.mouseX || 100) + 15));
           const hudY = Math.min(utils.fullHeight - 80, Math.max(20, (visualDragState.mouseY || orderY) - 45));
 
-          ctx.fillStyle = 'rgba(7, 10, 20, 0.95)';
+          const dragHudGrad = ctx.createLinearGradient(hudX, hudY, hudX + 220, hudY + 68);
+          const [rBull, gBull, bBull] = hexToRgbTuple(currentPalette.bull || '#10b981', [81, 52, 255]);
+          const [rBear, gBear, bBear] = hexToRgbTuple(currentPalette.bear || '#ef4444', [23, 156, 116]);
+          const [darkR, darkG, darkB] = hexToRgbTuple(
+            currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
+            [6, 9, 19]
+          );
+
+          if (isLight) {
+            dragHudGrad.addColorStop(0, isBuy ? `rgba(${rBull}, ${gBull}, ${bBull}, 0.16)` : `rgba(${rBear}, ${gBear}, ${bBear}, 0.16)`);
+            dragHudGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.95)');
+            dragHudGrad.addColorStop(1, 'rgba(248, 250, 252, 0.92)');
+          } else {
+            dragHudGrad.addColorStop(0, isBuy ? `rgba(${rBull}, ${gBull}, ${bBull}, 0.22)` : `rgba(${rBear}, ${gBear}, ${bBear}, 0.22)`);
+            dragHudGrad.addColorStop(0.5, `rgba(${darkR + 4}, ${darkG + 6}, ${darkB + 10}, 0.94)`);
+            dragHudGrad.addColorStop(1, 'rgba(11, 15, 26, 0.88)');
+          }
+
+          ctx.fillStyle = dragHudGrad;
           ctx.strokeStyle = orderColor;
           ctx.lineWidth = Math.max(1.5, candleWidth / 30);
           ctx.beginPath();
@@ -8133,7 +8588,25 @@ export default function CustomChartWidget({
           const hudX = Math.min(utils.chartWidth - 210, Math.max(15, (visualDragState.mouseX || 100) + 15));
           const hudY = Math.min(utils.fullHeight - 65, Math.max(20, (visualDragState.mouseY || utils.getY(visualDragState.price)) - 35));
 
-          ctx.fillStyle = 'rgba(7, 10, 20, 0.95)';
+          const dragTpHudGrad = ctx.createLinearGradient(hudX, hudY, hudX + 195, hudY + 52);
+          const [rBull, gBull, bBull] = hexToRgbTuple(currentPalette.bull || '#10b981', [81, 52, 255]);
+          const [rBear, gBear, bBear] = hexToRgbTuple(currentPalette.bear || '#ef4444', [23, 156, 116]);
+          const [darkR, darkG, darkB] = hexToRgbTuple(
+            currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
+            [6, 9, 19]
+          );
+
+          if (isLight) {
+            dragTpHudGrad.addColorStop(0, isTP ? `rgba(${rBull}, ${gBull}, ${bBull}, 0.16)` : `rgba(${rBear}, ${gBear}, ${bBear}, 0.16)`);
+            dragTpHudGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.95)');
+            dragTpHudGrad.addColorStop(1, 'rgba(248, 250, 252, 0.92)');
+          } else {
+            dragTpHudGrad.addColorStop(0, isTP ? `rgba(${rBull}, ${gBull}, ${bBull}, 0.22)` : `rgba(${rBear}, ${gBear}, ${bBear}, 0.22)`);
+            dragTpHudGrad.addColorStop(0.5, `rgba(${darkR + 4}, ${darkG + 6}, ${darkB + 10}, 0.94)`);
+            dragTpHudGrad.addColorStop(1, 'rgba(11, 15, 26, 0.88)');
+          }
+
+          ctx.fillStyle = dragTpHudGrad;
           ctx.strokeStyle = hudColor;
           ctx.lineWidth = Math.max(1.5, candleWidth / 30);
           ctx.beginPath();
@@ -8164,7 +8637,25 @@ export default function CustomChartWidget({
           const hudX = Math.min(utils.chartWidth - 210, Math.max(15, (visualDragState.mouseX || 100) + 15));
           const hudY = Math.min(utils.fullHeight - 65, Math.max(20, (visualDragState.mouseY || utils.getY(visualDragState.price)) - 35));
 
-          ctx.fillStyle = 'rgba(7, 10, 20, 0.95)';
+          const dragPendingHudGrad = ctx.createLinearGradient(hudX, hudY, hudX + 205, hudY + 54);
+          const [rBull, gBull, bBull] = hexToRgbTuple(currentPalette.bull || '#10b981', [81, 52, 255]);
+          const [rBear, gBear, bBear] = hexToRgbTuple(currentPalette.bear || '#ef4444', [23, 156, 116]);
+          const [darkR, darkG, darkB] = hexToRgbTuple(
+            currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
+            [6, 9, 19]
+          );
+
+          if (isLight) {
+            dragPendingHudGrad.addColorStop(0, pendingOrder?.type === 'BUY' ? `rgba(${rBull}, ${gBull}, ${bBull}, 0.16)` : `rgba(${rBear}, ${gBear}, ${bBear}, 0.16)`);
+            dragPendingHudGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.95)');
+            dragPendingHudGrad.addColorStop(1, 'rgba(248, 250, 252, 0.92)');
+          } else {
+            dragPendingHudGrad.addColorStop(0, pendingOrder?.type === 'BUY' ? `rgba(${rBull}, ${gBull}, ${bBull}, 0.22)` : `rgba(${rBear}, ${gBear}, ${bBear}, 0.22)`);
+            dragPendingHudGrad.addColorStop(0.5, `rgba(${darkR + 4}, ${darkG + 6}, ${darkB + 10}, 0.94)`);
+            dragPendingHudGrad.addColorStop(1, 'rgba(11, 15, 26, 0.88)');
+          }
+
+          ctx.fillStyle = dragPendingHudGrad;
           ctx.strokeStyle = hudColor;
           ctx.lineWidth = Math.max(1.5, candleWidth / 30);
           ctx.beginPath();
@@ -11157,17 +11648,17 @@ export default function CustomChartWidget({
                 />
                 <div 
                   style={{ 
-                    borderColor: `${currentPalette.bull}70`,
-                    backgroundColor: 'var(--color-panel)',
+                    borderColor: getThemeCardBorder(currentPalette, false),
+                    background: getThemeModalGradient(currentPalette, isLight),
                     top: timeframeBtnRef.current 
                     ? Math.min(window.innerHeight - 340, Math.max(10, timeframeBtnRef.current.getBoundingClientRect().bottom + 4)) 
                     : '60px',
                     left: timeframeBtnRef.current 
                     ? Math.min(Math.max(10, timeframeBtnRef.current.getBoundingClientRect().left), window.innerWidth - 220) 
                     : '16px',
-                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.85), 0 0 0 1px var(--color-border)'
+                    boxShadow: `0 25px 50px -12px rgba(0,0,0,0.85), 0 0 20px ${hexToRgba(currentPalette.bull, 0.2)}`
                   }}
-                  className="fixed z-dropdown-ultimate w-52 rounded-xl border shadow-2xl py-2 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 overflow-y-auto max-h-[80vh] custom-scrollbar"
+                  className="fixed z-dropdown-ultimate w-52 rounded-xl border shadow-2xl py-2 backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 overflow-y-auto max-h-[80vh] custom-scrollbar"
                 >
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] border-b border-[var(--color-border)] mb-1.5 flex items-center justify-between">
                     <span className="flex items-center gap-1">
@@ -11347,17 +11838,17 @@ export default function CustomChartWidget({
                 />
                 <div 
                   style={{ 
-                    borderColor: `${currentPalette.bull}70`,
-                    backgroundColor: 'var(--color-panel)',
+                    borderColor: getThemeCardBorder(currentPalette, false),
+                    background: getThemeModalGradient(currentPalette, isLight),
                     top: chartTypeBtnRef.current 
                       ? Math.min(window.innerHeight - 280, Math.max(10, chartTypeBtnRef.current.getBoundingClientRect().bottom + 4)) 
                       : '60px',
                     left: chartTypeBtnRef.current 
                       ? Math.min(Math.max(10, chartTypeBtnRef.current.getBoundingClientRect().left), window.innerWidth - 240) 
                       : '16px',
-                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.85), 0 0 0 1px var(--color-border)'
+                    boxShadow: `0 25px 50px -12px rgba(0,0,0,0.85), 0 0 20px ${hexToRgba(currentPalette.bull, 0.2)}`
                   }}
-                  className="fixed z-[99999] w-56 rounded-xl border shadow-2xl py-1.5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 overflow-y-auto max-h-[80vh] scrollbar-thin"
+                  className="fixed z-[99999] w-56 rounded-xl border shadow-2xl py-1.5 backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 overflow-y-auto max-h-[80vh] scrollbar-thin"
                 >
                   <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] border-b border-[var(--color-border)] mb-1 flex items-center justify-between">
                     <span>Tipe Grafik</span>
@@ -11425,17 +11916,17 @@ export default function CustomChartWidget({
                   />
                   <div 
                     style={{ 
-                      borderColor: `${currentPalette.bull}70`,
-                      backgroundColor: 'var(--color-panel)',
+                      borderColor: getThemeCardBorder(currentPalette, false),
+                      background: getThemeModalGradient(currentPalette, isLight),
                       top: extraOptionsBtnRef.current 
                         ? Math.min(window.innerHeight - 380, Math.max(10, extraOptionsBtnRef.current.getBoundingClientRect().bottom + 4)) 
                         : '60px',
                       left: extraOptionsBtnRef.current 
                         ? Math.min(Math.max(10, extraOptionsBtnRef.current.getBoundingClientRect().left), window.innerWidth - 240) 
                         : '16px',
-                      boxShadow: '0 25px 50px -12px rgba(0,0,0,0.85), 0 0 0 1px var(--color-border)'
+                      boxShadow: `0 25px 50px -12px rgba(0,0,0,0.85), 0 0 20px ${hexToRgba(currentPalette.bull, 0.2)}`
                     }}
-                    className="fixed z-[99999] w-64 rounded-xl border shadow-2xl py-2 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 overflow-y-auto max-h-[85vh] custom-scrollbar text-xs"
+                    className="fixed z-[99999] w-64 rounded-xl border shadow-2xl py-2 backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 overflow-y-auto max-h-[85vh] custom-scrollbar text-xs"
                   >
                     <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] border-b border-[var(--color-border)] mb-1 flex items-center justify-between">
                       <span>Opsi & Fitur Visual</span>
@@ -12160,17 +12651,22 @@ export default function CustomChartWidget({
 
 
 
-          {/* 4A. TradingView-Style Interactive Scale Controls (Bottom-Right Overlays) */}
-          <div className="absolute bottom-8 right-2 z-30 flex items-center gap-1 bg-[var(--color-bg)]/90 border border-[var(--color-border)] px-1.5 py-0.5 rounded shadow-lg backdrop-blur-sm text-[10px] font-mono select-none">
+          {/* 4A. Unified Minimalist Chart & Market Controls Bar (Bottom-Left) */}
+          <div className="absolute bottom-8 left-3 z-30 flex items-center gap-1 bg-[var(--color-panel)]/95 border border-[var(--color-border)] px-1.5 py-1 rounded-lg shadow-xl backdrop-blur-md text-[10px] font-mono select-none pointer-events-auto">
+            {/* Market Sessions Global HUD Popover */}
+            <MarketSessionsOverlay variant="minimal" />
+
+            <div className="h-3.5 w-px bg-[var(--color-border)] mx-0.5" />
+
             {/* Jump to Realtime / Reset View Button */}
             {(panOffset > 3 || chartJumpTarget || targetSpotlightTime) && (
               <button
                 onClick={handleReturnToLiveChart}
                 title="Kembali ke Live Chart / Realtime"
-                className="px-2 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-600/60 text-emerald-300 font-bold flex items-center gap-1 cursor-pointer border border-emerald-500/50 animate-pulse"
+                className="h-6 px-2 py-0.5 rounded bg-emerald-600/25 hover:bg-emerald-600/50 text-emerald-300 font-bold flex items-center gap-1 cursor-pointer border border-emerald-500/40 animate-pulse shrink-0"
               >
                 <Play size={10} fill="currentColor" />
-                <span>Live Chart</span>
+                <span>Live</span>
               </button>
             )}
 
@@ -12188,32 +12684,38 @@ export default function CustomChartWidget({
                 }
               }}
               title="Toggle Auto Scale (Double click price axis to reset)"
-              style={isAutoScale ? { backgroundColor: `${currentPalette.bull}33`, color: currentPalette.bull, borderColor: currentPalette.bull } : {}}
-              className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors border ${
+              style={isAutoScale ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}60` } : {}}
+              className={`h-6 px-2 py-0.5 rounded cursor-pointer transition-colors border flex items-center gap-1 shrink-0 ${
                 isAutoScale
-                  ? 'font-bold'
-                  : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)]'
+                  ? 'font-bold shadow-sm'
+                  : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
               }`}
             >
-              auto
+              <Maximize2 size={11} />
+              <span>Auto</span>
             </button>
 
             {/* Logarithmic Scale Toggle Button */}
             <button
               onClick={() => setIsLogScale(!isLogScale)}
               title="Toggle Logarithmic Scale"
-              style={isLogScale ? { backgroundColor: `${currentPalette.bull}33`, color: currentPalette.bull, borderColor: currentPalette.bull } : {}}
-              className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors border ${
+              style={isLogScale ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}60` } : {}}
+              className={`h-6 px-2 py-0.5 rounded cursor-pointer transition-colors border flex items-center gap-1 shrink-0 ${
                 isLogScale
-                  ? 'font-bold'
-                  : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)]'
+                  ? 'font-bold shadow-sm'
+                  : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
               }`}
             >
-              log
+              <TrendingUp size={11} />
+              <span>Log</span>
             </button>
+
+            <div className="h-3.5 w-px bg-[var(--color-border)] mx-0.5" />
 
             {/* Interactive Global Timezone Selector */}
             <TimezoneSelector variant="badge" />
+
+            <div className="h-3.5 w-px bg-[var(--color-border)] mx-0.5" />
 
             {/* Visual News Icons & Laser Markers Toggle [ON/OFF] */}
             <button
@@ -12225,15 +12727,16 @@ export default function CustomChartWidget({
                 tradingAudio.play('CLICK');
               }}
               type="button"
-              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all flex items-center gap-1 border cursor-pointer ${
+              style={showNewsMarkers ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}60` } : {}}
+              className={`h-6 px-2 py-0.5 rounded transition-all flex items-center gap-1 border cursor-pointer shrink-0 ${
                 showNewsMarkers
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
-                  : 'bg-white/5 text-zinc-500 border-white/10 hover:text-zinc-300'
+                  ? 'font-bold shadow-sm'
+                  : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
               }`}
-              title={showNewsMarkers ? "Klik Untuk Sembunyikan Visual Ikon Berita di Chart [ON]" : "Klik Untuk Tampilkan Visual Ikon Berita di Chart [OFF]"}
+              title={showNewsMarkers ? "Sembunyikan Visual Ikon Berita di Chart [ON]" : "Tampilkan Visual Ikon Berita di Chart [OFF]"}
             >
-              <Flame size={11} className={showNewsMarkers ? "text-amber-400 animate-pulse" : ""} />
-              <span>NEWS [{showNewsMarkers ? "ON" : "OFF"}]</span>
+              <Flame size={11} className={showNewsMarkers ? "animate-pulse" : ""} />
+              <span>News</span>
             </button>
 
             {/* News Impact & Active Instrument Filter Controls */}
@@ -12248,16 +12751,17 @@ export default function CustomChartWidget({
                     tradingAudio.play('CLICK');
                   }}
                   type="button"
-                  className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold transition-all flex items-center gap-1 border cursor-pointer ${
+                  className={`h-6 px-2 py-0.5 rounded font-bold transition-all flex items-center gap-1 border cursor-pointer shrink-0 ${
                     newsFilterImpact === 'HIGH'
                       ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                       : newsFilterImpact === 'MEDIUM'
                       ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                      : 'bg-white/5 text-cyan-300 border-cyan-500/30'
+                      : 'bg-[var(--color-bg)]/80 text-[var(--color-text)] border-[var(--color-border)]'
                   }`}
                   title="Filter Tingkat Dampak Berita Chart (ALL / HIGH / MEDIUM / LOW)"
                 >
-                  <span>{newsFilterImpact === 'ALL' ? 'IMPACT: ALL' : `IMPACT: ${newsFilterImpact}`}</span>
+                  <Filter size={11} />
+                  <span>{newsFilterImpact}</span>
                 </button>
 
                 <button
@@ -12268,44 +12772,47 @@ export default function CustomChartWidget({
                     tradingAudio.play('CLICK');
                   }}
                   type="button"
-                  className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono font-bold transition-all flex items-center gap-1 border cursor-pointer ${
+                  style={filterByInstrumentOnly ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}60` } : {}}
+                  className={`h-6 px-2 py-0.5 rounded font-bold transition-all flex items-center gap-1 border cursor-pointer shrink-0 ${
                     filterByInstrumentOnly
-                      ? 'bg-cyan-500/25 text-cyan-300 border-cyan-500/50 shadow-[0_0_8px_rgba(6,182,212,0.3)]'
-                      : 'bg-white/5 text-zinc-500 border-white/10 hover:text-zinc-300'
+                      ? 'shadow-sm'
+                      : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
                   }`}
-                  title={`Khusus Tampilkan Berita Yang Berhubungan Dengan Instrumen Aktif (${activeMarketPair.base}/${activeMarketPair.quote})`}
+                  title={`Khusus Berita ${activeMarketPair.base}/${activeMarketPair.quote}`}
                 >
-                  <span>🎯 {activeMarketPair.base}/{activeMarketPair.quote}</span>
+                  <Target size={11} />
+                  <span>{activeMarketPair.base}</span>
                 </button>
               </>
             )}
 
+            <div className="h-3.5 w-px bg-[var(--color-border)] mx-0.5" />
+
             {/* SL/TP Lock and Verification Safety Controls */}
-            <div className="h-3.5 w-px bg-[var(--color-border)] mx-1" />
             <button
               onClick={() => setIsSLTPLocked(!isSLTPLocked)}
               title={isSLTPLocked ? "SL/TP Terkunci (Klik untuk membuka)" : "Kunci Posisi Garis SL/TP (Mencegah pergeseran)"}
-              className={`p-1 rounded cursor-pointer transition-colors flex items-center justify-center border ${
+              className={`h-6 px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1 border shrink-0 ${
                 isSLTPLocked
-                  ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 font-bold'
-                  : 'bg-[var(--color-bg)] text-[var(--color-text-muted)] border-transparent hover:text-[var(--color-text)] hover:bg-white/5'
+                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 font-bold'
+                  : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
               }`}
             >
-              {isSLTPLocked ? <Lock size={10} className="text-rose-400" /> : <Unlock size={10} />}
-              <span className="text-[9px] font-bold ml-1">SL/TP</span>
+              {isSLTPLocked ? <Lock size={11} className="text-rose-400" /> : <Unlock size={11} />}
+              <span>SL/TP</span>
             </button>
 
             <button
               onClick={() => setRequireSLTPVerification(!requireSLTPVerification)}
-              title={requireSLTPVerification ? "Verifikasi Seret SL/TP Aktif (Klik untuk matikan)" : "Matikan Verifikasi Seret (Berisiko salah geser!)"}
-              className={`p-1 rounded cursor-pointer transition-colors flex items-center justify-center border ${
+              title={requireSLTPVerification ? "Verifikasi Seret SL/TP Aktif (Klik untuk matikan)" : "Matikan Verifikasi Seret (Mode Cepat)"}
+              className={`h-6 px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1 border shrink-0 ${
                 requireSLTPVerification
-                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 font-bold'
-                  : 'bg-amber-500/10 text-amber-500 border-amber-500/30'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
+                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
               }`}
             >
-              <Shield size={10} />
-              <span className="text-[9px] font-bold ml-1">{requireSLTPVerification ? "Safe" : "Fast"}</span>
+              <Shield size={11} />
+              <span>{requireSLTPVerification ? "Safe" : "Fast"}</span>
             </button>
           </div>
 
@@ -12948,9 +13455,6 @@ export default function CustomChartWidget({
           <span>{sltpToast.message}</span>
         </div>
       )}
-
-      {/* 13. Market Sessions Global HUD Overlay */}
-      <MarketSessionsOverlay className="absolute bottom-8 left-3 z-40 max-w-xl pointer-events-auto" />
 
       {/* 14. Flashing Beacon HUD for Imminent High Impact News Events */}
       <ChartNewsBeaconHUD

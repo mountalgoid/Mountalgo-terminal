@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useTrade } from '../context/TradeContext';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 import { IndicatorSettings } from '../utils/indicators';
 
 // Map indicator keys to their labels
@@ -122,7 +123,7 @@ export const MtfMatrixHud: React.FC<MtfMatrixHudProps> = React.memo(({
   const [isOpen, setIsOpen] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
 
   // Determine which indicators are active from the chart settings
   const activeIndicatorKeys = useMemo(() => {
@@ -412,12 +413,19 @@ export const MtfMatrixHud: React.FC<MtfMatrixHudProps> = React.memo(({
           />
           <div 
             style={{
-              backgroundColor: 'var(--color-panel)',
-              borderColor: 'var(--color-border)',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
+              background: getThemeModalGradient(palette, isLight),
+              borderColor: getThemeCardBorder(palette, false),
+              boxShadow: `0 20px 50px -10px rgba(0,0,0,0.85), 0 0 25px ${hexToRgba(palette.poc || palette.bull, 0.2)}`,
             }}
-            className="fixed top-16 sm:top-20 right-2 sm:right-4 z-dropdown-ultimate w-[95vw] sm:w-[420px] max-h-[85vh] rounded-xl border flex flex-col overflow-hidden text-[var(--color-text)]"
+            className="fixed top-16 sm:top-20 right-2 sm:right-4 z-dropdown-ultimate w-[95vw] sm:w-[420px] max-h-[85vh] rounded-2xl border flex flex-col overflow-hidden text-[var(--color-text)] backdrop-blur-2xl"
           >
+            {/* Top Accent Gradient Line */}
+            <div 
+              className="h-[3px] w-full shrink-0"
+              style={{
+                background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`
+              }}
+            />
             {/* Header */}
             <div className="px-3.5 pt-3 pb-2 border-b border-white/10 bg-[var(--color-panel)]/80 backdrop-blur-xl shadow-2xl shadow-black/30 flex-shrink-0">
               <div className="flex items-center justify-between mb-2">
@@ -489,26 +497,26 @@ export const MtfMatrixHud: React.FC<MtfMatrixHudProps> = React.memo(({
 
                 {/* Quick stats */}
                 <div className="grid grid-cols-4 gap-1.5 text-center">
-                  <div className="rounded-md py-1 bg-[var(--color-panel)]">
+                  <div className="rounded-lg py-1.5 bg-[var(--color-card)]/80 border border-[var(--color-border)]/60 backdrop-blur-md shadow-sm">
                     <div className="text-[9px] text-[var(--color-text-muted)] font-mono">BULL</div>
                     <div className="text-[11px] font-black font-mono" style={{ color: palette.bull }}>{overallConfluence.bullCount}/{matrixData.length}</div>
                   </div>
-                  <div className="rounded-md py-1 bg-[var(--color-panel)]">
+                  <div className="rounded-lg py-1.5 bg-[var(--color-card)]/80 border border-[var(--color-border)]/60 backdrop-blur-md shadow-sm">
                     <div className="text-[9px] text-[var(--color-text-muted)] font-mono">BEAR</div>
                     <div className="text-[11px] font-black font-mono" style={{ color: palette.bear }}>{overallConfluence.bearCount}/{matrixData.length}</div>
                   </div>
-                  <div className="rounded-md py-1 bg-[var(--color-panel)]">
+                  <div className="rounded-lg py-1.5 bg-[var(--color-card)]/80 border border-[var(--color-border)]/60 backdrop-blur-md shadow-sm">
                     <div className="text-[9px] text-[var(--color-text-muted)] font-mono">AGREE</div>
                     <div className="text-[11px] font-black font-mono text-[var(--color-text)]">{Math.round(overallConfluence.agreementRatio * 100)}%</div>
                   </div>
-                  <div className="rounded-md py-1 bg-[var(--color-panel)]">
+                  <div className="rounded-lg py-1.5 bg-[var(--color-card)]/80 border border-[var(--color-border)]/60 backdrop-blur-md shadow-sm">
                     <div className="text-[9px] text-[var(--color-text-muted)] font-mono">DIVERG</div>
                     <div className="text-[11px] font-black font-mono" style={{ color: overallConfluence.totalDivergences > 0 ? '#facc15' : 'var(--color-text-muted)' }}>{overallConfluence.totalDivergences}</div>
                   </div>
                 </div>
 
                 {/* Recommendation */}
-                <div className="mt-2 flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-[var(--color-border)]/40 bg-[var(--color-panel)]">
+                <div className="mt-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--color-border)]/60 bg-[var(--color-card)]/80 backdrop-blur-md shadow-sm">
                   {overallConfluence.recommendation.includes('STRONG') ? (
                     <Zap size={11} style={{ color: overallConfluence.bias === 'BULL' ? palette.bull : palette.bear }} />
                   ) : overallConfluence.recommendation.includes('CAUTION') ? (

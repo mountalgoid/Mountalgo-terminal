@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { MountAlgoLogo } from './MountAlgoLogo';
 
 interface SplashScreenProps {
@@ -7,24 +7,42 @@ interface SplashScreenProps {
 
 export default function SplashScreen({ onComplete }: SplashScreenProps) {
   const [phase, setPhase] = useState<'enter' | 'hold' | 'exit'>('enter');
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
     const holdTimer = setTimeout(() => setPhase('hold'), 300);
-    const exitTimer = setTimeout(() => setPhase('exit'), 2200);
-    const completeTimer = setTimeout(() => onComplete(), 3000);
+    const exitTimer = setTimeout(() => setPhase('exit'), 2000);
+    const completeTimer = setTimeout(() => {
+      onCompleteRef.current();
+    }, 2600);
+
+    const handleKeyDown = () => {
+      onCompleteRef.current();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
       clearTimeout(holdTimer);
       clearTimeout(exitTimer);
       clearTimeout(completeTimer);
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onComplete]);
+  }, []);
+
+  const handleSkip = () => {
+    onCompleteRef.current();
+  };
 
   return (
     <div
-      className="fixed inset-0 z-[100000] flex flex-col items-center justify-center overflow-hidden bg-[#05070a]"
+      onClick={handleSkip}
+      onTouchStart={handleSkip}
+      title="Klik untuk melewati splash screen"
+      className="fixed inset-0 z-[100000] flex flex-col items-center justify-center overflow-hidden bg-[#05070a] cursor-pointer select-none"
       style={{
         opacity: phase === 'exit' ? 0 : 1,
-        transition: 'opacity 0.8s ease-in-out',
+        transition: 'opacity 0.6s ease-in-out',
       }}
     >
       {/* Deep dark professional background */}
@@ -62,25 +80,41 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
         />
       </div>
 
-      {/* Center content */}
+      {/* Custom keyframe animation styled directly inside component */}
+      <style>{`
+        @keyframes shimmerMove {
+          0% {
+            background-position: 200% 0;
+          }
+          100% {
+            background-position: -200% 0;
+          }
+        }
+        .animate-shimmer-progress {
+          background-size: 200% 100%;
+          animation: shimmerMove 1.6s infinite linear;
+        }
+      `}</style>
+
+      {/* Center content - pristine branding without any surrounding card borders */}
       <div
-        className="relative z-10 flex flex-col items-center gap-4"
+        className="relative z-10 flex flex-col items-center gap-6"
         style={{
           opacity: phase === 'enter' ? 0 : 1,
-          transform: phase === 'enter' ? 'scale(0.9) translateY(20px)' : 'scale(1) translateY(0)',
-          transition: 'all 0.7s cubic-bezier(0.16, 1, 0.3, 1)',
+          transform: phase === 'enter' ? 'scale(0.97) translateY(10px)' : 'scale(1) translateY(0)',
+          transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
         {/* Brand Row with Logo and Text side-by-side */}
         <div className="flex flex-col items-center gap-1.5">
           <div className="flex items-center gap-3 sm:gap-4">
             <MountAlgoLogo 
-              className="w-10 h-10 sm:w-13 sm:h-13 shrink-0" 
+              className="w-11 h-11 sm:w-14 sm:h-14 shrink-0" 
             />
             <h1
               className="text-4xl sm:text-5xl font-black italic tracking-wider text-white animate-text-slash"
               style={{
-                textShadow: '0 0 40px rgba(255,255,255,0.3), 0 0 80px rgba(255,255,255,0.15)',
+                textShadow: '0 0 45px rgba(255,255,255,0.35), 0 0 90px rgba(255,255,255,0.18)',
                 fontFamily: 'system-ui, -apple-system, sans-serif'
               }}
             >
@@ -88,9 +122,8 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
             </h1>
           </div>
           <span
-            className="text-sm sm:text-base font-mono font-bold tracking-[0.35em] uppercase mt-1"
+            className="text-xs sm:text-sm font-mono font-bold tracking-[0.45em] uppercase mt-2.5 text-zinc-300"
             style={{
-              color: 'rgba(255,255,255,0.7)',
               textShadow: '0 0 20px rgba(255,255,255,0.3)',
             }}
           >
@@ -98,17 +131,14 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
           </span>
         </div>
 
-        {/* Loading indicator */}
-        <div className="flex items-center gap-1 mt-4">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="w-1.5 h-1.5 rounded-full bg-white/50"
-              style={{
-                animation: `splashPulse 1.2s ease-in-out ${i * 0.2}s infinite`,
-              }}
-            />
-          ))}
+        {/* Shimmering Gradient Horizontal Line Loading Indicator */}
+        <div className="w-52 sm:w-60 h-[3px] bg-white/10 rounded-full overflow-hidden mt-4 relative">
+          <div 
+            className="absolute inset-0 rounded-full animate-shimmer-progress"
+            style={{
+              background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.2) 0%, #10b981 35%, #06b6d4 65%, rgba(6, 182, 212, 0.2) 100%)',
+            }}
+          />
         </div>
       </div>
 

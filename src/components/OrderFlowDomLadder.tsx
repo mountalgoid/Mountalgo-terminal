@@ -29,6 +29,7 @@ import {
   DomLadderState
 } from '../utils/orderFlowDomEngine';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 
 interface OrderFlowDomLadderProps {
   candles: Candle[];
@@ -53,7 +54,7 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
   onToggleChartOverlay,
   domData: externalDomData,
 }: OrderFlowDomLadderProps) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
 
   const [columns, setColumns] = useState<DomColumnConfig>(() => {
     const saved = localStorage.getItem('mountalgo_dom_columns');
@@ -137,8 +138,13 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
 
   return (
     <div 
-      className="h-full flex flex-col bg-[var(--color-panel)]/70 backdrop-blur-xl border-l border-white/10 select-none text-xs font-mono relative shadow-2xl shadow-black/30 chart-layer-vp-ladder shrink-0 transition-all duration-150 shrink-0 transition-all duration-150"
-      style={{ width: isCompact ? 'min(350px, 100vw)' : 'min(520px, 100vw)', maxWidth: '100%' }}
+      className="h-full flex flex-col backdrop-blur-2xl border-l select-none text-xs font-mono relative shadow-2xl chart-layer-vp-ladder shrink-0 transition-all duration-150"
+      style={{ 
+        width: isCompact ? 'min(350px, 100vw)' : 'min(520px, 100vw)', 
+        maxWidth: '100%',
+        background: getThemeModalGradient(palette, isLight),
+        borderColor: getThemeCardBorder(palette, false)
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         const rect = e.currentTarget.getBoundingClientRect();
@@ -150,6 +156,14 @@ const OrderFlowDomLadder = React.memo(function OrderFlowDomLadder({
       }}
     >
       <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
+      {/* Top Accent Gradient Bar like News Bar & News Calendar */}
+      <div 
+        className="absolute top-0 left-0 right-0 h-[2.5px] z-20 pointer-events-none"
+        style={{
+          background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`,
+          boxShadow: `0 0 10px ${hexToRgba(palette.bull, 0.4)}`
+        }}
+      />
       {/* 1. Header Toolbar */}
       <div className="relative bg-[var(--color-panel)]/40 backdrop-blur-xl px-2 sm:px-3 py-1.5 sm:py-2 border-b border-[var(--color-border)]/30 flex items-center justify-between gap-1 shadow-sm">
         <div className="flex items-center gap-1.5 min-w-0">

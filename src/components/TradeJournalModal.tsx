@@ -6,6 +6,13 @@ import {
 } from 'lucide-react';
 import { useTrade } from '../context/TradeContext';
 import { useTheme } from '../context/ThemeContext';
+import { 
+  getThemeModalGradient, 
+  getThemeCardGradient, 
+  getThemeCardBorder, 
+  getThemeCardBoxShadow, 
+  hexToRgba 
+} from '../utils/themeGradient';
 
 export const TradeJournalModal: React.FC = () => {
   const { 
@@ -21,7 +28,7 @@ export const TradeJournalModal: React.FC = () => {
     brokerOpenPositions = {} as Record<string, any[]>,
     connectedAccounts = [],
   } = useTrade();
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
   const [activeTab, setActiveTab] = useState<'overview' | 'curve' | 'sessions' | 'logs' | 'fills' | 'positions'>('overview');
   const [filterSymbol, setFilterSymbol] = useState<string>('ALL');
   const [filterAccount, setFilterAccount] = useState<string>(''); // '' = active account only
@@ -286,24 +293,60 @@ export const TradeJournalModal: React.FC = () => {
   const areaSvg = pointsSvg ? `${analytics.equityPoints[0] ? '10,' + (chartSvgHeight - 20) : ''} ${pointsSvg} ${chartSvgWidth - 10},${chartSvgHeight - 20}` : '';
 
   return (
-    <div className="fixed inset-0 z-modal-ultimate flex items-center justify-center p-1.5 sm:p-3 md:p-4 bg-black/80 backdrop-blur-md">
+    <div className="fixed inset-0 z-modal-ultimate flex items-center justify-center p-1.5 sm:p-3 md:p-4 animate-in fade-in duration-150 select-none">
+      {/* Translucent Backdrop - background outside modal is visible */}
       <div 
-        style={{ backgroundColor: 'var(--color-panel)', borderColor: 'var(--color-border)' }}
-        className="w-full max-w-4xl max-h-[95vh] sm:max-h-[92vh] rounded-xl sm:rounded-2xl border shadow-2xl flex flex-col overflow-hidden text-[var(--color-text)] font-sans"
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity"
+        onClick={() => setIsJournalModalOpen(false)}
+      />
+
+      <div 
+        style={{ 
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false),
+          boxShadow: `0 25px 60px -15px rgba(0,0,0,0.85), 0 0 35px ${hexToRgba(palette.bull, 0.25)}`
+        }}
+        className="relative w-full max-w-4xl max-h-[95vh] sm:max-h-[92vh] rounded-xl sm:rounded-2xl border shadow-2xl flex flex-col overflow-hidden text-[var(--color-text)] font-sans backdrop-blur-2xl pointer-events-auto"
+        onClick={(e) => e.stopPropagation()}
       >
+        {/* Top Theme Accent Bar with bull -> poc -> bear */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-[2.5px] z-20"
+          style={{
+            background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`,
+            boxShadow: `0 0 12px ${hexToRgba(palette.bull, 0.4)}`
+          }}
+        />
+
         {/* Header */}
-        <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-b border-[var(--color-border)] bg-[var(--color-bg)]/60">
+        <div 
+          style={{
+            background: `linear-gradient(90deg, ${hexToRgba(palette.bull, 0.14)} 0%, rgba(255,255,255,0.02) 50%, ${hexToRgba(palette.bear, 0.12)} 100%)`,
+          }}
+          className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-b border-white/10"
+        >
           <div className="flex items-center gap-2 sm:gap-3">
             <div 
-              style={{ backgroundColor: `${palette.bull}20`, color: palette.bull }}
-              className="w-9 h-9 rounded-xl flex items-center justify-center font-bold"
+              style={{ 
+                background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+                color: '#ffffff',
+                boxShadow: `0 2px 10px -2px ${hexToRgba(palette.bull, 0.4)}`
+              }}
+              className="w-9 h-9 rounded-xl flex items-center justify-center font-bold shrink-0"
             >
               <Award size={20} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm sm:text-base md:text-lg font-bold">Trade Journal & Analytics</h2>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-mono font-bold">
+                <h2 className="text-sm sm:text-base md:text-lg font-bold text-[var(--color-text)]">Trade Journal & Analytics</h2>
+                <span 
+                  className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold"
+                  style={{
+                    background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.18)} 0%, ${hexToRgba(palette.bear, 0.12)} 100%)`,
+                    color: palette.bull,
+                    border: `1px solid ${hexToRgba(palette.bull, 0.3)}`
+                  }}
+                >
                   {activeAccount.broker} ({activeAccount.isReal ? 'REAL' : 'DEMO'})
                 </span>
               </div>
@@ -317,7 +360,11 @@ export const TradeJournalModal: React.FC = () => {
             <button
               onClick={handleExportCsv}
               disabled={tradeHistory.length === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-bg)] transition-colors cursor-pointer disabled:opacity-40"
+              style={{
+                borderColor: hexToRgba(palette.bull, 0.3),
+                background: 'rgba(255,255,255,0.04)'
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border hover:bg-white/10 text-[var(--color-text)] transition-colors cursor-pointer disabled:opacity-40"
               title="Download CSV Log"
             >
               <Download size={14} />
@@ -325,7 +372,7 @@ export const TradeJournalModal: React.FC = () => {
             </button>
             <button
               onClick={() => setIsJournalModalOpen(false)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--color-bg)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer transition-colors"
+              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer transition-colors"
             >
               <X size={18} />
             </button>
@@ -333,12 +380,18 @@ export const TradeJournalModal: React.FC = () => {
         </div>
 
         {/* Tab Navigation & Symbol Filter */}
-        <div className="flex items-center justify-between px-3 sm:px-5 py-2 sm:py-2.5 border-b border-[var(--color-border)] bg-[var(--color-bg)]/30 text-xs overflow-x-auto hide-scrollbar">
+        <div className="flex items-center justify-between px-3 sm:px-5 py-2 sm:py-2.5 border-b border-[var(--color-border)]/60 bg-black/20 text-xs overflow-x-auto hide-scrollbar">
           <div className="flex items-center gap-0.5 sm:gap-1.5 md:gap-2 shrink-0">
             <button
               onClick={() => setActiveTab('overview')}
-              style={activeTab === 'overview' ? { backgroundColor: `${palette.bull}20`, color: palette.bull, borderColor: palette.bull } : {}}
-              className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold border border-transparent hover:border-[var(--color-border)] transition-colors cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
+              style={activeTab === 'overview' ? { 
+                background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+                color: '#ffffff',
+                boxShadow: `0 2px 10px -2px ${hexToRgba(palette.bull, 0.4)}`
+              } : {}}
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${
+                activeTab === 'overview' ? 'shadow-md' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
+              }`}
             >
               <Activity size={13} className="sm:w-3.5 sm:h-3.5" />
               <span className="hidden sm:inline">Overview</span>
@@ -346,40 +399,70 @@ export const TradeJournalModal: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('curve')}
-              style={activeTab === 'curve' ? { backgroundColor: `${palette.bull}20`, color: palette.bull, borderColor: palette.bull } : {}}
-              className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold border border-transparent hover:border-[var(--color-border)] transition-colors cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
+              style={activeTab === 'curve' ? { 
+                background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+                color: '#ffffff',
+                boxShadow: `0 2px 10px -2px ${hexToRgba(palette.bull, 0.4)}`
+              } : {}}
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${
+                activeTab === 'curve' ? 'shadow-md' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
+              }`}
             >
               <TrendingUp size={13} className="sm:w-3.5 sm:h-3.5" />
               <span className="text-[11px] sm:text-xs">Equity</span>
             </button>
             <button
               onClick={() => setActiveTab('sessions')}
-              style={activeTab === 'sessions' ? { backgroundColor: `${palette.bull}20`, color: palette.bull, borderColor: palette.bull } : {}}
-              className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold border border-transparent hover:border-[var(--color-border)] transition-colors cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
+              style={activeTab === 'sessions' ? { 
+                background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+                color: '#ffffff',
+                boxShadow: `0 2px 10px -2px ${hexToRgba(palette.bull, 0.4)}`
+              } : {}}
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${
+                activeTab === 'sessions' ? 'shadow-md' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
+              }`}
             >
               <PieChart size={13} className="sm:w-3.5 sm:h-3.5" />
               <span className="text-[11px] sm:text-xs">Session</span>
             </button>
             <button
               onClick={() => setActiveTab('logs')}
-              style={activeTab === 'logs' ? { backgroundColor: `${palette.bull}20`, color: palette.bull, borderColor: palette.bull } : {}}
-              className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold border border-transparent hover:border-[var(--color-border)] transition-colors cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
+              style={activeTab === 'logs' ? { 
+                background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+                color: '#ffffff',
+                boxShadow: `0 2px 10px -2px ${hexToRgba(palette.bull, 0.4)}`
+              } : {}}
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${
+                activeTab === 'logs' ? 'shadow-md' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
+              }`}
             >
               <Calendar size={13} className="sm:w-3.5 sm:h-3.5" />
               <span className="text-[11px] sm:text-xs">Logs ({filteredTrades.length})</span>
             </button>
             <button
               onClick={() => setActiveTab('fills')}
-              style={activeTab === 'fills' ? { backgroundColor: `${palette.bull}20`, color: palette.bull, borderColor: palette.bull } : {}}
-              className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold border border-transparent hover:border-[var(--color-border)] transition-colors cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
+              style={activeTab === 'fills' ? { 
+                background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+                color: '#ffffff',
+                boxShadow: `0 2px 10px -2px ${hexToRgba(palette.bull, 0.4)}`
+              } : {}}
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${
+                activeTab === 'fills' ? 'shadow-md' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
+              }`}
             >
               <Zap size={13} className="sm:w-3.5 sm:h-3.5" />
               <span className="text-[11px] sm:text-xs">Fills ({executionFills.length})</span>
             </button>
             <button
               onClick={() => setActiveTab('positions')}
-              style={activeTab === 'positions' ? { backgroundColor: `${palette.bull}20`, color: palette.bull, borderColor: palette.bull } : {}}
-              className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold border border-transparent hover:border-[var(--color-border)] transition-colors cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"
+              style={activeTab === 'positions' ? { 
+                background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+                color: '#ffffff',
+                boxShadow: `0 2px 10px -2px ${hexToRgba(palette.bull, 0.4)}`
+              } : {}}
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${
+                activeTab === 'positions' ? 'shadow-md' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
+              }`}
             >
               <Target size={13} className="sm:w-3.5 sm:h-3.5" />
               <span className="text-[11px] sm:text-xs">Posisi ({activePositions.length})</span>
@@ -428,7 +511,13 @@ export const TradeJournalModal: React.FC = () => {
             <>
               {/* Primary KPI Grid */}
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
-                <div className="bg-[var(--color-bg)]/80 border border-[var(--color-border)] rounded-xl p-3.5 flex flex-col justify-between">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="border rounded-xl p-3.5 flex flex-col justify-between backdrop-blur-md"
+                >
                   <div className="text-[11px] text-[var(--color-text-muted)] font-bold flex items-center justify-between">
                     <span>NET PnL</span>
                     <DollarSign size={13} className="text-[var(--color-text-muted)]" />
@@ -444,7 +533,13 @@ export const TradeJournalModal: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-[var(--color-bg)]/80 border border-[var(--color-border)] rounded-xl p-3.5 flex flex-col justify-between">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="border rounded-xl p-3.5 flex flex-col justify-between backdrop-blur-md"
+                >
                   <div className="text-[11px] text-[var(--color-text-muted)] font-bold flex items-center justify-between">
                     <span>WIN RATE</span>
                     <Target size={13} className="text-[var(--color-text-muted)]" />
@@ -460,7 +555,13 @@ export const TradeJournalModal: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-[var(--color-bg)]/80 border border-[var(--color-border)] rounded-xl p-3.5 flex flex-col justify-between">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="border rounded-xl p-3.5 flex flex-col justify-between backdrop-blur-md"
+                >
                   <div className="text-[11px] text-[var(--color-text-muted)] font-bold flex items-center justify-between">
                     <span>PROFIT FACTOR</span>
                     <BarChart3 size={13} className="text-[var(--color-text-muted)]" />
@@ -476,12 +577,18 @@ export const TradeJournalModal: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-[var(--color-bg)]/80 border border-[var(--color-border)] rounded-xl p-3.5 flex flex-col justify-between">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="border rounded-xl p-3.5 flex flex-col justify-between backdrop-blur-md"
+                >
                   <div className="text-[11px] text-[var(--color-text-muted)] font-bold flex items-center justify-between">
                     <span>MAX DRAWDOWN</span>
-                    <TrendingDown size={13} className="`text-[${palette.bear}]`" />
+                    <TrendingDown size={13} style={{ color: palette.bear }} />
                   </div>
-                  <div className="text-xl sm:text-2xl font-black font-mono mt-1 `text-[${palette.bear}]`">
+                  <div style={{ color: palette.bear }} className="text-xl sm:text-2xl font-black font-mono mt-1">
                     {analytics.maxDrawdown.toFixed(2)}%
                   </div>
                   <div className="text-[10px] text-[var(--color-text-muted)] mt-1 font-mono">
@@ -489,12 +596,18 @@ export const TradeJournalModal: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-[var(--color-bg)]/80 border `border-[${palette.poc}30]` rounded-xl p-3.5 flex flex-col justify-between">
-                  <div className="text-[11px] `text-[${palette.poc}]` font-bold flex items-center justify-between">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: hexToRgba(palette.poc || '#6366f1', 0.4)
+                  }}
+                  className="border rounded-xl p-3.5 flex flex-col justify-between backdrop-blur-md"
+                >
+                  <div className="text-[11px] font-bold flex items-center justify-between" style={{ color: palette.poc || '#6366f1' }}>
                     <span>SHARPE / SORTINO</span>
-                    <Activity size={13} className="`text-[${palette.poc}]`" />
+                    <Activity size={13} style={{ color: palette.poc || '#6366f1' }} />
                   </div>
-                  <div className="text-xl sm:text-2xl font-black font-mono mt-1 text-white">
+                  <div className="text-xl sm:text-2xl font-black font-mono mt-1 text-[var(--color-text)]">
                     {analytics.sharpeRatio.toFixed(2)} <span className="text-[var(--color-text-muted)] text-sm">/</span> {analytics.sortinoRatio.toFixed(2)}
                   </div>
                   <div className="text-[10px] text-amber-500/80 mt-1 font-mono font-bold">
@@ -505,7 +618,13 @@ export const TradeJournalModal: React.FC = () => {
 
               {/* Secondary Details Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-[var(--color-bg)]/60 border border-[var(--color-border)] rounded-xl p-4 space-y-3">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="border rounded-xl p-4 space-y-3 backdrop-blur-md"
+                >
                   <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center gap-1.5">
                     <Zap size={14} style={{ color: palette.bull }} />
                     Statistik Rata-Rata & Ekstrem
@@ -530,9 +649,15 @@ export const TradeJournalModal: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-[var(--color-bg)]/60 border border-[var(--color-border)] rounded-xl p-4 space-y-3">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="border rounded-xl p-4 space-y-3 backdrop-blur-md"
+                >
                   <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] flex items-center gap-1.5">
-                    <PieChart size={14} style={{ color: palette.poc }} />
+                    <PieChart size={14} style={{ color: palette.poc || '#6366f1' }} />
                     Distribusi Long vs Short
                   </h3>
                   <div className="space-y-3 text-xs font-mono">
@@ -572,10 +697,16 @@ export const TradeJournalModal: React.FC = () => {
           )}
 
           {activeTab === 'curve' && (
-            <div className="bg-[var(--color-bg)]/80 border border-[var(--color-border)] rounded-xl p-4 space-y-4">
+            <div 
+              style={{
+                background: getThemeCardGradient(palette, isLight, false),
+                borderColor: getThemeCardBorder(palette, false)
+              }}
+              className="border rounded-xl p-4 space-y-4 backdrop-blur-md"
+            >
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold">Cumulative Equity Growth Curve</h3>
+                  <h3 className="text-sm font-bold text-[var(--color-text)]">Cumulative Equity Growth Curve</h3>
                   <p className="text-xs text-[var(--color-text-muted)]">
                     Pertumbuhan saldo akun dari trade #1 sampai posisi terkini.
                   </p>
@@ -592,7 +723,7 @@ export const TradeJournalModal: React.FC = () => {
                     <defs>
                       <linearGradient id="equityGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={palette.bull} stopOpacity="0.35" />
-                        <stop offset="100%" stopColor={palette.bull} stopOpacity="0.0" />
+                        <stop offset="100%" stopColor={palette.bear} stopOpacity="0.0" />
                       </linearGradient>
                     </defs>
 
@@ -646,9 +777,15 @@ export const TradeJournalModal: React.FC = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* Asia Session */}
-                <div className="bg-[var(--color-bg)]/80 border border-[var(--color-border)] rounded-xl p-4 space-y-2">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="border rounded-xl p-4 space-y-2 backdrop-blur-md"
+                >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold `text-[${palette.poc}]`">Asian Session (Tokyo)</span>
+                    <span className="text-xs font-bold" style={{ color: palette.poc || '#6366f1' }}>Asian Session (Tokyo)</span>
                     <span className="text-[10px] text-[var(--color-text-muted)] font-mono">00:00 - 08:00 UTC</span>
                   </div>
                   <div 
@@ -663,9 +800,15 @@ export const TradeJournalModal: React.FC = () => {
                 </div>
 
                 {/* London Session */}
-                <div className="bg-[var(--color-bg)]/80 border border-[var(--color-border)] rounded-xl p-4 space-y-2">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="border rounded-xl p-4 space-y-2 backdrop-blur-md"
+                >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold `text-[${palette.poc}]`">London Session (Europe)</span>
+                    <span className="text-xs font-bold" style={{ color: palette.poc || '#6366f1' }}>London Session (Europe)</span>
                     <span className="text-[10px] text-[var(--color-text-muted)] font-mono">08:00 - 14:00 UTC</span>
                   </div>
                   <div 
@@ -680,9 +823,15 @@ export const TradeJournalModal: React.FC = () => {
                 </div>
 
                 {/* NY Session */}
-                <div className="bg-[var(--color-bg)]/80 border border-[var(--color-border)] rounded-xl p-4 space-y-2">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="border rounded-xl p-4 space-y-2 backdrop-blur-md"
+                >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold `text-[${palette.bull}]`">New York Session (US)</span>
+                    <span className="text-xs font-bold" style={{ color: palette.bull }}>New York Session (US)</span>
                     <span className="text-[10px] text-[var(--color-text-muted)] font-mono">14:00 - 22:00 UTC</span>
                   </div>
                   <div 
@@ -700,11 +849,17 @@ export const TradeJournalModal: React.FC = () => {
           )}
 
           {activeTab === 'logs' && (
-            <div className="bg-[var(--color-bg)]/80 border border-[var(--color-border)] rounded-xl overflow-hidden">
-              <div className="max-h-80 overflow-y-auto">
+            <div 
+              style={{
+                background: getThemeCardGradient(palette, isLight, false),
+                borderColor: getThemeCardBorder(palette, false)
+              }}
+              className="border rounded-xl overflow-hidden backdrop-blur-md shadow-sm"
+            >
+              <div className="max-h-80 overflow-y-auto custom-scrollbar">
                 <table className="w-full text-left border-collapse text-xs font-mono">
                   <thead>
-                    <tr className="bg-[var(--color-bg)] border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-[10px] uppercase">
+                    <tr className="bg-black/20 border-b border-white/10 text-[var(--color-text-muted)] text-[10px] uppercase">
                       <th className="py-2.5 px-3">Waktu</th>
                       <th className="py-2.5 px-3">Symbol</th>
                       <th className="py-2.5 px-3">Side</th>
@@ -733,7 +888,7 @@ export const TradeJournalModal: React.FC = () => {
                         const tradeTimeMs = t.timestamp || (t.closeTime ? new Date(t.closeTime).getTime() : Date.now());
 
                         return (
-                          <tr key={`${t.id || 'trade'}-${idx}`} className="border-b border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-colors">
+                          <tr key={`${t.id || 'trade'}-${idx}`} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                             <td className="py-2 px-3 text-[var(--color-text-muted)] text-[10px]">
                               {new Date(tradeTimeMs).toLocaleTimeString()}
                             </td>
@@ -743,10 +898,11 @@ export const TradeJournalModal: React.FC = () => {
                             <td className="py-2 px-3">
                               <span 
                                 style={{ 
-                                  backgroundColor: t.type === 'BUY' ? `${palette.bull}25` : `${palette.bear}25`,
-                                  color: t.type === 'BUY' ? palette.bull : palette.bear
+                                  backgroundColor: t.type === 'BUY' ? hexToRgba(palette.bull, 0.15) : hexToRgba(palette.bear, 0.15),
+                                  color: t.type === 'BUY' ? palette.bull : palette.bear,
+                                  borderColor: t.type === 'BUY' ? hexToRgba(palette.bull, 0.3) : hexToRgba(palette.bear, 0.3)
                                 }}
-                                className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                                className="px-1.5 py-0.5 rounded text-[10px] font-bold border"
                               >
                                 {t.type}
                               </span>
@@ -761,13 +917,23 @@ export const TradeJournalModal: React.FC = () => {
                               ${(t.closePrice || t.exitPrice || 0).toFixed((t.closePrice || t.exitPrice || 0) < 1 ? 4 : 2)}
                             </td>
                             <td className="py-2 px-3">
-                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                                reason === 'TAKE_PROFIT' ? '`bg-[${palette.bull}20]` `text-[${palette.bull}]` border `border-[${palette.bull}30]`' :
-                                reason === 'STOP_LOSS' ? '`bg-[${palette.bear}20]` text-rose-300 border border-rose-500/30' :
-                                reason === 'REVERSE' ? '`bg-[${palette.poc}20]` text-purple-300 border border-purple-500/30' :
-                                reason === 'FLATTEN' ? '`bg-[${palette.poc}20]` `text-[${palette.poc}]` border `border-[${palette.poc}30]`' :
-                                'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                              }`}>
+                              <span 
+                                style={{
+                                  backgroundColor: reason === 'TAKE_PROFIT' ? hexToRgba(palette.bull, 0.15) :
+                                    reason === 'STOP_LOSS' ? hexToRgba(palette.bear, 0.15) :
+                                    reason === 'REVERSE' ? hexToRgba(palette.poc || '#6366f1', 0.15) :
+                                    reason === 'FLATTEN' ? hexToRgba(palette.poc || '#6366f1', 0.15) : 'rgba(59, 130, 246, 0.15)',
+                                  color: reason === 'TAKE_PROFIT' ? palette.bull :
+                                    reason === 'STOP_LOSS' ? palette.bear :
+                                    reason === 'REVERSE' ? (palette.poc || '#a855f7') :
+                                    reason === 'FLATTEN' ? (palette.poc || '#6366f1') : '#60a5fa',
+                                  borderColor: reason === 'TAKE_PROFIT' ? hexToRgba(palette.bull, 0.3) :
+                                    reason === 'STOP_LOSS' ? hexToRgba(palette.bear, 0.3) :
+                                    reason === 'REVERSE' ? hexToRgba(palette.poc || '#a855f7', 0.3) :
+                                    reason === 'FLATTEN' ? hexToRgba(palette.poc || '#6366f1', 0.3) : 'rgba(59, 130, 246, 0.3)'
+                                }}
+                                className="px-1.5 py-0.5 rounded text-[9px] font-bold border"
+                              >
                                 {reason}
                               </span>
                             </td>
@@ -780,7 +946,11 @@ export const TradeJournalModal: React.FC = () => {
                             <td className="py-2 px-3 text-center">
                               <button
                                 onClick={() => jumpToChartTarget(t.symbol, tradeTimeMs)}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-600/80 hover:bg-indigo-500 text-white font-sans font-bold text-[10px] transition-all cursor-pointer shadow-sm active:scale-95"
+                                style={{
+                                  background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`,
+                                  color: '#ffffff'
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-sans font-bold text-[10px] transition-all cursor-pointer shadow-sm active:scale-95"
                                 title="Lompat & sorot posisi ini secara presisi pada chart"
                               >
                                 <Target size={11} />
@@ -811,10 +981,15 @@ export const TradeJournalModal: React.FC = () => {
                                     slippagePips: t.slippagePips || 0.1,
                                     commissionPaid: t.commissionPaid || 0
                                   })}
-                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 border border-indigo-500/40 text-[10px] font-sans font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+                                  style={{
+                                    backgroundColor: hexToRgba(palette.poc || '#6366f1', 0.2),
+                                    color: palette.poc || '#6366f1',
+                                    borderColor: hexToRgba(palette.poc || '#6366f1', 0.4)
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-sans font-bold transition-all shadow-sm active:scale-95 cursor-pointer hover:bg-white/10"
                                   title="Klik untuk mereview hirarki data dan snapshot layout chart"
                                 >
-                                  <Camera size={11} className="text-indigo-400" />
+                                  <Camera size={11} />
                                   <span>Review Layout</span>
                                 </button>
                               ) : (
@@ -859,10 +1034,16 @@ export const TradeJournalModal: React.FC = () => {
 
           {/* Tab 5: Execution Fills Audit Trail */}
           {activeTab === 'fills' && (
-            <div className="bg-[var(--color-bg)] rounded-xl border border-[var(--color-border)] p-4">
+            <div 
+              style={{
+                background: getThemeCardGradient(palette, isLight, false),
+                borderColor: getThemeCardBorder(palette, false)
+              }}
+              className="rounded-xl border p-4 backdrop-blur-md shadow-sm"
+            >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Zap className="`text-[${palette.poc}]`" size={18} />
+                  <Zap style={{ color: palette.poc || '#6366f1' }} size={18} />
                   <h3 className="text-sm font-bold text-[var(--color-text)]">Execution Audit Trail & Fill History</h3>
                 </div>
                 <span className="text-[10px] font-mono text-[var(--color-text-muted)]">
@@ -873,7 +1054,7 @@ export const TradeJournalModal: React.FC = () => {
               <div className="overflow-x-auto max-h-[420px] overflow-y-auto custom-scrollbar">
                 <table className="w-full text-left border-collapse text-xs font-mono">
                   <thead>
-                    <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-[10px] uppercase">
+                    <tr className="border-b border-white/10 text-[var(--color-text-muted)] text-[10px] uppercase">
                       <th className="py-2 px-3">Waktu</th>
                       <th className="py-2 px-3">Symbol</th>
                       <th className="py-2 px-3">Aksi</th>
@@ -897,7 +1078,7 @@ export const TradeJournalModal: React.FC = () => {
                       executionFills.map((fill, idx) => {
                         const isWin = (fill.pnl || 0) >= 0;
                         return (
-                          <tr key={`${fill.id || 'fill'}-${idx}`} className="border-b border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40">
+                          <tr key={`${fill.id || 'fill'}-${idx}`} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                             <td className="py-2 px-3 text-[var(--color-text-muted)] text-[10px]">
                               {new Date(fill.timestamp).toLocaleTimeString()}
                             </td>
@@ -905,12 +1086,20 @@ export const TradeJournalModal: React.FC = () => {
                               {fill.symbol}
                             </td>
                             <td className="py-2 px-3 font-bold">
-                              <span className={`px-1.5 py-0.5 rounded text-[9px] ${
-                                fill.action === 'PARTIAL_CLOSE' ? '`bg-[${palette.poc}20]` `text-[${palette.poc}]` border `border-[${palette.poc}30]`' :
-                                fill.action === 'SCALE_IN' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
-                                fill.action === 'EXIT' ? '`bg-[${palette.bear}20]` text-rose-300 border border-rose-500/30' :
-                                '`bg-[${palette.bull}20]` `text-[${palette.bull}]` border `border-[${palette.bull}30]`'
-                              }`}>
+                              <span 
+                                style={{
+                                  backgroundColor: fill.action === 'PARTIAL_CLOSE' ? hexToRgba(palette.poc || '#6366f1', 0.2) :
+                                    fill.action === 'SCALE_IN' ? hexToRgba(palette.bull, 0.2) :
+                                    fill.action === 'EXIT' ? hexToRgba(palette.bear, 0.2) : hexToRgba(palette.bull, 0.2),
+                                  color: fill.action === 'PARTIAL_CLOSE' ? palette.poc || '#6366f1' :
+                                    fill.action === 'SCALE_IN' ? palette.bull :
+                                    fill.action === 'EXIT' ? palette.bear : palette.bull,
+                                  borderColor: fill.action === 'PARTIAL_CLOSE' ? hexToRgba(palette.poc || '#6366f1', 0.3) :
+                                    fill.action === 'SCALE_IN' ? hexToRgba(palette.bull, 0.3) :
+                                    fill.action === 'EXIT' ? hexToRgba(palette.bear, 0.3) : hexToRgba(palette.bull, 0.3)
+                                }}
+                                className="px-1.5 py-0.5 rounded text-[9px] border font-mono"
+                              >
                                 {fill.action}
                               </span>
                             </td>
@@ -928,13 +1117,17 @@ export const TradeJournalModal: React.FC = () => {
                             <td style={{ color: isWin ? palette.bull : palette.bear }} className="py-2 px-3 text-right font-bold">
                               {fill.pnl !== undefined ? `${isWin ? '+' : ''}$${fill.pnl.toFixed(2)}` : '—'}
                             </td>
-                            <td className="py-2 px-3 text-right `text-[${palette.bull}]` font-bold text-[10px]">
+                            <td style={{ color: palette.bull }} className="py-2 px-3 text-right font-bold text-[10px]">
                               {fill.executionLatencyMs || 12}ms
                             </td>
                             <td className="py-2 px-3 text-center">
                               <button
                                 onClick={() => jumpToChartTarget(fill.symbol, fill.timestamp)}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-600/80 hover:bg-indigo-500 text-white font-sans font-bold text-[10px] transition-all cursor-pointer shadow-sm active:scale-95"
+                                style={{
+                                  background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`,
+                                  color: '#ffffff'
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-sans font-bold text-[10px] transition-all cursor-pointer shadow-sm active:scale-95"
                                 title="Lompat ke waktu eksekusi pada chart"
                               >
                                 <Target size={11} />
@@ -959,9 +1152,14 @@ export const TradeJournalModal: React.FC = () => {
                                     size: fill.size,
                                     executionLatencyMs: fill.executionLatencyMs || 12
                                   })}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-300 border border-indigo-500/40 text-[10px] font-sans font-bold transition-all cursor-pointer"
+                                  style={{
+                                    backgroundColor: hexToRgba(palette.poc || '#6366f1', 0.2),
+                                    color: palette.poc || '#6366f1',
+                                    borderColor: hexToRgba(palette.poc || '#6366f1', 0.4)
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-sans font-bold transition-all cursor-pointer hover:bg-white/10"
                                 >
-                                  <Camera size={11} className="text-indigo-400" />
+                                  <Camera size={11} />
                                   <span>Lihat</span>
                                 </button>
                               ) : (
@@ -985,7 +1183,7 @@ export const TradeJournalModal: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Target size={16} style={{ color: palette.bull }} />
                   <span className="text-sm font-bold text-[var(--color-text)]">Posisi Terbuka Broker</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold" style={{ backgroundColor: `${palette.bull}15`, color: palette.bull }}>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold" style={{ backgroundColor: hexToRgba(palette.bull, 0.15), color: palette.bull }}>
                     {activeAccount.broker}
                   </span>
                 </div>
@@ -995,7 +1193,13 @@ export const TradeJournalModal: React.FC = () => {
               </div>
 
               {activePositions.length === 0 ? (
-                <div className="p-8 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)]/50 text-center">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="p-8 rounded-xl border text-center backdrop-blur-md"
+                >
                   <Target size={32} className="mx-auto mb-3 text-[var(--color-text-muted)] opacity-30" />
                   <p className="text-xs text-[var(--color-text-muted)] font-bold">Belum ada posisi terbuka dari broker</p>
                   <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
@@ -1003,10 +1207,16 @@ export const TradeJournalModal: React.FC = () => {
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="overflow-x-auto rounded-xl border p-2 backdrop-blur-md"
+                >
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] border-b border-[var(--color-border)]">
+                      <tr className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] border-b border-white/10">
                         <th className="text-left py-2 px-3 font-bold">Symbol</th>
                         <th className="text-center py-2 px-3 font-bold">Side</th>
                         <th className="text-right py-2 px-3 font-bold">Size</th>
@@ -1022,12 +1232,17 @@ export const TradeJournalModal: React.FC = () => {
                         const isBuy = pos.type === 'BUY';
                         const pnlColor = pos.pnl >= 0 ? palette.bull : palette.bear;
                         return (
-                          <tr key={pos.id || idx} className="border-b border-[var(--color-border)]/50 hover:bg-[var(--color-bg)]/50 transition-colors">
+                          <tr key={pos.id || idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                             <td className="py-2.5 px-3 font-mono font-bold text-[var(--color-text)]">{pos.symbol}</td>
                             <td className="py-2.5 px-3 text-center">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                                isBuy ? 'bg-[#a1ff3b]/15 text-[#a1ff3b] border border-[#a1ff3b]/30' : 'bg-[#ff009a]/15 text-[#ff009a] border border-[#ff009a]/30'
-                              }`}>
+                              <span 
+                                style={{
+                                  backgroundColor: isBuy ? hexToRgba(palette.bull, 0.15) : hexToRgba(palette.bear, 0.15),
+                                  color: isBuy ? palette.bull : palette.bear,
+                                  borderColor: isBuy ? hexToRgba(palette.bull, 0.3) : hexToRgba(palette.bear, 0.3)
+                                }}
+                                className="px-2 py-0.5 rounded text-[10px] font-mono font-bold border"
+                              >
                                 {isBuy ? 'LONG' : 'SHORT'}
                               </span>
                             </td>
@@ -1041,7 +1256,14 @@ export const TradeJournalModal: React.FC = () => {
                               {pos.leverage || 1}x
                             </td>
                             <td className="py-2.5 px-3 text-center">
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                              <span 
+                                style={{
+                                  backgroundColor: hexToRgba(palette.poc || '#6366f1', 0.15),
+                                  color: palette.poc || '#6366f1',
+                                  borderColor: hexToRgba(palette.poc || '#6366f1', 0.3)
+                                }}
+                                className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border"
+                              >
                                 BROKER
                               </span>
                             </td>
@@ -1055,7 +1277,13 @@ export const TradeJournalModal: React.FC = () => {
 
               {/* Summary bar */}
               {activePositions.length > 0 && (
-                <div className="p-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)]/50 flex items-center justify-between text-xs">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="p-2.5 rounded-xl border flex items-center justify-between text-xs backdrop-blur-md"
+                >
                   <span className="text-[var(--color-text-muted)]">Total Unrealized PnL:</span>
                   <span className="font-mono font-bold" style={{ color: activePositions.reduce((s: number, p: any) => s + (p.pnl || 0), 0) >= 0 ? palette.bull : palette.bear }}>
                     {activePositions.reduce((s: number, p: any) => s + (p.pnl || 0), 0) >= 0 ? '+' : ''}${activePositions.reduce((s: number, p: any) => s + (p.pnl || 0), 0).toFixed(2)}
@@ -1069,25 +1297,69 @@ export const TradeJournalModal: React.FC = () => {
 
       {/* Snapshot Preview Fullscreen Modal with Hierarchical Asset Metadata */}
       {previewSnapshot && (
-        <div className="fixed inset-0 z-[10000] bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-5 animate-in fade-in duration-200">
-          <div className="bg-[var(--color-panel)] border border-[var(--color-border)] w-full max-w-5xl max-h-[92vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl relative">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-2 sm:p-5 animate-in fade-in duration-200 select-none">
+          {/* Translucent backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity"
+            onClick={() => setPreviewSnapshot(null)}
+          />
+
+          <div 
+            style={{
+              background: getThemeModalGradient(palette, isLight),
+              borderColor: getThemeCardBorder(palette, false),
+              boxShadow: `0 25px 60px -15px rgba(0,0,0,0.9), 0 0 30px ${hexToRgba(palette.bull, 0.2)}`
+            }}
+            className="relative border w-full max-w-5xl max-h-[92vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl backdrop-blur-2xl pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Top theme accent bar */}
+            <div 
+              className="absolute top-0 left-0 right-0 h-[2px] z-20"
+              style={{
+                background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`
+              }}
+            />
             
             {/* Header Bar */}
-            <div className="px-5 py-3.5 border-b border-[var(--color-border)] flex flex-wrap items-center justify-between bg-[var(--color-bg)] gap-2">
+            <div 
+              style={{
+                background: `linear-gradient(90deg, ${hexToRgba(palette.bull, 0.12)} 0%, rgba(255,255,255,0.02) 50%, ${hexToRgba(palette.bear, 0.12)} 100%)`,
+              }}
+              className="px-5 py-3.5 border-b border-white/10 flex flex-wrap items-center justify-between gap-2"
+            >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center shrink-0 text-indigo-400 shadow-sm">
+                <div 
+                  style={{
+                    background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`,
+                    color: '#ffffff'
+                  }}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+                >
                   <Camera size={19} />
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm font-black tracking-wide text-[var(--color-text)] truncate flex items-center gap-2">
                     <span>{previewSnapshot.symbol}</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                      previewSnapshot.type === 'BUY' ? '`bg-[${palette.bull}20]` `text-[${palette.bull}]` border `border-[${palette.bull}30]`' : '`bg-[${palette.bear}20]` text-rose-300 border border-rose-500/30'
-                    }`}>
+                    <span 
+                      style={{
+                        backgroundColor: previewSnapshot.type === 'BUY' ? hexToRgba(palette.bull, 0.2) : hexToRgba(palette.bear, 0.2),
+                        color: previewSnapshot.type === 'BUY' ? palette.bull : palette.bear,
+                        borderColor: previewSnapshot.type === 'BUY' ? hexToRgba(palette.bull, 0.3) : hexToRgba(palette.bear, 0.3)
+                      }}
+                      className="px-2 py-0.5 rounded text-[10px] font-mono font-bold border"
+                    >
                       {previewSnapshot.type}
                     </span>
                     {previewSnapshot.reason && (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      <span 
+                        style={{
+                          backgroundColor: hexToRgba(palette.poc || '#6366f1', 0.2),
+                          color: palette.poc || '#6366f1',
+                          borderColor: hexToRgba(palette.poc || '#6366f1', 0.3)
+                        }}
+                        className="px-2 py-0.5 rounded text-[10px] font-mono font-bold border"
+                      >
                         {previewSnapshot.reason}
                       </span>
                     )}
@@ -1105,10 +1377,14 @@ export const TradeJournalModal: React.FC = () => {
                       jumpToChartTarget(previewSnapshot.symbol!, previewSnapshot.timestamp || Date.now());
                       setPreviewSnapshot(null);
                     }}
-                    className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-bold text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+                    style={{
+                      background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`,
+                      color: '#ffffff'
+                    }}
+                    className="px-3.5 py-1.5 rounded-lg font-sans font-bold text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
                     title="Akses langsung menuju lokasi tepat pada chart & waktu eksekusi"
                   >
-                    <Target size={14} className="animate-pulse `text-[${palette.poc}]`" />
+                    <Target size={14} className="animate-pulse" />
                     <span>Fokus Target di Chart</span>
                   </button>
                 )}
@@ -1117,7 +1393,12 @@ export const TradeJournalModal: React.FC = () => {
                   <a
                     href={previewSnapshot.url}
                     download={`MountAlgo_Snapshot_${previewSnapshot.symbol || 'trade'}_${Date.now()}.png`}
-                    className="px-3 py-1.5 rounded-lg `bg-[${palette.bull}20]` hover:`bg-[${palette.bull}30]` border border-emerald-500/40 `text-[${palette.bull}]` font-sans font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                    style={{
+                      background: hexToRgba(palette.bull, 0.15),
+                      borderColor: hexToRgba(palette.bull, 0.4),
+                      color: palette.bull
+                    }}
+                    className="px-3 py-1.5 rounded-lg border font-sans font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer hover:bg-white/10"
                   >
                     <Download size={14} />
                     <span className="hidden sm:inline">Download</span>
@@ -1134,16 +1415,22 @@ export const TradeJournalModal: React.FC = () => {
             </div>
 
             {/* Body: Hierarchical Breakdown Grid & Captured Layout Image */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-[var(--color-bg)]">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-black/10">
               
               {/* Hierarchical Asset Information Breakdown Panel */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 
                 {/* Card 1: Order Information */}
-                <div className="bg-[var(--color-panel)] border border-[var(--color-border)]/70 rounded-xl p-3 flex flex-col justify-between shadow-sm">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="border rounded-xl p-3 flex flex-col justify-between shadow-sm backdrop-blur-md"
+                >
                   <div className="flex items-center justify-between border-b border-[var(--color-border)]/40 pb-1.5 mb-2">
                     <span className="text-[11px] font-bold text-[var(--color-text-muted)] flex items-center gap-1">
-                      <BarChart3 size={13} className="text-indigo-400" />
+                      <BarChart3 size={13} style={{ color: palette.poc || '#6366f1' }} />
                       <span>INFORMASI ORDER</span>
                     </span>
                     <span className="text-[10px] font-mono text-[var(--color-text-muted)]">Hierarki 1</span>
@@ -1165,7 +1452,7 @@ export const TradeJournalModal: React.FC = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[var(--color-text-muted)]">Leverage / Margin:</span>
-                      <span className="font-bold text-indigo-300">
+                      <span className="font-bold" style={{ color: palette.poc || '#6366f1' }}>
                         1:{previewSnapshot.leverage || 100} ({previewSnapshot.marginMode || 'Cross'})
                       </span>
                     </div>
@@ -1173,10 +1460,16 @@ export const TradeJournalModal: React.FC = () => {
                 </div>
 
                 {/* Card 2: Price Execution Levels */}
-                <div className="bg-[var(--color-panel)] border border-[var(--color-border)]/70 rounded-xl p-3 flex flex-col justify-between shadow-sm">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="border rounded-xl p-3 flex flex-col justify-between shadow-sm backdrop-blur-md"
+                >
                   <div className="flex items-center justify-between border-b border-[var(--color-border)]/40 pb-1.5 mb-2">
                     <span className="text-[11px] font-bold text-[var(--color-text-muted)] flex items-center gap-1">
-                      <Target size={13} className="`text-[${palette.bull}]`" />
+                      <Target size={13} style={{ color: palette.bull }} />
                       <span>LEVEL HARGA</span>
                     </span>
                     <span className="text-[10px] font-mono text-[var(--color-text-muted)]">Hierarki 2</span>
@@ -1196,13 +1489,13 @@ export const TradeJournalModal: React.FC = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[var(--color-text-muted)]">Take Profit (TP):</span>
-                      <span className="font-bold `text-[${palette.bull}]`">
+                      <span className="font-bold" style={{ color: palette.bull }}>
                         {previewSnapshot.takeProfit ? `$${previewSnapshot.takeProfit}` : 'Off'}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[var(--color-text-muted)]">Stop Loss (SL):</span>
-                      <span className="font-bold `text-[${palette.bear}]`">
+                      <span className="font-bold" style={{ color: palette.bear }}>
                         {previewSnapshot.stopLoss ? `$${previewSnapshot.stopLoss}` : 'Off'}
                       </span>
                     </div>
@@ -1210,10 +1503,16 @@ export const TradeJournalModal: React.FC = () => {
                 </div>
 
                 {/* Card 3: Execution Quality */}
-                <div className="bg-[var(--color-panel)] border border-[var(--color-border)]/70 rounded-xl p-3 flex flex-col justify-between shadow-sm">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="border rounded-xl p-3 flex flex-col justify-between shadow-sm backdrop-blur-md"
+                >
                   <div className="flex items-center justify-between border-b border-[var(--color-border)]/40 pb-1.5 mb-2">
                     <span className="text-[11px] font-bold text-[var(--color-text-muted)] flex items-center gap-1">
-                      <Zap size={13} className="`text-[${palette.poc}]`" />
+                      <Zap size={13} style={{ color: palette.poc || '#6366f1' }} />
                       <span>KUALITAS EKSEKUSI</span>
                     </span>
                     <span className="text-[10px] font-mono text-[var(--color-text-muted)]">Hierarki 3</span>
@@ -1230,7 +1529,7 @@ export const TradeJournalModal: React.FC = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[var(--color-text-muted)]">Latency Server:</span>
-                      <span className="font-bold `text-[${palette.bull}]`">{previewSnapshot.executionLatencyMs || 12} ms</span>
+                      <span className="font-bold" style={{ color: palette.bull }}>{previewSnapshot.executionLatencyMs || 12} ms</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[var(--color-text-muted)]">Slippage:</span>
@@ -1244,7 +1543,13 @@ export const TradeJournalModal: React.FC = () => {
                 </div>
 
                 {/* Card 4: Timeline & Account */}
-                <div className="bg-[var(--color-panel)] border border-[var(--color-border)]/70 rounded-xl p-3 flex flex-col justify-between shadow-sm">
+                <div 
+                  style={{
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="border rounded-xl p-3 flex flex-col justify-between shadow-sm backdrop-blur-md"
+                >
                   <div className="flex items-center justify-between border-b border-[var(--color-border)]/40 pb-1.5 mb-2">
                     <span className="text-[11px] font-bold text-[var(--color-text-muted)] flex items-center gap-1">
                       <Calendar size={13} className="text-sky-400" />
@@ -1255,7 +1560,7 @@ export const TradeJournalModal: React.FC = () => {
                   <div className="space-y-1 text-xs font-mono">
                     <div className="flex justify-between">
                       <span className="text-[var(--color-text-muted)]">Trigger Event:</span>
-                      <span className="font-bold text-indigo-300">{previewSnapshot.reason || 'MANUAL'}</span>
+                      <span className="font-bold" style={{ color: palette.poc || '#6366f1' }}>{previewSnapshot.reason || 'MANUAL'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[var(--color-text-muted)]">Waktu Capture:</span>
@@ -1271,7 +1576,7 @@ export const TradeJournalModal: React.FC = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[var(--color-text-muted)]">Status Capture:</span>
-                      <span className="font-bold `text-[${palette.bull}]`">✓ Auto Saved</span>
+                      <span className="font-bold" style={{ color: palette.bull }}>✓ Auto Saved</span>
                     </div>
                   </div>
                 </div>
@@ -1339,24 +1644,30 @@ export const TradeJournalModal: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                     
                     {/* Technical Indicators Breakdown Card */}
-                    <div className="bg-[var(--color-panel)] border border-indigo-500/30 rounded-xl p-3 shadow-md bg-gradient-to-br from-indigo-950/20 to-transparent">
+                    <div 
+                      style={{
+                        background: getThemeCardGradient(palette, isLight, false),
+                        borderColor: hexToRgba(palette.poc || '#6366f1', 0.4)
+                      }}
+                      className="border rounded-xl p-3 shadow-md backdrop-blur-md"
+                    >
                       <div className="flex items-center justify-between border-b border-[var(--color-border)]/50 pb-2 mb-2">
-                        <span className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
-                          <Activity size={14} className="text-indigo-400" />
+                        <span className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: palette.poc || '#6366f1' }}>
+                          <Activity size={14} style={{ color: palette.poc || '#6366f1' }} />
                           <span>INDIKATOR TEKNIKAL SAAT EKSEKUSI</span>
                         </span>
-                        <span className="text-[10px] font-mono text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded border" style={{ color: palette.poc || '#6366f1', borderColor: hexToRgba(palette.poc || '#6366f1', 0.3), backgroundColor: hexToRgba(palette.poc || '#6366f1', 0.1) }}>
                           Hierarki 5
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs font-mono">
                         <div className="flex justify-between">
                           <span className="text-[var(--color-text-muted)]">RSI (14):</span>
-                          <span className="font-bold `text-[${palette.poc}]`">{ind.rsiValue} ({ind.rsiSignal})</span>
+                          <span className="font-bold" style={{ color: palette.poc || '#6366f1' }}>{ind.rsiValue} ({ind.rsiSignal})</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-[var(--color-text-muted)]">MACD Hist:</span>
-                          <span className="font-bold `text-[${palette.bull}]`">{ind.macdHist} ({ind.macdSignal})</span>
+                          <span className="font-bold" style={{ color: palette.bull }}>{ind.macdHist} ({ind.macdSignal})</span>
                         </div>
                         <div className="flex justify-between col-span-2">
                           <span className="text-[var(--color-text-muted)]">EMA Alignment:</span>
@@ -1364,7 +1675,7 @@ export const TradeJournalModal: React.FC = () => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-[var(--color-text-muted)]">SuperTrend:</span>
-                          <span className="font-bold `text-[${palette.bull}]`">{ind.supertrend}</span>
+                          <span className="font-bold" style={{ color: palette.bull }}>{ind.supertrend}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-[var(--color-text-muted)]">Bollinger Upper:</span>
@@ -1374,24 +1685,30 @@ export const TradeJournalModal: React.FC = () => {
                     </div>
 
                     {/* Order Flow & Liquidity Breakdown Card */}
-                    <div className="bg-[var(--color-panel)] border `border-[${palette.bull}30]` rounded-xl p-3 shadow-md bg-gradient-to-br from-emerald-950/20 to-transparent">
+                    <div 
+                      style={{
+                        background: getThemeCardGradient(palette, isLight, false),
+                        borderColor: hexToRgba(palette.bull, 0.4)
+                      }}
+                      className="border rounded-xl p-3 shadow-md backdrop-blur-md"
+                    >
                       <div className="flex items-center justify-between border-b border-[var(--color-border)]/50 pb-2 mb-2">
-                        <span className="text-[11px] font-bold `text-[${palette.bull}]` flex items-center gap-1.5">
-                          <Zap size={14} className="`text-[${palette.bull}]`" />
+                        <span className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: palette.bull }}>
+                          <Zap size={14} style={{ color: palette.bull }} />
                           <span>ANALISIS ORDER FLOW & DENSITY</span>
                         </span>
-                        <span className="text-[10px] font-mono `text-[${palette.bull}]` `bg-[${palette.bull}10]` px-2 py-0.5 rounded border border-emerald-500/20">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded border" style={{ color: palette.bull, backgroundColor: hexToRgba(palette.bull, 0.1), borderColor: hexToRgba(palette.bull, 0.3) }}>
                           Hierarki 6
                         </span>
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs font-mono">
                         <div className="flex justify-between col-span-2">
                           <span className="text-[var(--color-text-muted)]">Footprint Delta:</span>
-                          <span className="font-bold `text-[${palette.bull}]`">{ind.deltaText}</span>
+                          <span className="font-bold" style={{ color: palette.bull }}>{ind.deltaText}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-[var(--color-text-muted)]">Imbalance:</span>
-                          <span className="font-bold `text-[${palette.poc}]`">{ind.imbalanceRatio}</span>
+                          <span className="font-bold" style={{ color: palette.poc || '#6366f1' }}>{ind.imbalanceRatio}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-[var(--color-text-muted)]">Bid/Ask Vol:</span>
@@ -1399,7 +1716,7 @@ export const TradeJournalModal: React.FC = () => {
                         </div>
                         <div className="flex justify-between col-span-2">
                           <span className="text-[var(--color-text-muted)]">Liquidity Wall Depth:</span>
-                          <span className="font-bold `text-[${palette.poc}]`">{ind.liquidityWall}</span>
+                          <span className="font-bold" style={{ color: palette.poc || '#6366f1' }}>{ind.liquidityWall}</span>
                         </div>
                       </div>
                     </div>
@@ -1410,18 +1727,18 @@ export const TradeJournalModal: React.FC = () => {
 
               {/* Captured Layout Image Container */}
               {previewSnapshot.url ? (
-                <div className="relative bg-[var(--color-card)] p-3 rounded-xl border border-[var(--color-border)] shadow-inner flex flex-col items-center justify-center min-h-[340px]">
+                <div className="relative bg-black/20 p-3 rounded-xl border border-[var(--color-border)] shadow-inner flex flex-col items-center justify-center min-h-[340px]">
                   <img
                     src={previewSnapshot.url}
                     alt="Trading Chart Layout Snapshot"
                     className="max-w-full max-h-[60vh] object-contain rounded-lg border border-[var(--color-border)] shadow-2xl"
                   />
-                  <span className="absolute bottom-4 right-4 text-[10px] font-mono text-[var(--color-text-muted)] bg-[var(--color-panel)] px-2 py-1 rounded border border-[var(--color-border)]">
+                  <span className="absolute bottom-4 right-4 text-[10px] font-mono text-[var(--color-text-muted)] bg-[var(--color-panel)]/80 px-2 py-1 rounded border border-[var(--color-border)]">
                     MountAlgo Multi-Chart Layout Auto-Snapshot
                   </span>
                 </div>
               ) : (
-                <div className="p-8 text-center text-xs text-[var(--color-text-muted)] font-mono bg-[var(--color-card)] rounded-xl border border-[var(--color-border)]">
+                <div className="p-8 text-center text-xs text-[var(--color-text-muted)] font-mono bg-black/20 rounded-xl border border-[var(--color-border)]">
                   Snapshot layout chart tidak tersedia untuk transaksi ini.
                 </div>
               )}
@@ -1429,7 +1746,7 @@ export const TradeJournalModal: React.FC = () => {
             </div>
 
             {/* Footer Bar */}
-            <div className="px-5 py-2.5 border-t border-[var(--color-border)] bg-[var(--color-bg)] flex flex-wrap items-center justify-between text-xs font-mono text-[var(--color-text-muted)] gap-2">
+            <div className="px-5 py-2.5 border-t border-white/10 bg-black/20 flex flex-wrap items-center justify-between text-xs font-mono text-[var(--color-text-muted)] gap-2">
               <div className="flex items-center gap-4">
                 <span>Waktu Capture: <strong className="text-[var(--color-text)]">{previewSnapshot.time}</strong></span>
                 {previewSnapshot.pnl !== undefined && (

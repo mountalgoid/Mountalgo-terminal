@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { Crosshair, ChevronDown, Check, Pin, Search, Sparkles, RotateCcw, PenTool, Eye, EyeOff } from 'lucide-react';
 import { DRAWING_TOOL_GROUPS, ToolItem } from '../utils/drawingToolbarGroups';
 import { DrawingToolType } from '../utils/drawingTools';
+import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 
 interface TopDrawingMenuProps {
   activeTool: DrawingToolType;
@@ -25,6 +27,7 @@ export default function TopDrawingMenu({
   showFloatingDrawingBar = true,
   onToggleFloatingDrawingBar,
 }: TopDrawingMenuProps) {
+  const { palette, isLight } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'pinned'>('all');
@@ -88,15 +91,15 @@ export default function TopDrawingMenu({
           />
           <div 
             style={{ 
-              borderColor: `${currentPalette.bull}70`,
-              backgroundColor: currentPalette.bg && currentPalette.bg !== '#000000' ? `${currentPalette.bg}f2` : 'rgba(8, 12, 24, 0.96)',
+              borderColor: getThemeCardBorder(palette, false),
+              background: getThemeModalGradient(palette, isLight),
               top: btnRef.current 
                 ? Math.min(window.innerHeight - 480, Math.max(10, btnRef.current.getBoundingClientRect().bottom + 4)) 
                 : '60px',
               left: btnRef.current 
                 ? Math.min(Math.max(10, btnRef.current.getBoundingClientRect().left), window.innerWidth - 320) 
                 : '16px',
-              boxShadow: `0 25px 50px -12px rgba(0,0,0,0.85), 0 0 24px -4px ${currentPalette.bull}20, 0 0 0 1px rgba(255,255,255,0.08)`
+              boxShadow: `0 25px 50px -12px rgba(0,0,0,0.85), 0 0 24px -4px ${hexToRgba(palette.bull || currentPalette.bull, 0.25)}`
             }}
             className="fixed z-[99999] w-[calc(100vw-16px)] sm:w-80 max-h-[70vh] sm:max-h-[82vh] rounded-2xl border shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col overflow-hidden text-gray-200"
           >

@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { COMPREHENSIVE_MARKET_PAIRS } from './SymbolSelectorModal';
+import { hexToRgba, getThemeModalGradient, getThemeCardGradient, getThemeCardBorder, getThemeButtonGradient } from '../utils/themeGradient';
 
 export interface PriceAlert {
   id: string;
@@ -77,7 +78,7 @@ const INITIAL_DEMO_PRICES: Record<string, number> = {
 };
 
 export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT' }: PriceAlertsProps) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
   
   // State: Tab selection
   const [activeTab, setActiveTab] = useState<'alerts' | 'create' | 'notifications'>('alerts');
@@ -469,22 +470,30 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
         {/* Real-time Toast Banner Popup even when sidebar is collapsed */}
         {activeToast && (
           <div 
-            style={{ borderColor: palette.bull, boxShadow: `0 0 25px ${palette.bull}50` }}
-            className="fixed top-3 right-3 sm:top-4 sm:right-4 z-[999] bg-[var(--color-panel)]/95 backdrop-blur-md border rounded-xl p-3 sm:p-3.5 shadow-2xl max-w-[calc(100vw-1.5rem)] sm:max-w-sm w-full animate-bounceIn text-[var(--color-text)] flex items-start gap-2.5 sm:gap-3 cursor-pointer"
+            style={{ 
+              background: getThemeModalGradient(palette, isLight),
+              borderColor: getThemeCardBorder(palette, true),
+              boxShadow: `0 14px 40px -8px rgba(0,0,0,0.8), 0 0 25px ${hexToRgba(palette.bull, 0.35)}` 
+            }}
+            className="fixed top-3 right-3 sm:top-4 sm:right-4 z-[999] backdrop-blur-xl border rounded-2xl p-3 sm:p-4 shadow-2xl max-w-[calc(100vw-1.5rem)] sm:max-w-sm w-full animate-bounceIn text-[var(--color-text)] flex items-start gap-2.5 sm:gap-3 cursor-pointer"
             onClick={() => {
               setActiveToast(null);
               onClose(); // Open sidebar
             }}
           >
             <div 
-              style={{ backgroundColor: `${palette.bull}20`, color: palette.bull }}
-              className="p-2 rounded-lg flex-shrink-0 animate-pulse"
+              style={{ 
+                background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+                color: '#ffffff',
+                boxShadow: `0 0 12px ${hexToRgba(palette.bull, 0.4)}`
+              }}
+              className="p-2.5 rounded-xl flex-shrink-0 animate-pulse"
             >
               <BellRing size={20} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <span className="font-mono font-bold text-xs text-emerald-400 flex items-center gap-1">
+                <span className="font-mono font-bold text-xs flex items-center gap-1" style={{ color: palette.bull }}>
                   <Zap size={12} /> PRICE ALERT TRIGGERED
                 </span>
                 <span className="text-[10px] text-[var(--color-text-muted)]">Sekarang</span>
@@ -496,12 +505,12 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
               <div className="flex items-center gap-2 mt-1.5 text-[11px] font-mono text-[var(--color-text-muted)]">
                 <span>Target: <strong className="text-[var(--color-text)]">{activeToast.targetPrice}</strong></span>
                 <span>•</span>
-                <span>Live: <strong className="text-emerald-400">{activeToast.triggeredPrice}</strong></span>
+                <span>Live: <strong style={{ color: palette.bull }}>{activeToast.triggeredPrice}</strong></span>
               </div>
             </div>
             <button 
               onClick={(e) => { e.stopPropagation(); setActiveToast(null); }}
-              className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1"
+              className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1 rounded-lg hover:bg-white/10 transition-colors"
             >
               <X size={14} />
             </button>
@@ -515,26 +524,43 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
     <>
       {/* Backdrop overlay */}
       <div 
-        className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm transition-opacity animate-fadeIn"
+        className="fixed inset-0 z-[10000] bg-black/50 backdrop-blur-[2px] transition-opacity animate-fadeIn"
         onClick={onClose}
       />
 
       {/* Sidebar Panel Drawer */}
       <div 
-        style={{ borderColor: `${palette.bull}30` }}
-        className="fixed top-0 right-0 bottom-0 z-modal-ultimate w-full sm:w-[420px] bg-[var(--color-panel)]/98 text-[var(--color-text)] border-l shadow-2xl flex flex-col animate-slideLeft select-none backdrop-blur-xl"
+        style={{ 
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false),
+          boxShadow: `-15px 0 50px rgba(0,0,0,0.85), 0 0 35px ${hexToRgba(palette.bull, 0.2)}`
+        }}
+        className="fixed top-0 right-0 bottom-0 z-modal-ultimate w-full sm:w-[440px] text-[var(--color-text)] border-l shadow-2xl flex flex-col animate-slideLeft select-none backdrop-blur-2xl"
       >
+        {/* Top accent gradient line */}
+        <div 
+          className="h-1 w-full shrink-0" 
+          style={{ background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)` }} 
+        />
+
         {/* Top Header */}
         <div 
-          style={{ borderColor: `${palette.bull}25` }}
-          className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 border-b bg-[var(--color-panel)]/90"
+          style={{ 
+            background: `linear-gradient(90deg, ${hexToRgba(palette.bull, 0.12)} 0%, rgba(255,255,255,0.02) 50%, ${hexToRgba(palette.bear, 0.12)} 100%)`,
+            borderBottomColor: getThemeCardBorder(palette, false)
+          }}
+          className="flex items-center justify-between px-3.5 sm:px-4 py-3 border-b"
         >
           <div className="flex items-center gap-2.5">
             <div 
-              style={{ backgroundColor: `${palette.bull}20`, color: palette.bull, borderColor: `${palette.bull}50` }}
-              className="p-1.5 rounded-lg border shadow-[0_0_12px_rgba(81,52,255,0.3)]"
+              style={{ 
+                background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+                color: '#ffffff',
+                boxShadow: `0 0 14px ${hexToRgba(palette.bull, 0.4)}`
+              }}
+              className="p-2 rounded-xl shadow-lg"
             >
-              <BellRing size={18} />
+              <BellRing size={17} />
             </div>
             <div>
               <h3 className="font-extrabold text-xs sm:text-sm tracking-wide text-[var(--color-text)] flex items-center gap-2">
@@ -550,15 +576,19 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
           <div className="flex items-center gap-1.5">
             <button
               onClick={triggerTestNotification}
-              className="text-[10px] font-mono px-2 py-1 rounded-md bg-[var(--color-panel)] hover:bg-[var(--color-panel)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] border border-[var(--color-border)] flex items-center gap-1 transition-colors cursor-pointer"
+              style={{
+                background: hexToRgba(palette.bull, 0.12),
+                borderColor: hexToRgba(palette.bull, 0.3)
+              }}
+              className="text-[10px] font-mono px-2 py-1 rounded-lg text-[var(--color-text)] border flex items-center gap-1 transition-all hover:brightness-125 cursor-pointer"
               title="Uji coba sinyal notifikasi & suara"
             >
-              <Zap size={10} className="text-yellow-400" />
-              <span>Tes Sin</span>
+              <Zap size={10} style={{ color: palette.bull }} />
+              <span>Tes Sinyal</span>
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-panel)] transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/10 transition-colors cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -566,14 +596,26 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center border-b border-[var(--color-border)] bg-[var(--color-panel)] px-1.5 sm:px-2 pt-1 overflow-x-auto hide-scrollbar">
+        <div 
+          style={{ 
+            borderBottomColor: getThemeCardBorder(palette, false),
+            background: 'rgba(0, 0, 0, 0.15)'
+          }}
+          className="flex items-center border-b px-2 pt-1.5 overflow-x-auto hide-scrollbar gap-1"
+        >
           <button
             onClick={() => setActiveTab('alerts')}
-            style={activeTab === 'alerts' ? { color: palette.bull, borderColor: palette.bull } : {}}
-            className={`flex-1 py-2 text-[11px] sm:text-xs font-mono font-bold border-b-2 transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap ${
+            style={activeTab === 'alerts' ? { 
+              color: palette.bull, 
+              borderBottomColor: palette.bull,
+              background: hexToRgba(palette.bull, 0.1)
+            } : {
+              borderBottomColor: 'transparent'
+            }}
+            className={`flex-1 py-2 px-2 text-[11px] sm:text-xs font-mono font-bold border-b-2 rounded-t-lg transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap ${
               activeTab === 'alerts' 
-                ? 'border-b-2 text-[var(--color-text)] bg-[var(--color-panel)]' 
-                : 'border-transparent text-[var(--color-text-muted)] hover:text-gray-200'
+                ? 'text-[var(--color-text)]' 
+                : 'text-[var(--color-text-muted)] hover:text-gray-200'
             }`}
           >
             <Bell size={12} className="sm:w-[13px] sm:h-[13px]" />
@@ -588,11 +630,17 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
               setFormLabel('');
               setActiveTab('create');
             }}
-            style={activeTab === 'create' ? { color: palette.bull, borderColor: palette.bull } : {}}
-            className={`flex-1 py-2 text-[11px] sm:text-xs font-mono font-bold border-b-2 transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap ${
+            style={activeTab === 'create' ? { 
+              color: palette.bull, 
+              borderBottomColor: palette.bull,
+              background: hexToRgba(palette.bull, 0.1)
+            } : {
+              borderBottomColor: 'transparent'
+            }}
+            className={`flex-1 py-2 px-2 text-[11px] sm:text-xs font-mono font-bold border-b-2 rounded-t-lg transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap ${
               activeTab === 'create' 
-                ? 'border-b-2 text-[var(--color-text)] bg-[var(--color-panel)]' 
-                : 'border-transparent text-[var(--color-text-muted)] hover:text-gray-200'
+                ? 'text-[var(--color-text)]' 
+                : 'text-[var(--color-text-muted)] hover:text-gray-200'
             }`}
           >
             <Plus size={12} className="sm:w-[13px] sm:h-[13px]" />
@@ -606,11 +654,17 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
               // Mark all as read
               setNotifications(prev => prev.map(n => ({ ...n, read: true })));
             }}
-            style={activeTab === 'notifications' ? { color: palette.bull, borderColor: palette.bull } : {}}
-            className={`flex-1 py-2 text-[11px] sm:text-xs font-mono font-bold border-b-2 transition-all flex items-center justify-center gap-1 sm:gap-1.5 relative cursor-pointer whitespace-nowrap ${
+            style={activeTab === 'notifications' ? { 
+              color: palette.bull, 
+              borderBottomColor: palette.bull,
+              background: hexToRgba(palette.bull, 0.1)
+            } : {
+              borderBottomColor: 'transparent'
+            }}
+            className={`flex-1 py-2 px-2 text-[11px] sm:text-xs font-mono font-bold border-b-2 rounded-t-lg transition-all flex items-center justify-center gap-1 sm:gap-1.5 relative cursor-pointer whitespace-nowrap ${
               activeTab === 'notifications' 
-                ? 'border-b-2 text-[var(--color-text)] bg-[var(--color-panel)]' 
-                : 'border-transparent text-[var(--color-text-muted)] hover:text-gray-200'
+                ? 'text-[var(--color-text)]' 
+                : 'text-[var(--color-text-muted)] hover:text-gray-200'
             }`}
           >
             <Sparkles size={13} />
@@ -623,7 +677,7 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
         </div>
 
         {/* Tab Content Body */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3.5 sm:space-y-4 custom-scrollbar">
 
           {/* TAB 1: ACTIVE ALERTS LIST */}
           {activeTab === 'alerts' && (
@@ -645,18 +699,30 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
               </div>
 
               {alerts.length === 0 ? (
-                <div className="py-12 text-center text-[var(--color-text-muted)] space-y-3 bg-[var(--color-panel)]/50 border border-[var(--color-border)] rounded-2xl p-6">
-                  <div className="w-12 h-12 rounded-full bg-[var(--color-card)] text-[var(--color-text-muted)] flex items-center justify-center mx-auto">
-                    <Bell size={24} />
+                <div 
+                  style={{ 
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="py-12 text-center text-[var(--color-text-muted)] space-y-3 border rounded-2xl p-6"
+                >
+                  <div 
+                    style={{ background: hexToRgba(palette.bull, 0.15), color: palette.bull }}
+                    className="w-12 h-12 rounded-full flex items-center justify-center mx-auto"
+                  >
+                    <Bell size={22} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-[var(--color-text-muted)]">Belum Ada Alert Aktif</p>
+                    <p className="text-sm font-bold text-[var(--color-text)]">Belum Ada Alert Aktif</p>
                     <p className="text-xs text-[var(--color-text-muted)] mt-1">Buat target harga baru untuk menerima notifikasi real-time saat level tercapai.</p>
                   </div>
                   <button
                     onClick={() => setActiveTab('create')}
-                    style={{ backgroundColor: palette.bull }}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-black hover:opacity-90 transition-all shadow-lg cursor-pointer"
+                    style={{ 
+                      background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`,
+                      boxShadow: `0 0 15px ${hexToRgba(palette.bull, 0.35)}`
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:brightness-110 transition-all cursor-pointer"
                   >
                     + Buat Alert Pertama
                   </button>
@@ -674,11 +740,12 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                       <div 
                         key={alert.id}
                         style={{
-                          borderColor: alert.isActive ? `${palette.bull}35` : 'var(--color-border)',
-                          backgroundColor: alert.isActive ? 'var(--color-card)' : 'var(--color-bg)'
+                          background: getThemeCardGradient(palette, isLight, alert.isActive),
+                          borderColor: getThemeCardBorder(palette, alert.isActive),
+                          boxShadow: alert.isActive ? `0 4px 20px -2px rgba(0,0,0,0.5), 0 0 15px ${hexToRgba(palette.bull, 0.15)}` : 'none'
                         }}
-                        className={`p-3 rounded-xl border transition-all relative group ${
-                          !alert.isActive ? 'opacity-65' : 'hover:border-emerald-500/50 shadow-lg'
+                        className={`p-3.5 rounded-2xl border transition-all relative group ${
+                          !alert.isActive ? 'opacity-60' : 'hover:brightness-105'
                         }`}
                       >
                         <div className="flex items-start justify-between">
@@ -687,11 +754,11 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                               {alert.symbol}
                             </span>
                             <span 
-                              className="text-[10px] font-mono px-2 py-0.5 rounded font-bold flex items-center gap-1 border"
+                              className="text-[10px] font-mono px-2 py-0.5 rounded-md font-bold flex items-center gap-1 border"
                               style={{
-                                backgroundColor: alert.condition === 'above' ? `${palette.bull}20` : `${palette.bear}20`,
+                                backgroundColor: alert.condition === 'above' ? hexToRgba(palette.bull, 0.18) : hexToRgba(palette.bear, 0.18),
                                 color: alert.condition === 'above' ? palette.bull : palette.bear,
-                                borderColor: alert.condition === 'above' ? `${palette.bull}40` : `${palette.bear}40`,
+                                borderColor: alert.condition === 'above' ? hexToRgba(palette.bull, 0.45) : hexToRgba(palette.bear, 0.45),
                               }}
                             >
                               {alert.condition === 'above' ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
@@ -703,11 +770,15 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => toggleAlertActive(alert.id)}
-                              style={alert.isActive ? { backgroundColor: `${palette.bull}20`, color: palette.bull } : {}}
-                              className={`p-1.5 rounded-lg text-xs font-mono transition-colors cursor-pointer ${
+                              style={alert.isActive ? { 
+                                background: hexToRgba(palette.bull, 0.25), 
+                                color: palette.bull,
+                                borderColor: hexToRgba(palette.bull, 0.4)
+                              } : {}}
+                              className={`p-1.5 rounded-lg text-xs font-mono transition-colors cursor-pointer border border-transparent ${
                                 alert.isActive 
-                                  ? 'hover:opacity-80' 
-                                  : 'bg-[var(--color-input-bg)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                                  ? 'hover:brightness-125' 
+                                  : 'bg-black/20 text-[var(--color-text-muted)] hover:text-[var(--color-text)] border-white/5'
                               }`}
                               title={alert.isActive ? 'Nonaktifkan sementara' : 'Aktifkan alert'}
                             >
@@ -716,7 +787,7 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
 
                             <button
                               onClick={() => startEditing(alert)}
-                              className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)] transition-colors cursor-pointer"
+                              className="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/10 transition-colors cursor-pointer"
                               title="Edit Alert"
                             >
                               <Edit2 size={12} />
@@ -733,7 +804,7 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                         </div>
 
                         {/* Label & Target Price details */}
-                        <div className="mt-2 flex items-baseline justify-between">
+                        <div className="mt-2.5 flex items-baseline justify-between">
                           <div>
                             <p className="text-xs text-[var(--color-text-muted)] font-medium">
                               {alert.label || 'Sinyal Target Harga'}
@@ -766,9 +837,12 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                         </div>
 
                         {/* Status bar bottom */}
-                        <div className="mt-2.5 pt-2 border-t border-[var(--color-border)] flex items-center justify-between text-[10px] text-[var(--color-text-muted)] font-mono">
+                        <div 
+                          style={{ borderTopColor: getThemeCardBorder(palette, false) }}
+                          className="mt-2.5 pt-2 border-t flex items-center justify-between text-[10px] text-[var(--color-text-muted)] font-mono"
+                        >
                           <span className="flex items-center gap-1">
-                            {alert.soundAlert ? <Volume2 size={11} className="text-indigo-400" /> : <VolumeX size={11} />}
+                            {alert.soundAlert ? <Volume2 size={11} style={{ color: palette.bull }} /> : <VolumeX size={11} />}
                             {alert.soundAlert ? 'Suara On' : 'Mute'}
                           </span>
                           <span>
@@ -788,9 +862,15 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
           {/* TAB 2: CREATE / EDIT ALERT FORM */}
           {activeTab === 'create' && (
             <form onSubmit={handleSaveAlert} className="space-y-4">
-              <div className="p-3 bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl space-y-3">
+              <div 
+                style={{ 
+                  background: getThemeCardGradient(palette, isLight, false),
+                  borderColor: getThemeCardBorder(palette, false)
+                }}
+                className="p-4 border rounded-2xl space-y-3.5 shadow-xl"
+              >
                 <h4 className="text-xs font-mono font-bold text-[var(--color-text-muted)] flex items-center gap-1.5">
-                  <Sparkles size={13} className="text-yellow-400" />
+                  <Sparkles size={13} style={{ color: palette.bull }} />
                   {editingAlertId ? 'EDIT TARGET ALERT' : 'BUAT KONFIGURASI ALERT HARGA'}
                 </h4>
 
@@ -807,15 +887,23 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                       }}
                       onFocus={() => setShowSymbolDropdown(true)}
                       placeholder="Cari simbol (contoh: BTCUSDT, EURUSD)..."
-                      className="w-full bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-lg px-3 py-2 text-sm font-mono font-bold text-[var(--color-text)] focus:outline-none focus:border-cyan-500"
+                      style={{ borderColor: getThemeCardBorder(palette, false) }}
+                      className="w-full bg-black/30 border rounded-xl px-3 py-2.5 text-sm font-mono font-bold text-[var(--color-text)] focus:outline-none focus:border-white/40"
                       required
                     />
-                    <Search size={14} className="absolute right-3 top-3 text-[var(--color-text-muted)] pointer-events-none" />
+                    <Search size={14} className="absolute right-3 top-3.5 text-[var(--color-text-muted)] pointer-events-none" />
                   </div>
 
                   {/* Symbol Quick Dropdown */}
                   {showSymbolDropdown && (
-                    <div className="absolute top-full left-0 right-0 z-[100] mt-1 max-h-44 overflow-y-auto bg-[var(--color-panel)] border border-[var(--color-border)] rounded-xl shadow-2xl p-1.5 space-y-1 custom-scrollbar">
+                    <div 
+                      style={{ 
+                        background: getThemeModalGradient(palette, isLight),
+                        borderColor: getThemeCardBorder(palette, true),
+                        boxShadow: `0 10px 30px rgba(0,0,0,0.8), 0 0 20px ${hexToRgba(palette.bull, 0.2)}`
+                      }}
+                      className="absolute top-full left-0 right-0 z-[100] mt-1 max-h-48 overflow-y-auto border rounded-xl p-1.5 space-y-1 custom-scrollbar backdrop-blur-xl"
+                    >
                       <div className="text-[10px] font-mono text-[var(--color-text-muted)] px-2 py-1">SIMBOL POPULER:</div>
                       {COMPREHENSIVE_MARKET_PAIRS.filter(p => 
                         p.symbol.toLowerCase().includes(formSymbol.toLowerCase()) || 
@@ -830,7 +918,7 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                             const p = livePrices[pair.symbol]?.price;
                             if (p) setFormTargetPrice(p.toString());
                           }}
-                          className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[var(--color-hover)] flex items-center justify-between text-xs font-mono transition-colors cursor-pointer"
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-white/10 flex items-center justify-between text-xs font-mono transition-colors cursor-pointer"
                         >
                           <span className="font-bold text-[var(--color-text)]">{pair.symbol}</span>
                           <span className="text-[10px] text-[var(--color-text-muted)]">{pair.name}</span>
@@ -839,7 +927,8 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                       <button
                         type="button"
                         onClick={() => setShowSymbolDropdown(false)}
-                        className="w-full text-center py-1 text-[10px] font-mono text-cyan-400 hover:underline cursor-pointer border-t border-[var(--color-border)]"
+                        style={{ color: palette.bull }}
+                        className="w-full text-center py-1.5 text-[10px] font-mono hover:underline cursor-pointer border-t border-white/10"
                       >
                         Tutup Pilihan
                       </button>
@@ -855,14 +944,16 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                       type="button"
                       onClick={() => setFormCondition('above')}
                       style={formCondition === 'above' ? {
-                        backgroundColor: `${palette.bull}20`,
+                        backgroundColor: hexToRgba(palette.bull, 0.22),
                         borderColor: palette.bull,
                         color: palette.bull
-                      } : {}}
+                      } : {
+                        borderColor: getThemeCardBorder(palette, false)
+                      }}
                       className={`p-2.5 rounded-xl border text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                         formCondition === 'above' 
                           ? 'shadow-md' 
-                          : 'bg-[var(--color-input-bg)] border-[var(--color-input-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
+                          : 'bg-black/20 text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
                       }`}
                     >
                       <TrendingUp size={14} />
@@ -873,14 +964,16 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                       type="button"
                       onClick={() => setFormCondition('below')}
                       style={formCondition === 'below' ? {
-                        backgroundColor: `${palette.bear}20`,
+                        backgroundColor: hexToRgba(palette.bear, 0.22),
                         borderColor: palette.bear,
                         color: palette.bear
-                      } : {}}
+                      } : {
+                        borderColor: getThemeCardBorder(palette, false)
+                      }}
                       className={`p-2.5 rounded-xl border text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                         formCondition === 'below' 
                           ? 'shadow-md' 
-                          : 'bg-[var(--color-input-bg)] border-[var(--color-input-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
+                          : 'bg-black/20 text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
                       }`}
                     >
                       <TrendingDown size={14} />
@@ -905,45 +998,51 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                     value={formTargetPrice ?? ''}
                     onChange={(e) => setFormTargetPrice(e.target.value)}
                     placeholder="Contoh: 98000.50"
-                    className="w-full bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-lg px-3 py-2 text-sm font-mono font-bold text-[var(--color-text)] focus:outline-none focus:border-cyan-500"
+                    style={{ borderColor: getThemeCardBorder(palette, false) }}
+                    className="w-full bg-black/30 border rounded-xl px-3 py-2 text-sm font-mono font-bold text-[var(--color-text)] focus:outline-none focus:border-white/40"
                     required
                   />
 
                   {/* Quick percentage calculation pills */}
-                  <div className="flex items-center gap-1 pt-1 overflow-x-auto">
+                  <div className="flex items-center gap-1.5 pt-1 overflow-x-auto">
                     <span className="text-[10px] font-mono text-[var(--color-text-muted)]">Preset:</span>
                     <button
                       type="button"
                       onClick={() => applyPercentOffset(1)}
-                      className="px-2 py-0.5 rounded bg-[var(--color-hover)] hover:bg-[var(--color-panel-header)] text-[10px] font-mono text-emerald-400 transition-colors cursor-pointer border border-[var(--color-border)]"
+                      style={{ background: hexToRgba(palette.bull, 0.15), color: palette.bull, borderColor: hexToRgba(palette.bull, 0.3) }}
+                      className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold transition-all hover:brightness-125 cursor-pointer border"
                     >
                       +1%
                     </button>
                     <button
                       type="button"
                       onClick={() => applyPercentOffset(2.5)}
-                      className="px-2 py-0.5 rounded bg-[var(--color-hover)] hover:bg-[var(--color-panel-header)] text-[10px] font-mono text-emerald-400 transition-colors cursor-pointer border border-[var(--color-border)]"
+                      style={{ background: hexToRgba(palette.bull, 0.15), color: palette.bull, borderColor: hexToRgba(palette.bull, 0.3) }}
+                      className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold transition-all hover:brightness-125 cursor-pointer border"
                     >
                       +2.5%
                     </button>
                     <button
                       type="button"
                       onClick={() => applyPercentOffset(5)}
-                      className="px-2 py-0.5 rounded bg-[var(--color-hover)] hover:bg-[var(--color-panel-header)] text-[10px] font-mono text-emerald-400 transition-colors cursor-pointer border border-[var(--color-border)]"
+                      style={{ background: hexToRgba(palette.bull, 0.15), color: palette.bull, borderColor: hexToRgba(palette.bull, 0.3) }}
+                      className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold transition-all hover:brightness-125 cursor-pointer border"
                     >
                       +5%
                     </button>
                     <button
                       type="button"
                       onClick={() => applyPercentOffset(-1)}
-                      className="px-2 py-0.5 rounded bg-[var(--color-hover)] hover:bg-[var(--color-panel-header)] text-[10px] font-mono text-rose-400 transition-colors cursor-pointer border border-[var(--color-border)]"
+                      style={{ background: hexToRgba(palette.bear, 0.15), color: palette.bear, borderColor: hexToRgba(palette.bear, 0.3) }}
+                      className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold transition-all hover:brightness-125 cursor-pointer border"
                     >
                       -1%
                     </button>
                     <button
                       type="button"
                       onClick={() => applyPercentOffset(-2.5)}
-                      className="px-2 py-0.5 rounded bg-[var(--color-hover)] hover:bg-[var(--color-panel-header)] text-[10px] font-mono text-rose-400 transition-colors cursor-pointer border border-[var(--color-border)]"
+                      style={{ background: hexToRgba(palette.bear, 0.15), color: palette.bear, borderColor: hexToRgba(palette.bear, 0.3) }}
+                      className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold transition-all hover:brightness-125 cursor-pointer border"
                     >
                       -2.5%
                     </button>
@@ -958,7 +1057,8 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                     value={formLabel ?? ''}
                     onChange={(e) => setFormLabel(e.target.value)}
                     placeholder="Contoh: Take Profit 1 / Entry Support"
-                    className="w-full bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-lg px-3 py-2 text-xs font-sans text-[var(--color-text)] focus:outline-none focus:border-cyan-500"
+                    style={{ borderColor: getThemeCardBorder(palette, false) }}
+                    className="w-full bg-black/30 border rounded-xl px-3 py-2 text-xs font-sans text-[var(--color-text)] focus:outline-none focus:border-white/40"
                   />
                 </div>
 
@@ -970,10 +1070,11 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                       id="soundToggle"
                       checked={Boolean(formSound)}
                       onChange={(e) => setFormSound(e.target.checked)}
-                      className="w-4 h-4 rounded accent-cyan-500 cursor-pointer"
+                      className="w-4 h-4 rounded cursor-pointer"
+                      style={{ accentColor: palette.bull }}
                     />
-                    <label htmlFor="soundToggle" className="text-xs font-mono text-[var(--color-text-muted)] cursor-pointer flex items-center gap-1">
-                      <Volume2 size={13} className="text-cyan-400" />
+                    <label htmlFor="soundToggle" className="text-xs font-mono text-[var(--color-text-muted)] cursor-pointer flex items-center gap-1.5">
+                      <Volume2 size={13} style={{ color: palette.bull }} />
                       Bunyikan Nada Suara Peringatan
                     </label>
                   </div>
@@ -984,8 +1085,11 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
               <div className="flex items-center gap-2 pt-1">
                 <button
                   type="submit"
-                  style={{ backgroundColor: palette.bull }}
-                  className="flex-1 py-2.5 rounded-xl font-bold text-xs text-black hover:opacity-90 transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`,
+                    boxShadow: `0 0 16px ${hexToRgba(palette.bull, 0.35)}`
+                  }}
+                  className="flex-1 py-2.5 rounded-xl font-bold text-xs text-white hover:brightness-110 transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Check size={14} />
                   <span>{editingAlertId ? 'Simpan Perubahan' : 'Aktifkan Target Alert'}</span>
@@ -999,7 +1103,8 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                       setFormLabel('');
                       setActiveTab('alerts');
                     }}
-                    className="py-2.5 px-4 rounded-xl bg-[var(--color-card)] hover:bg-[var(--color-hover)] text-xs font-mono text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer border border-[var(--color-border)]"
+                    style={{ borderColor: getThemeCardBorder(palette, false) }}
+                    className="py-2.5 px-4 rounded-xl bg-black/30 hover:bg-white/10 text-xs font-mono text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer border"
                   >
                     Batal
                   </button>
@@ -1024,12 +1129,21 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
               </div>
 
               {notifications.length === 0 ? (
-                <div className="py-12 text-center text-[var(--color-text-muted)] space-y-3 bg-[var(--color-panel)]/50 border border-[var(--color-border)] rounded-2xl p-6">
-                  <div className="w-12 h-12 rounded-full bg-[var(--color-card)] text-[var(--color-text-muted)] flex items-center justify-center mx-auto">
+                <div 
+                  style={{ 
+                    background: getThemeCardGradient(palette, isLight, false),
+                    borderColor: getThemeCardBorder(palette, false)
+                  }}
+                  className="py-12 text-center text-[var(--color-text-muted)] space-y-3 border rounded-2xl p-6"
+                >
+                  <div 
+                    style={{ background: hexToRgba(palette.bull, 0.15), color: palette.bull }}
+                    className="w-12 h-12 rounded-full flex items-center justify-center mx-auto"
+                  >
                     <CheckCircle2 size={24} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-[var(--color-text-muted)]">Belum Ada Sinyal Terpicu</p>
+                    <p className="text-sm font-bold text-[var(--color-text)]">Belum Ada Sinyal Terpicu</p>
                     <p className="text-xs text-[var(--color-text-muted)] mt-1">Sinyal notifikasi real-time akan muncul di sini secara otomatis saat target tercapai.</p>
                   </div>
                 </div>
@@ -1038,7 +1152,11 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                   {notifications.map(notif => (
                     <div 
                       key={notif.id}
-                      className="p-3 bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl hover:border-cyan-500/40 transition-all space-y-1.5"
+                      style={{
+                        background: getThemeCardGradient(palette, isLight, false),
+                        borderColor: getThemeCardBorder(palette, false)
+                      }}
+                      className="p-3.5 border rounded-2xl hover:brightness-105 transition-all space-y-1.5 shadow-md"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -1046,11 +1164,12 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                             {notif.symbol}
                           </span>
                           <span 
-                            className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                              notif.condition === 'above' 
-                                ? 'bg-emerald-500/20 text-emerald-400' 
-                                : 'bg-rose-500/20 text-rose-400'
-                            }`}
+                            style={{
+                              background: notif.condition === 'above' ? hexToRgba(palette.bull, 0.18) : hexToRgba(palette.bear, 0.18),
+                              color: notif.condition === 'above' ? palette.bull : palette.bear,
+                              borderColor: notif.condition === 'above' ? hexToRgba(palette.bull, 0.4) : hexToRgba(palette.bear, 0.4)
+                            }}
+                            className="text-[9px] font-mono px-2 py-0.5 rounded-md font-bold border"
                           >
                             {notif.condition === 'above' ? '≥ TERCAPAI' : '≤ TERCAPAI'}
                           </span>
@@ -1065,9 +1184,12 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
                         {notif.label}
                       </p>
 
-                      <div className="flex items-center justify-between text-[11px] font-mono text-[var(--color-text-muted)] pt-1 border-t border-[var(--color-border)]">
+                      <div 
+                        style={{ borderTopColor: getThemeCardBorder(palette, false) }}
+                        className="flex items-center justify-between text-[11px] font-mono text-[var(--color-text-muted)] pt-1.5 border-t"
+                      >
                         <span>Target: <strong className="text-[var(--color-text)]">{notif.targetPrice}</strong></span>
-                        <span>Sinyal Exec: <strong className="text-emerald-400">{notif.triggeredPrice}</strong></span>
+                        <span>Sinyal Exec: <strong style={{ color: palette.bull }}>{notif.triggeredPrice}</strong></span>
                       </div>
                     </div>
                   ))}
@@ -1079,9 +1201,15 @@ export default function PriceAlerts({ isOpen, onClose, currentSymbol = 'BTCUSDT'
         </div>
 
         {/* Bottom Footer Info */}
-        <div className="p-3 bg-[var(--color-panel-header)] border-t border-[var(--color-border)] text-[10px] font-mono text-[var(--color-text-muted)] flex items-center justify-between">
-          <span className="flex items-center gap-1 text-emerald-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        <div 
+          style={{ 
+            background: 'rgba(0, 0, 0, 0.25)',
+            borderTopColor: getThemeCardBorder(palette, false)
+          }}
+          className="p-3 border-t text-[10px] font-mono text-[var(--color-text-muted)] flex items-center justify-between"
+        >
+          <span className="flex items-center gap-1.5" style={{ color: palette.bull }}>
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: palette.bull }} />
             Live Market Stream Active
           </span>
           <span>MountAlgo Alert Engine</span>

@@ -27,6 +27,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 
 interface DrawingLayerManagerModalProps {
   isOpen: boolean;
@@ -64,7 +65,7 @@ export default function DrawingLayerManagerModal({
   selectedDrawingId,
   setSelectedDrawingId,
 }: DrawingLayerManagerModalProps) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
 
   // New layer input state
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
@@ -190,12 +191,19 @@ export default function DrawingLayerManagerModal({
     <div className="fixed inset-0 sm:top-[60px] sm:right-4 sm:bottom-4 sm:left-auto z-[125] flex flex-col justify-start pointer-events-none animate-in fade-in duration-200">
       <div
         style={{
-          borderColor: `${palette.bull}50`,
-          backgroundColor: 'var(--color-panel)',
-          boxShadow: `0 20px 60px -10px rgba(0,0,0,0.8), 0 0 0 1px ${palette.bull}30`,
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false),
+          boxShadow: `0 20px 60px -10px rgba(0,0,0,0.85), 0 0 30px ${hexToRgba(palette.poc || palette.bull, 0.2)}`,
         }}
-        className="w-full sm:w-[480px] md:w-[540px] h-full sm:h-[calc(100vh-80px)] pointer-events-auto sm:rounded-2xl border flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 text-[var(--color-text)]"
+        className="w-full sm:w-[480px] md:w-[540px] h-full sm:h-[calc(100vh-80px)] pointer-events-auto sm:rounded-2xl border flex flex-col overflow-hidden shadow-2xl backdrop-blur-2xl animate-in zoom-in-95 duration-150 text-[var(--color-text)]"
       >
+        {/* Top Accent Gradient Line */}
+        <div 
+          className="h-[3px] w-full shrink-0"
+          style={{
+            background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`
+          }}
+        />
         {/* Header */}
         <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-b border-[var(--color-border)] bg-[var(--color-panel-header)]">
           <div className="flex items-center gap-2.5">

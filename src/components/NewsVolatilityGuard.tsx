@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ChartNewsEconomicEvent } from './ChartNewsEventModal';
 import { tradingAudio } from '../utils/audioSynth';
+import { useTheme } from '../context/ThemeContext';
 
 interface NewsVolatilityGuardProps {
   events: ChartNewsEconomicEvent[];
@@ -27,6 +28,7 @@ export const NewsVolatilityGuard: React.FC<NewsVolatilityGuardProps> = ({
   onOpenAiAgent,
   className = ''
 }) => {
+  const { palette, isLight } = useTheme();
   const [now, setNow] = useState<number>(Date.now());
   const [isPaused, setIsPaused] = useState<boolean>(() => {
     try {
@@ -97,19 +99,37 @@ export const NewsVolatilityGuard: React.FC<NewsVolatilityGuardProps> = ({
   return (
     <div
       id="news-volatility-guard-banner"
+      style={{
+        background: isPaused 
+          ? (isLight 
+              ? 'linear-gradient(135deg, rgba(16,185,129,0.18) 0%, rgba(255,255,255,0.90) 50%, rgba(16,185,129,0.06) 100%)' 
+              : 'linear-gradient(135deg, rgba(16,185,129,0.18) 0%, rgba(8,12,20,0.82) 50%, rgba(4,6,12,0.92) 100%)')
+          : (isLight 
+              ? `linear-gradient(135deg, rgba(244,63,94,0.18) 0%, rgba(255,255,255,0.90) 50%, ${palette.bull}0e 100%)` 
+              : `linear-gradient(135deg, rgba(244,63,94,0.18) 0%, rgba(8,12,20,0.82) 50%, ${palette.bull}0e 100%)`),
+      }}
       className={`relative overflow-hidden rounded-xl border backdrop-blur-2xl transition-all duration-300 shadow-2xl ${
         isPaused 
-          ? 'bg-gradient-to-r from-emerald-950/90 via-slate-900/95 to-cyan-950/90 border-emerald-500/50 shadow-[0_0_25px_rgba(16,185,129,0.25)]'
-          : 'bg-gradient-to-r from-rose-950/90 via-slate-950/95 to-amber-950/90 border-rose-500/60 shadow-[0_0_25px_rgba(244,63,94,0.3)] animate-pulse'
+          ? 'border-emerald-500/40 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_25px_rgba(16,185,129,0.2)]'
+          : 'border-rose-500/50 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_25px_rgba(244,63,94,0.25)]'
       } ${className}`}
     >
+      {/* Top Accent Bar */}
+      <div 
+        className="absolute top-0 left-0 right-0 h-[2px] z-20"
+        style={{
+          backgroundColor: isPaused ? '#10b981' : '#f43f5e',
+          boxShadow: isPaused ? '0 0 8px rgba(16,185,129,0.5)' : '0 0 8px rgba(244,63,94,0.5)'
+        }}
+      />
+
       {/* Background Warning Glow */}
       <div className={`absolute top-0 right-0 w-48 h-full blur-2xl pointer-events-none opacity-20 ${isPaused ? 'bg-emerald-500' : 'bg-rose-600'}`} />
 
       {/* Corner Absolute Close Button */}
       <button
         onClick={() => setIsDismissed(true)}
-        className="absolute top-2.5 right-3 text-zinc-400 hover:text-rose-300 bg-white/5 hover:bg-white/15 p-1 rounded-full transition-all cursor-pointer z-20 border border-white/10 shadow-sm flex items-center justify-center"
+        className="absolute top-2.5 right-3 text-zinc-400 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] p-1 rounded-lg transition-all cursor-pointer z-20 border border-white/10 flex items-center justify-center"
         title="Tutup Peringatan"
       >
         <X size={14} />
@@ -121,7 +141,7 @@ export const NewsVolatilityGuard: React.FC<NewsVolatilityGuardProps> = ({
           <div className={`p-1.5 rounded-lg border flex items-center justify-center shrink-0 ${
             isPaused
               ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-              : 'bg-rose-500/25 border-rose-500/50 text-rose-300 animate-ping-slow'
+              : 'bg-rose-500/20 border-rose-500/40 text-rose-300'
           }`}>
             {isPaused ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
           </div>
@@ -134,7 +154,7 @@ export const NewsVolatilityGuard: React.FC<NewsVolatilityGuardProps> = ({
                 {isPaused ? '🛡️ SCALPING GUARD AKTIF (RISIKO TERKUNCI)' : '⚠️ PERINGATAN PELEBARAN SPREAD EKSTRIM'}
               </span>
 
-              <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-white/10 border border-white/15 text-zinc-200">
+              <span className="px-2 py-0.5 rounded-md font-mono text-[10px] font-bold bg-white/[0.04] border border-white/10 text-zinc-200">
                 ⏱ {countdownStr}
               </span>
 
@@ -185,7 +205,7 @@ export const NewsVolatilityGuard: React.FC<NewsVolatilityGuardProps> = ({
                   `Saya sedang bersiap menghadapi event berisiko tinggi "${dangerEvent.event}" (${dangerEvent.currency}). Hitungan mundur: ${countdownStr}. Berikan analisa dampak terhadap spread dan rekomendasi posisi order.`
                 );
               }}
-              className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-zinc-300 hover:text-white font-mono text-xs font-medium transition-colors cursor-pointer"
+              className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white font-mono text-xs transition-colors cursor-pointer"
               title="Konsultasi Strategi Risiko"
             >
               Tanya AI
@@ -195,10 +215,10 @@ export const NewsVolatilityGuard: React.FC<NewsVolatilityGuardProps> = ({
           {/* Close / Tutup Button */}
           <button
             onClick={() => setIsDismissed(true)}
-            className="px-2 py-1.5 rounded-lg bg-white/10 hover:bg-rose-500/30 border border-white/20 hover:border-rose-500/50 text-zinc-300 hover:text-rose-200 font-mono text-xs font-semibold transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+            className="px-2.5 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white font-mono text-xs transition-all cursor-pointer flex items-center gap-1"
             title="Tutup Peringatan Berita Ini"
           >
-            <X size={14} className="text-rose-400" />
+            <X size={13} className="text-zinc-400" />
             <span>Tutup</span>
           </button>
         </div>

@@ -2,9 +2,10 @@ import React from 'react';
 import { Keyboard } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 
 const CompactHotkeyHud: React.FC = () => {
-  const { palette: currentPalette } = useTheme();
+  const { palette: currentPalette, isLight } = useTheme();
 
   const hotkeys = [
     { keys: ['Shift', 'B'], label: 'Buy', color: currentPalette.bull },
@@ -19,9 +20,11 @@ const CompactHotkeyHud: React.FC = () => {
     <motion.div 
       drag
       dragMomentum={false}
-      className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 px-2 py-0.5 rounded-full shadow-2xl select-none cursor-grab active:cursor-grabbing border border-[var(--color-border)]/30 bg-[var(--color-bg)]/40 backdrop-blur-xl group"
+      className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 px-2 py-0.5 rounded-full shadow-2xl select-none cursor-grab active:cursor-grabbing border backdrop-blur-2xl group"
       style={{
-        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+        background: getThemeModalGradient(currentPalette, isLight),
+        borderColor: getThemeCardBorder(currentPalette, false),
+        boxShadow: `0 12px 36px rgba(0,0,0,0.8), 0 0 15px ${hexToRgba(currentPalette.bull, 0.2)}`,
       }}
     >
       {/* Draggable Handle */}

@@ -374,11 +374,13 @@ export default function LandingPage({ onEnterTerminal }: LandingPageProps) {
       {/* ─── Ticker Strip ─── */}
       <TickerStrip />
 
-      {/* ─── Nav ─── */}
+      {/* ─── Nav (Premium Glassmorphic Header) ─── */}
       <nav 
-        className="relative z-20 flex items-center justify-between px-4 sm:px-6 lg:px-10 py-3 backdrop-blur-2xl bg-[#02040a]/75 border-b border-white/[0.08]"
+        className="relative z-20 flex items-center justify-between px-4 sm:px-6 lg:px-10 py-3.5 backdrop-blur-3xl border-b transition-colors duration-500"
         style={{
-          boxShadow: `0 4px 20px -2px rgba(0,0,0,0.5), 0 1px 0 0 ${palette.bull}15`,
+          background: 'rgba(10, 15, 30, 0.4)',
+          borderColor: 'rgba(255, 255, 255, 0.08)',
+          boxShadow: `0 8px 32px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 1px 0 0 ${palette.bull}15`,
         }}
       >
         <div className="flex items-center gap-2.5 sm:gap-3.5">
@@ -387,7 +389,7 @@ export default function LandingPage({ onEnterTerminal }: LandingPageProps) {
             MountAlgo
           </span>
           <span 
-            className="hidden sm:inline text-[9px] px-2.5 py-0.5 rounded-full font-mono font-bold border border-white/15 bg-white/[0.05] text-zinc-300 uppercase tracking-widest backdrop-blur-md"
+            className="hidden sm:inline text-[9px] px-2.5 py-0.5 rounded-full font-mono font-bold border border-white/10 bg-white/[0.03] text-zinc-300 uppercase tracking-widest backdrop-blur-md"
           >
             Pro Terminal
           </span>
@@ -403,7 +405,7 @@ export default function LandingPage({ onEnterTerminal }: LandingPageProps) {
               background: themeDarkGradient.background,
               boxShadow: themeDarkGradient.boxShadow,
             }}
-            className="group relative px-4 py-1.5 rounded-lg font-bold text-[10px] tracking-wider uppercase cursor-pointer transition-all duration-300 hover:brightness-125 active:scale-[0.97] text-white border border-white/20 backdrop-blur-md shadow-md"
+            className="group relative px-4 py-1.5 rounded-xl font-bold text-[10px] tracking-wider uppercase cursor-pointer transition-all duration-300 hover:brightness-125 active:scale-[0.97] text-white border border-white/20 backdrop-blur-md shadow-md"
           >
             <span className="relative z-10 flex items-center gap-1.5 font-bold text-white">
               Enter Terminal
@@ -503,7 +505,15 @@ export default function LandingPage({ onEnterTerminal }: LandingPageProps) {
                 className="mt-12 sm:mt-16 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 w-full max-w-2xl"
               >
                 {metrics.map((m, i) => (
-                  <div key={i} className="group flex flex-col items-center gap-1.5 p-3.5 rounded-xl bg-white/[0.03] backdrop-blur-md border border-white/[0.08] hover:border-white/20 hover:bg-white/[0.06] transition-all duration-300 shadow-lg">
+                  <div 
+                    key={i} 
+                    style={{
+                      background: 'rgba(15, 23, 42, 0.25)',
+                      borderColor: 'rgba(255, 255, 255, 0.06)',
+                      boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.04)'
+                    }}
+                    className="group flex flex-col items-center gap-2 p-4 rounded-2xl border backdrop-blur-xl hover:border-white/15 hover:bg-white/[0.04] transition-all duration-300"
+                  >
                     <m.icon size={15} className="text-zinc-400 group-hover:text-white transition-colors mb-0.5" />
                     <span className="text-base sm:text-lg font-black tracking-tight text-white">{m.value}</span>
                     <span className="text-[9px] text-zinc-400 font-mono uppercase tracking-widest text-center">{m.label}</span>
@@ -551,12 +561,14 @@ export default function LandingPage({ onEnterTerminal }: LandingPageProps) {
                 viewport={{ once: true, margin: '-50px' }}
                 transition={{ delay: i * 0.05, duration: 0.6 }}
                 style={{
-                  boxShadow: `0 8px 32px rgba(0,0,0,0.45)`,
+                  boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)',
+                  background: 'rgba(15, 23, 42, 0.2)',
+                  borderColor: 'rgba(255, 255, 255, 0.06)'
                 }}
-                className="group p-5 sm:p-6 rounded-2xl border border-white/[0.08] bg-white/[0.025] hover:bg-white/[0.06] hover:border-white/20 transition-all duration-300 backdrop-blur-xl hover:shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+                className="group p-5 sm:p-6 rounded-2xl border hover:bg-slate-900/40 hover:border-white/15 transition-all duration-300 backdrop-blur-2xl hover:shadow-[0_12px_40px_rgba(0,0,0,0.65)]"
               >
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-105 border border-white/15 bg-white/[0.05] text-white shadow-inner"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:scale-105 border border-white/10 bg-white/[0.03] text-white shadow-inner"
                   style={{
                     boxShadow: `0 4px 16px -2px ${f.color}35`,
                   }}

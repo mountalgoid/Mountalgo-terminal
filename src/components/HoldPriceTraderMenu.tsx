@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useTrade } from '../context/TradeContext';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 import { PriceAlert } from './PriceAlerts';
 
 export interface HoldPriceTraderProps {
@@ -42,7 +43,7 @@ export default function HoldPriceTraderMenu({
   positionY,
   onAddDrawing
 }: HoldPriceTraderProps) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
   const {
     executeOrder,
     volumePresets,
@@ -224,14 +225,22 @@ export default function HoldPriceTraderMenu({
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[var(--color-bg)]/60 backdrop-blur-sm p-3 animate-in fade-in duration-150 select-none">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 animate-in fade-in duration-150 select-none">
       <div 
         style={{
-          borderColor: `${palette.bull}80`,
-          boxShadow: `0 0 35px -5px ${palette.bull}30, 0 20px 40px rgba(0,0,0,0.8)`
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false),
+          boxShadow: `0 25px 50px -12px rgba(0,0,0,0.85), 0 0 35px ${hexToRgba(palette.bull, 0.25)}`
         }}
-        className="bg-[var(--color-panel)] border-2 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col"
+        className="border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col backdrop-blur-2xl animate-in zoom-in-95 duration-150"
       >
+        {/* Accent Gradient Line */}
+        <div 
+          className="h-[3px] w-full shrink-0"
+          style={{
+            background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`
+          }}
+        />
         {/* Header */}
         <div className="px-4 py-3 bg-[var(--color-panel-header)] border-b border-[var(--color-border)] flex items-center justify-between">
           <div className="flex items-center gap-2.5">

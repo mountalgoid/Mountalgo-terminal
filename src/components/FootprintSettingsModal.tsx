@@ -26,6 +26,7 @@ import {
   SummaryRowMode,
 } from '../utils/footprints';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 
 interface FootprintSettingsModalProps {
   isOpen: boolean;
@@ -42,7 +43,7 @@ export default function FootprintSettingsModal({
   settings,
   onUpdateSettings,
 }: FootprintSettingsModalProps) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
   const [activeTab, setActiveTab] = useState<SettingsTab>('visual');
 
   if (!isOpen) return null;
@@ -60,9 +61,21 @@ export default function FootprintSettingsModal({
   return (
     <div className="fixed top-[60px] left-4 right-4 sm:left-auto bottom-4 z-modal-ultimate flex flex-col justify-start pointer-events-none animate-in fade-in duration-150">
       <div
-        className="bg-[var(--color-panel)] backdrop-blur-2xl rounded-2xl w-full sm:w-[480px] md:w-[600px] h-[calc(100vh-80px)] flex flex-col shadow-2xl overflow-hidden border border-[var(--color-border)] pointer-events-auto"
-        style={{ boxShadow: `0 0 35px ${palette.bull}20` }}
+        className="backdrop-blur-2xl rounded-2xl w-full sm:w-[480px] md:w-[600px] h-[calc(100vh-80px)] flex flex-col shadow-2xl overflow-hidden border pointer-events-auto relative"
+        style={{ 
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false),
+          boxShadow: `0 25px 50px -12px rgba(0,0,0,0.85), 0 0 35px ${hexToRgba(palette.bull, 0.25)}` 
+        }}
       >
+        {/* Top Accent Gradient Bar like News Bar & News Calendar */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-[2.5px] z-20 pointer-events-none"
+          style={{
+            background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`,
+            boxShadow: `0 0 10px ${hexToRgba(palette.bull, 0.4)}`
+          }}
+        />
         {/* Modal Header */}
         <div className="px-5 py-3.5 border-b border-[var(--color-border)] flex items-center justify-between bg-[var(--color-bg)]/80">
           <div className="flex items-center gap-3">

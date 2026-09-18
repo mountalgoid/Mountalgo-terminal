@@ -3,6 +3,12 @@ import { Search, TrendingUp, X, DollarSign, Globe, Gem, Zap, RefreshCw, ArrowUpR
 import { useTheme } from '../context/ThemeContext';
 import { useTrade } from '../context/TradeContext';
 import { formatSmartPrice } from '../utils/numberFormatters';
+import { 
+  hexToRgba, 
+  getThemeModalGradient, 
+  getThemeCardGradient, 
+  getThemeCardBorder 
+} from '../utils/themeGradient';
 
 export type AssetClass = 'Crypto' | 'Forex' | 'Commodity';
 
@@ -399,7 +405,7 @@ export default function SymbolSelectorModal({
   onClose,
   onSelectSymbol,
 }: SymbolSelectorModalProps) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
   const { 
     activeAccount, 
     brokerSymbols = {} as Record<string, any[]>, 
@@ -797,9 +803,30 @@ export default function SymbolSelectorModal({
 
   return (
     <div id="symbol-selector-modal" className="fixed top-[60px] left-4 right-4 sm:left-auto bottom-4 z-modal-ultimate flex flex-col justify-start pointer-events-none animate-fadeIn">
-      <div style={{ borderColor: `${palette.poc}60` }} className="bg-[var(--color-panel)]/95 backdrop-blur-2xl border rounded-2xl shadow-2xl w-full sm:w-[420px] md:w-[480px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto">
+      <div 
+        style={{ 
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false),
+          boxShadow: `0 20px 50px -10px rgba(0,0,0,0.85), 0 0 30px ${hexToRgba(palette.poc || palette.bull, 0.2)}`
+        }} 
+        className="backdrop-blur-2xl border rounded-2xl shadow-2xl w-full sm:w-[420px] md:w-[480px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto"
+      >
+        {/* Top Accent Gradient Line */}
+        <div 
+          className="h-[3px] w-full shrink-0"
+          style={{
+            background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`
+          }}
+        />
+
         {/* Header */}
-        <div className="p-3 sm:p-4 border-b border-[var(--color-border)] flex items-center justify-between bg-[var(--color-bg)]/50">
+        <div 
+          className="p-3 sm:p-4 border-b flex items-center justify-between"
+          style={{
+            background: `linear-gradient(90deg, ${hexToRgba(palette.bull, 0.1)} 0%, rgba(255,255,255,0.02) 50%, ${hexToRgba(palette.bear, 0.1)} 100%)`,
+            borderBottomColor: getThemeCardBorder(palette, false)
+          }}
+        >
           <div className="flex items-center gap-2.5">
             <div>
               <h2 className="font-bold text-[var(--color-text)] text-sm sm:text-base tracking-wide flex items-center gap-2">

@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { ChartNewsEconomicEvent } from './ChartNewsEventModal';
 import { tradingAudio } from '../utils/audioSynth';
+import { useTheme } from '../context/ThemeContext';
+import { getThemeBeaconGradient, getThemeCardBorder, getThemeCardBoxShadow } from '../utils/themeGradient';
 
 interface ChartNewsBeaconHUDProps {
   events: ChartNewsEconomicEvent[];
@@ -28,6 +30,7 @@ export const ChartNewsBeaconHUD: React.FC<ChartNewsBeaconHUDProps> = ({
   onSelectEvent,
   onOpenAiAgent
 }) => {
+  const { palette, isLight } = useTheme();
   const [now, setNow] = useState<number>(Date.now());
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(() => {
@@ -124,14 +127,19 @@ export const ChartNewsBeaconHUD: React.FC<ChartNewsBeaconHUDProps> = ({
       <div
         id="chart-news-beacon-hud-minimized"
         onClick={() => setIsMinimized(false)}
-        className="absolute top-14 right-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-xl bg-[#090e1a]/90 border border-rose-500/50 shadow-[0_4px_20px_rgba(244,63,94,0.35)] cursor-pointer hover:scale-105 transition-all select-none animate-in fade-in"
+        style={{
+          borderColor: isHighImpact ? undefined : getThemeCardBorder(palette, true),
+          boxShadow: isHighImpact ? undefined : getThemeCardBoxShadow(palette, true),
+          background: getThemeBeaconGradient(palette, isHighImpact, isLight),
+        }}
+        className={`absolute top-14 right-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-xl border ${isHighImpact ? 'border-rose-500/50 shadow-[0_4px_20px_rgba(244,63,94,0.35)]' : 'shadow-lg'} cursor-pointer hover:scale-105 transition-all select-none animate-in fade-in`}
       >
         <div className="relative flex items-center justify-center">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping absolute" />
-          <span className="w-2 h-2 rounded-full bg-rose-400 relative" />
+          <span className={`w-2.5 h-2.5 rounded-full ${isHighImpact ? 'bg-rose-500' : ''} animate-ping absolute`} style={{ backgroundColor: isHighImpact ? undefined : palette.bull }} />
+          <span className={`w-2 h-2 rounded-full ${isHighImpact ? 'bg-rose-400' : ''} relative`} style={{ backgroundColor: isHighImpact ? undefined : palette.bull }} />
         </div>
         <span className="text-xs">{imminentEvent.flag}</span>
-        <span className="text-[11px] font-mono font-bold text-rose-300">
+        <span className="text-[11px] font-mono font-bold" style={{ color: isHighImpact ? '#fca5a5' : palette.bull }}>
           {imminentEvent.currency} {isPast ? 'LIVE' : timeStr}
         </span>
         <ChevronDown size={13} className="text-zinc-400" />
@@ -144,21 +152,52 @@ export const ChartNewsBeaconHUD: React.FC<ChartNewsBeaconHUDProps> = ({
       id="chart-news-beacon-hud"
       className="absolute top-14 right-4 z-40 max-w-sm w-auto select-none pointer-events-auto animate-in fade-in duration-200"
     >
-      <div className="relative rounded-xl backdrop-blur-2xl bg-gradient-to-r from-rose-950/85 via-[#080d1a]/95 to-[#0b1426]/90 border border-rose-500/50 shadow-[0_8px_30px_rgba(0,0,0,0.8),0_0_25px_rgba(244,63,94,0.25)] p-3 text-white font-sans overflow-hidden">
+      <div
+        style={{
+          borderColor: isHighImpact ? undefined : getThemeCardBorder(palette, false),
+          boxShadow: isHighImpact ? undefined : getThemeCardBoxShadow(palette, false),
+          background: getThemeBeaconGradient(palette, isHighImpact, isLight),
+        }}
+        className={`relative rounded-xl backdrop-blur-2xl border ${isHighImpact ? 'border-rose-500/50 shadow-[0_8px_32px_rgba(0,0,0,0.8),0_0_25px_rgba(244,63,94,0.25)]' : 'border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)]'} p-3 text-white font-sans overflow-hidden`}
+      >
+        {/* Top Accent Bar */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-[2px] z-20"
+          style={{
+            backgroundColor: isHighImpact ? '#f43f5e' : palette.bull,
+            boxShadow: isHighImpact ? '0 0 8px rgba(244,63,94,0.6)' : `0 0 8px ${palette.bull}`
+          }}
+        />
+
         {/* Radar Ping Glow Effect in Background */}
-        <div className="absolute -top-6 -left-6 w-20 h-20 bg-rose-500/15 rounded-full blur-xl pointer-events-none animate-pulse" />
+        <div
+          className="absolute -top-6 -left-6 w-20 h-20 rounded-full blur-xl pointer-events-none animate-pulse"
+          style={{ backgroundColor: isHighImpact ? 'rgba(244,63,94,0.15)' : `${palette.bull}15` }}
+        />
 
         {/* Top Mini Header */}
         <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/10">
           <div className="flex items-center gap-2">
             {/* Visual Radar Beacon Animation */}
             <div className="relative flex items-center justify-center w-4 h-4">
-              <span className={`w-3 h-3 rounded-full absolute ${isHighImpact ? 'bg-rose-500 animate-ping opacity-75' : 'bg-amber-500 animate-ping opacity-75'}`} />
-              <span className={`w-2 h-2 rounded-full relative ${isHighImpact ? 'bg-rose-400 shadow-[0_0_8px_#f43f5e]' : 'bg-amber-400 shadow-[0_0_8px_#f59e0b]'}`} />
+              <span
+                className={`w-3 h-3 rounded-full absolute ${isHighImpact ? 'bg-rose-500 animate-ping opacity-75' : 'animate-ping opacity-75'}`}
+                style={{ backgroundColor: isHighImpact ? undefined : palette.bull }}
+              />
+              <span
+                className={`w-2 h-2 rounded-full relative ${isHighImpact ? 'bg-rose-400 shadow-[0_0_8px_#f43f5e]' : ''}`}
+                style={{
+                  backgroundColor: isHighImpact ? undefined : palette.bull,
+                  boxShadow: isHighImpact ? undefined : `0 0 8px ${palette.bull}`
+                }}
+              />
             </div>
 
-            <span className="text-[10px] font-mono font-black tracking-wider text-rose-300 uppercase flex items-center gap-1">
-              <Flame size={12} className="text-rose-400" />
+            <span
+              className={`text-[10px] font-mono font-black tracking-wider uppercase flex items-center gap-1 ${isHighImpact ? 'text-rose-300' : ''}`}
+              style={{ color: isHighImpact ? undefined : palette.bull }}
+            >
+              <Flame size={12} className={isHighImpact ? 'text-rose-400' : ''} style={{ color: isHighImpact ? undefined : palette.bull }} />
               {isPast ? 'KATALIS BERITA BARU RILIS' : 'BEACON RISIKO BERITA TINGGI'}
             </span>
           </div>
@@ -166,21 +205,21 @@ export const ChartNewsBeaconHUD: React.FC<ChartNewsBeaconHUDProps> = ({
           <div className="flex items-center gap-1">
             <button
               onClick={handleToggleMute}
-              className="p-1 rounded bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              className="p-1 rounded-md bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
               title={isMuted ? 'Nyalakan Audio Alert' : 'Bisukan Audio Alert'}
             >
-              {isMuted ? <VolumeX size={12} className="text-rose-400" /> : <Volume2 size={12} className="text-cyan-300" />}
+              {isMuted ? <VolumeX size={12} className="text-rose-400" /> : <Volume2 size={12} className="text-zinc-400" />}
             </button>
             <button
               onClick={() => setIsMinimized(true)}
-              className="p-1 rounded bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              className="p-1 rounded-md bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
               title="Kecilkan (Minimize)"
             >
               <ChevronUp size={12} />
             </button>
             <button
               onClick={() => setIsDismissed(true)}
-              className="p-1 rounded bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-rose-400 transition-colors cursor-pointer"
+              className="p-1 rounded-md bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-zinc-400 hover:text-rose-400 transition-colors cursor-pointer"
               title="Tutup Beacon"
             >
               <X size={12} />
@@ -198,7 +237,7 @@ export const ChartNewsBeaconHUD: React.FC<ChartNewsBeaconHUDProps> = ({
                   {imminentEvent.event}
                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-400 mt-0.5">
-                  <span className="font-bold text-cyan-300">{imminentEvent.currency}</span>
+                  <span className="font-bold" style={{ color: palette.bull }}>{imminentEvent.currency}</span>
                   <span>•</span>
                   <span>Frc: <strong className="text-zinc-200">{imminentEvent.forecast || '-'}</strong></span>
                   <span>•</span>
@@ -238,9 +277,9 @@ export const ChartNewsBeaconHUD: React.FC<ChartNewsBeaconHUDProps> = ({
           <div className="flex items-center justify-between gap-2 pt-1">
             <button
               onClick={() => onSelectEvent(imminentEvent)}
-              className="flex-1 py-1.5 px-2.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-[11px] font-mono font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              className="flex-1 py-1.5 px-2.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-[11px] font-mono font-bold text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <Zap size={12} className="text-amber-400" />
+              <Zap size={12} className="text-zinc-400" />
               <span>Detail & Live Print</span>
             </button>
 
@@ -251,10 +290,10 @@ export const ChartNewsBeaconHUD: React.FC<ChartNewsBeaconHUDProps> = ({
                     `Peringatan volatilitas katalis "${imminentEvent.event}" (${imminentEvent.currency}) pada ${activeSymbol}. Waktu rilis: ${isPast ? 'Baru rilis' : timeStr}. Berikan strategi navigasi risiko likuiditas dan pelebaran spread.`
                   );
                 }}
-                className="py-1.5 px-2.5 rounded-lg bg-gradient-to-r from-cyan-500/30 to-blue-600/30 hover:from-cyan-500/40 hover:to-blue-600/40 border border-cyan-500/40 text-[11px] font-mono font-bold text-cyan-300 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                className="py-1.5 px-2.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-[11px] font-mono font-bold text-white transition-all flex items-center justify-center gap-1 cursor-pointer"
                 title="Konsultasi MountAlgo AI"
               >
-                <Bot size={12} />
+                <Bot size={12} className="text-zinc-400" />
                 <span>AI Skenario</span>
               </button>
             )}

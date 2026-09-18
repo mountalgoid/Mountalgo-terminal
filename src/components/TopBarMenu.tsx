@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Settings, Keyboard, BellRing, Monitor, Smartphone, RotateCw, LayoutGrid, Maximize, Minimize, MoreVertical, Wallet, Award, Crosshair, Contrast, SunMoon, Clock, Zap, Volume2, VolumeX, Lock, Unlock, TrendingUp, PieChart, ZoomIn, ZoomOut, Sparkles, Newspaper, Bot, Flame } from 'lucide-react';
 import { useTrade } from '../context/TradeContext';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardGradient, getThemeCardBorder } from '../utils/themeGradient';
 import { SystemPerformanceHud } from './SystemPerformanceHud';
 import { tradingAudio, AudioProfile } from '../utils/audioSynth';
 import { detectScreenResolution } from '../utils/resolutionDetector';
@@ -77,6 +78,7 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
   } = useTrade();
   const {
     palette,
+    isLight,
     isHighContrast,
     setIsHighContrast,
     isAutoOsTheme,
@@ -161,11 +163,14 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
 
       {/* Session Duration Tracker - Hidden on smallest screens */}
       <div 
-        style={{ backgroundColor: 'var(--color-bg)', borderColor: 'var(--color-border)' }}
-        className="hidden md:flex items-center gap-1.5 h-7 text-xs px-2 rounded-sm border border-[var(--color-border)] font-mono font-bold text-[var(--color-text)] shrink-0 bg-[var(--color-panel)]"
+        style={{ 
+          background: isLight ? 'rgba(0,0,0,0.04)' : `${palette.bull}12`, 
+          borderColor: hexToRgba(palette.bull, 0.35) 
+        }}
+        className="hidden md:flex items-center gap-1.5 h-7 text-xs px-2.5 rounded-md border font-mono font-bold text-[var(--color-text)] shrink-0 backdrop-blur-md"
         title="Durasi Sesi Perdagangan Aktif"
       >
-        <Clock size={12} className="text-[var(--color-text-muted)] shrink-0 animate-pulse" />
+        <Clock size={12} style={{ color: palette.bull }} className="shrink-0 animate-pulse" />
         <span className="tabular-nums">{formatDuration(elapsedSeconds)}</span>
         <button 
           onClick={handleResetSession}
@@ -370,16 +375,11 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
       {setIsNewsModalOpen && (
         <button
           onClick={() => setIsNewsModalOpen(true)}
-          style={{
-            borderColor: `${palette.bull}40`,
-            backgroundColor: `${palette.bull}12`,
-            color: palette.bull
-          }}
-          className={`${btnClass} flex items-center gap-1.5 font-bold hover:brightness-125 shadow-sm transition-all`}
+          className={`${btnClass} flex items-center gap-1.5 font-bold transition-all bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white`}
           title="Buka Real-Time Financial News Feeds & Kalender Berita Ekonomi Realtime"
         >
-          <Newspaper size={13} style={{ color: palette.bull }} className="shrink-0" />
-          <span className="hidden md:inline font-mono">News & Kalender</span>
+          <Newspaper size={13} className="shrink-0 text-zinc-400" />
+          <span className="hidden md:inline font-mono text-white">News & Kalender</span>
           <span className="w-1.5 h-1.5 rounded-full animate-pulse hidden sm:inline" style={{ backgroundColor: palette.bull }} />
         </button>
       )}
@@ -411,8 +411,12 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
       {setIsEquityModalOpen && (
         <button
           onClick={() => setIsEquityModalOpen(true)}
-          
-          className={`${btnClass} hidden sm:flex font-bold hover:brightness-125`}
+          style={{
+            borderColor: hexToRgba(palette.bull, 0.4),
+            background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.18)} 0%, ${hexToRgba(palette.bear, 0.12)} 100%)`,
+            boxShadow: `0 0 10px ${hexToRgba(palette.bull, 0.15)}`
+          }}
+          className={`${btnClass} hidden sm:flex items-center gap-1.5 font-bold hover:brightness-125 text-white transition-all shadow-sm`}
           title="Buka Unified Cross-Account Net Worth Aggregator"
         >
           <PieChart size={12} className="shrink-0" style={{ color: palette.bull }} />
@@ -423,7 +427,6 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
       {fullscreenWidget && (
         <button
           onClick={() => setFullscreenWidget(null)}
-          
           className={`${btnClass}`}
           title="Kembali ke tampilan Multi-Layout Grid"
         >
@@ -434,7 +437,6 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
 
       <button
         onClick={() => setIsZenMode(true)}
-        
         className={`${btnClass}`}
         title="Minimize Semua Layout (Zen Mode)"
       >
@@ -446,29 +448,44 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          
           ref={buttonRef}
-          className={`${btnClass} justify-center`}
+          style={isOpen ? {
+            borderColor: hexToRgba(palette.bull, 0.5),
+            background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.25)} 0%, ${hexToRgba(palette.bear, 0.2)} 100%)`,
+            boxShadow: `0 0 12px ${hexToRgba(palette.bull, 0.25)}`
+          } : {}}
+          className={`${btnClass} justify-center transition-all ${isOpen ? 'brightness-125' : ''}`}
           title="Menu Terminal"
           aria-label="Menu Terminal"
         >
-          <MoreVertical size={14} />
+          <MoreVertical size={14} style={{ color: isOpen ? palette.bull : undefined }} />
         </button>
 
         {isOpen && createPortal(
           <>
             <div 
-              className="fixed inset-0 z-[99998] bg-black/40 backdrop-blur-[1px]"
+              className="fixed inset-0 z-[99998] bg-black/50 backdrop-blur-[2px]"
               onClick={() => setIsOpen(false)}
             />
             <div 
               style={{ 
                 top: menuPos.top,
                 right: Math.min(menuPos.right, window.innerWidth - 272),
+                background: getThemeModalGradient(palette, isLight),
+                borderColor: getThemeCardBorder(palette, false),
+                boxShadow: `0 20px 50px rgba(0,0,0,0.85), 0 0 25px ${hexToRgba(palette.bull, 0.18)}`
               }}
               ref={portalMenuRef}
-              className="fixed w-64 sm:w-72 rounded-2xl border border-[var(--color-border)]/30 bg-[var(--color-panel)]/95 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-dropdown-ultimate overflow-hidden text-xs sm:text-sm animate-in slide-in-from-top-2 fade-in duration-150 flex flex-col max-h-[calc(100vh-60px)] sm:max-h-[calc(100vh-80px)]"
+              className="fixed w-64 sm:w-72 rounded-2xl border backdrop-blur-2xl z-dropdown-ultimate overflow-hidden text-xs sm:text-sm animate-in slide-in-from-top-2 fade-in duration-150 flex flex-col max-h-[calc(100vh-60px)] sm:max-h-[calc(100vh-80px)] pointer-events-auto"
             >
+              {/* Top Accent Gradient Line */}
+              <div 
+                className="h-[2px] w-full shrink-0"
+                style={{
+                  background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`
+                }}
+              />
+
               <div className="p-1 sm:p-1.5 space-y-0.5 flex flex-col overflow-y-auto max-h-[calc(100vh-70px)] sm:max-h-[calc(100vh-90px)] custom-scrollbar">
                 <button
                   onClick={() => { setIsAccountModalOpen(true); setIsOpen(false); }}
@@ -504,15 +521,15 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
                 {setIsNewsModalOpen && (
                   <button
                     onClick={() => { setIsNewsModalOpen(true); setIsOpen(false); }}
-                    className="flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-md sm:rounded-lg hover:bg-cyan-500/10 transition-colors w-full text-left cursor-pointer active:bg-cyan-500/20 min-h-[36px] sm:min-h-[42px]"
+                    className="flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-md sm:rounded-lg hover:bg-white/[0.06] transition-colors w-full text-left cursor-pointer active:bg-white/10 min-h-[36px] sm:min-h-[42px]"
                   >
-                    <Newspaper size={14} className="text-cyan-400" />
+                    <Newspaper size={14} className="shrink-0 text-zinc-400" />
                     <div className="flex flex-col flex-1 min-w-0">
                       <span className="font-semibold text-[11px] sm:text-xs text-white flex items-center gap-1.5">
                         News & Kalender Realtime
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: palette.bull }} />
                       </span>
-                      <span className="text-[9px] sm:text-[10px] text-cyan-300/80">Macro Releases & Market News</span>
+                      <span className="text-[9px] sm:text-[10px] text-zinc-400">Macro Releases & Market News</span>
                     </div>
                   </button>
                 )}
@@ -520,13 +537,25 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
                 {setIsAiAgentModalOpen && (
                   <button
                     onClick={() => { setIsAiAgentModalOpen(true); setIsOpen(false); }}
-                    className="flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-md sm:rounded-lg bg-gradient-to-r from-cyan-950/40 to-blue-950/30 hover:from-cyan-900/50 hover:to-blue-900/40 border border-cyan-500/30 transition-colors w-full text-left cursor-pointer active:scale-98 min-h-[36px] sm:min-h-[42px]"
+                    style={{
+                      background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.16)} 0%, ${hexToRgba(palette.bear, 0.10)} 100%)`,
+                      borderColor: hexToRgba(palette.bull, 0.35),
+                    }}
+                    className="flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-md sm:rounded-lg border transition-all w-full text-left cursor-pointer active:scale-98 min-h-[36px] sm:min-h-[42px] hover:brightness-125"
                   >
-                    <Bot size={14} className="text-cyan-400 animate-pulse" />
+                    <Bot size={14} style={{ color: palette.bull }} className="animate-pulse shrink-0" />
                     <div className="flex flex-col flex-1 min-w-0">
                       <span className="font-semibold text-[11px] sm:text-xs text-white flex items-center gap-1.5">
                         MountAlgo AI Agent
-                        <span className="text-[8px] font-mono px-1 rounded bg-cyan-500/20 text-cyan-300 font-bold">GEMINI 3.8</span>
+                        <span 
+                          style={{
+                            backgroundColor: hexToRgba(palette.bull, 0.2),
+                            color: palette.bull,
+                          }}
+                          className="text-[8px] font-mono px-1 rounded font-bold"
+                        >
+                          MULTI-AI
+                        </span>
                       </span>
                       <span className="text-[9px] sm:text-[10px] text-zinc-400">Order Flow & Setup Assistant</span>
                     </div>

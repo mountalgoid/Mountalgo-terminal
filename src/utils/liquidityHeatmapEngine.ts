@@ -1341,11 +1341,8 @@ export function getHoveredWhaleCluster(
     const cx = getX(wc.barIndex);
     const cy = getY(wc.price);
     const dist = Math.hypot(mouseX - cx, mouseY - cy);
-    if (dist <= wc.baseRadius + 14) {
-      return wc;
-    }
-    // Proximity to horizontal level ray extending rightward from cluster bar
-    if (mouseX >= cx - 8 && Math.abs(mouseY - cy) <= 6) {
+    // Only trigger tooltip when hovering directly on or extremely close to the bubble circle
+    if (dist <= wc.baseRadius + 16) {
       return wc;
     }
   }

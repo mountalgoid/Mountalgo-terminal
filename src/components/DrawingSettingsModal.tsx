@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DrawingItem, FibLevelConfig } from '../utils/drawingTools';
 import { X, Palette, Settings, Sliders, Check, Hash, Eye, Lock, Move, Trash2, Type } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 
 interface DrawingSettingsModalProps {
   isOpen: boolean;
@@ -18,7 +19,7 @@ export default function DrawingSettingsModal({
   onSave,
   onDelete,
 }: DrawingSettingsModalProps) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
 
   const [activeTab, setActiveTab] = useState<'style' | 'coords' | 'fib' | 'text' | 'risk'>('style');
   const [color, setColor] = useState('#3b82f6');
@@ -173,9 +174,20 @@ export default function DrawingSettingsModal({
   return (
     <div className="fixed inset-0 sm:top-[60px] sm:right-4 sm:bottom-4 sm:left-auto z-modal-ultimate flex flex-col justify-start pointer-events-none animate-fadeIn">
       <div 
-        style={{ borderColor: `${palette.bull}88` }}
-        className="bg-[var(--color-panel)]/95 backdrop-blur-2xl border sm:rounded-2xl shadow-2xl w-full sm:w-[420px] md:w-[480px] h-full sm:h-[calc(100vh-80px)] flex flex-col pointer-events-auto text-[var(--color-text)] font-sans text-xs"
+        style={{ 
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false),
+          boxShadow: `0 20px 50px -10px rgba(0,0,0,0.85), 0 0 30px ${hexToRgba(palette.poc || palette.bull, 0.2)}`
+        }}
+        className="backdrop-blur-2xl border sm:rounded-2xl shadow-2xl w-full sm:w-[420px] md:w-[480px] h-full sm:h-[calc(100vh-80px)] flex flex-col overflow-hidden pointer-events-auto text-[var(--color-text)] font-sans text-xs"
       >
+        {/* Top Accent Gradient Line */}
+        <div 
+          className="h-[3px] w-full shrink-0"
+          style={{
+            background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`
+          }}
+        />
         {/* Header */}
         <div className="bg-[var(--color-panel-header)] px-3 sm:px-4 py-2.5 sm:py-3 border-b border-[var(--color-border)] flex items-center justify-between">
           <div className="flex items-center gap-2">

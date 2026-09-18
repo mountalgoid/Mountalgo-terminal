@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Clock, Globe, Zap, Eye, EyeOff, ShieldCheck, Activity, Flame } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Clock, Globe, Zap, Eye, EyeOff, ShieldCheck, Activity, Flame, X } from 'lucide-react';
 import { getStoredTimezone, formatTimeInTimezone, getTimezoneMeta } from '../utils/timezone';
 import { TimezoneSelector } from './TimezoneSelector';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 
 interface SessionDef {
   id: string;
@@ -26,21 +27,35 @@ interface MarketSessionsOverlayProps {
   isVisible?: boolean;
   onToggleVisibility?: (visible: boolean) => void;
   className?: string;
+  variant?: 'minimal' | 'full';
 }
 
 export const MarketSessionsOverlay: React.FC<MarketSessionsOverlayProps> = ({
   isVisible: propIsVisible,
   onToggleVisibility,
-  className = ''
+  className = '',
+  variant = 'minimal'
 }) => {
-  const { palette, isHighContrast } = useTheme();
+  const { palette, isHighContrast, isLight } = useTheme();
   const [selectedTz, setSelectedTz] = useState<string>(() => getStoredTimezone());
   const [now, setNow] = useState<Date>(new Date());
-  const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  const [isExpanded, setIsExpanded] = useState<boolean>(variant === 'full');
+  const overlayRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState<boolean>(() => {
     if (typeof propIsVisible === 'boolean') return propIsVisible;
     return localStorage.getItem('mountalgo_show_market_sessions') !== 'false';
   });
+
+  useEffect(() => {
+    if (!isExpanded || variant !== 'minimal') return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (overlayRef.current && !overlayRef.current.contains(e.target as Node)) {
+        setIsExpanded(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isExpanded, variant]);
 
   useEffect(() => {
     if (typeof propIsVisible === 'boolean') {
@@ -111,6 +126,128 @@ export const MarketSessionsOverlay: React.FC<MarketSessionsOverlayProps> = ({
   const activeSessions = isWeekend ? [] : sessionStatuses.filter(s => s.isOpen);
   const isLondonNyOverlap = !isWeekend && sessionStatuses.find(s => s.id === 'london')?.isOpen && sessionStatuses.find(s => s.id === 'newyork')?.isOpen;
   const isTokyoLondonOverlap = !isWeekend && sessionStatuses.find(s => s.id === 'tokyo')?.isOpen && sessionStatuses.find(s => s.id === 'london')?.isOpen;
+
+  if (variant === 'minimal') {
+    return (
+      <div ref={overlayRef} className={`relative inline-block ${className}`}>
+        <button
+          onClick={() => setIsExpanded(prev => !prev)}
+          type="button"
+          style={isExpanded ? {
+            backgroundColor: `${palette.bull}20`,
+            color: palette.bull,
+            borderColor: `${palette.bull}60`,
+          } : {}}
+          className={`h-6 px-2 py-0.5 rounded border text-[10px] font-mono flex items-center gap-1 transition-all cursor-pointer shrink-0 ${
+            isExpanded
+              ? 'font-bold shadow-sm'
+              : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
+          }`}
+          title={isExpanded ? "Tutup Panel Sesi Pasar" : "Buka Panel Sesi Pasar"}
+        >
+          <Globe size={11} style={{ color: isExpanded ? palette.bull : 'inherit' }} />
+          <span>Sesi</span>
+          <span className={`w-1.5 h-1.5 rounded-full ${activeSessions.length > 0 ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
+        </button>
+
+        {isExpanded && (
+          <div 
+            style={{
+              borderColor: isHighContrast ? '#ffffff' : getThemeCardBorder(palette, false),
+              background: isHighContrast ? '#020308' : getThemeModalGradient(palette, isLight),
+              boxShadow: isHighContrast 
+                ? '0 0 0 1px #ffffff, 0 16px 40px rgba(0,0,0,0.9)' 
+                : `0 16px 40px -4px rgba(0,0,0,0.8), 0 0 20px ${hexToRgba(palette.bull, 0.2)}`
+            }}
+            className="absolute bottom-full mb-2 left-0 z-50 w-72 sm:w-80 border rounded-xl p-2.5 shadow-2xl backdrop-blur-2xl text-white animate-in fade-in zoom-in-95 duration-150 pointer-events-auto overflow-hidden"
+          >
+            {/* Top Accent Gradient Line */}
+            <div 
+              className="h-[2px] w-full -mx-2.5 -mt-2.5 mb-2.5 shrink-0"
+              style={{
+                background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`
+              }}
+            />
+            {/* Top Control Bar */}
+            <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/10">
+              <div className="flex items-center gap-1.5">
+                <Globe size={12} style={{ color: palette.bull }} className="animate-pulse" />
+                <span className="font-bold text-[11px] tracking-wide" style={{ color: palette.bull }}>SESI PASAR</span>
+                {isWeekend ? (
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/25 text-[8px] font-bold">
+                    TUTUP
+                  </span>
+                ) : isLondonNyOverlap ? (
+                  <span className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/25 text-[8px] font-bold animate-pulse">
+                    OVERLAP NY/LON
+                  </span>
+                ) : isTokyoLondonOverlap ? (
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/25 text-[8px] font-bold">
+                    OVERLAP ASIA/EU
+                  </span>
+                ) : activeSessions.length > 0 ? (
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/25 text-[8px] font-bold">
+                    {activeSessions.length} BUKA
+                  </span>
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 text-[8px]">
+                    TUTUP
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                {/* Live Clock */}
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/40 border border-white/5 text-[9px]">
+                  <Clock size={10} style={{ color: palette.bull }} />
+                  <span className="font-bold text-white/90">{formattedNow.timeWithSecsStr}</span>
+                </div>
+
+                <button
+                  onClick={() => setIsExpanded(false)}
+                  className="p-1 rounded hover:bg-white/15 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                  title="Tutup"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            </div>
+
+            {/* Sessions 2x2 Grid */}
+            <div className="grid grid-cols-2 gap-1.5 mt-2">
+              {sessionStatuses.map(s => (
+                <div
+                  key={s.id}
+                  className={`p-1.5 rounded-lg border transition-all ${
+                    s.isOpen
+                      ? 'bg-white/5 border-emerald-500/30'
+                      : 'bg-black/25 border-white/5 opacity-60 hover:opacity-100'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px]">{s.flag}</span>
+                      <span className="font-bold text-[10px] text-white/90">{s.name}</span>
+                    </div>
+                    <span className={`w-1.5 h-1.5 rounded-full ${s.isOpen ? 'bg-emerald-400 animate-ping' : 'bg-zinc-600'}`} />
+                  </div>
+
+                  <div className="mt-1 flex items-center justify-between text-[8.5px]">
+                    <span className={s.isOpen ? s.color : 'text-zinc-500'}>
+                      {s.isOpen ? 'BUKA' : 'TUTUP'}
+                    </span>
+                    <span className="text-zinc-400 font-mono">
+                      {s.countdownStr}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (!isVisible) {
     return (

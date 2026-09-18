@@ -1,5 +1,6 @@
 import { X, BookOpen, BarChart3, TrendingUp, Layers, Activity, Zap, Scale, Palette, Eye, Sparkles } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { getThemeModalGradient, getThemeCardBorder, hexToRgba } from '../utils/themeGradient';
 
 interface Props {
   isOpen: boolean;
@@ -7,16 +8,28 @@ interface Props {
 }
 
 export function CandleCvdGuideModal({ isOpen, onClose }: Props) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed top-[60px] left-4 right-4 sm:left-auto bottom-4 z-[200] flex flex-col justify-start pointer-events-none animate-fadeIn">
       <div
-        className="bg-[var(--color-panel)]/95 backdrop-blur-2xl rounded-2xl shadow-2xl w-full sm:w-[540px] md:w-[600px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto"
-        style={{ border: `1px solid ${palette.bull}60` }}
+        className="relative backdrop-blur-2xl rounded-2xl shadow-2xl w-full sm:w-[540px] md:w-[600px] overflow-hidden flex flex-col h-[calc(100vh-80px)] pointer-events-auto border"
+        style={{ 
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false),
+          boxShadow: `0 20px 50px rgba(0,0,0,0.85), 0 0 35px ${hexToRgba(palette.bull, 0.2)}`
+        }}
       >
+        {/* Top Accent Gradient Bar like News Bar & News Calendar */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-[2.5px] z-20 pointer-events-none"
+          style={{
+            background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`,
+            boxShadow: `0 0 10px ${hexToRgba(palette.bull, 0.4)}`
+          }}
+        />
         {/* Header */}
         <div className="p-4 border-b border-[var(--color-border)] flex items-center justify-between bg-[var(--color-panel)]/50">
           <div className="flex items-center gap-3">

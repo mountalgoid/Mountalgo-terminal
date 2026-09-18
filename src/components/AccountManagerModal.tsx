@@ -8,6 +8,13 @@ import { MountAlgoLogo } from './MountAlgoLogo';
 import { useTrade } from '../context/TradeContext';
 import { useTheme } from '../context/ThemeContext';
 import { BrokerAccount, BrokerType, BrokerAccountType } from '../types';
+import { 
+  getThemeModalGradient, 
+  getThemeCardGradient, 
+  getThemeCardBorder, 
+  getThemeCardBoxShadow, 
+  hexToRgba 
+} from '../utils/themeGradient';
 
 interface AccountManagerModalProps {
   isOpen: boolean;
@@ -15,7 +22,7 @@ interface AccountManagerModalProps {
 }
 
 export default function AccountManagerModal({ isOpen, onClose }: AccountManagerModalProps) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
   const {
     connectedAccounts = [],
     activeAccountId,
@@ -366,13 +373,38 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
   };
 
   return (
-    <div className="fixed inset-0 z-modal-ultimate flex items-center justify-center bg-black/85 backdrop-blur-xl p-1.5 sm:p-3 md:p-4 animate-in fade-in duration-150 select-none">
+    <div className="fixed inset-0 z-modal-ultimate flex items-center justify-center p-1.5 sm:p-3 md:p-4 animate-in fade-in duration-150 select-none">
+      {/* Translucent Backdrop - background outside bar/modal is visible */}
       <div 
-        className="bg-[var(--color-panel)]/80 backdrop-blur-xl rounded-xl sm:rounded-2xl w-full max-w-3xl max-h-[95vh] sm:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden border"
-        style={{ borderColor: `${palette.bull}70`, boxShadow: `0 20px 60px -10px rgba(0,0,0,0.8), 0 0 20px ${palette.bull}20` }}
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity"
+        onClick={onClose}
+      />
+
+      <div 
+        className="relative bg-[var(--color-panel)]/90 backdrop-blur-2xl rounded-xl sm:rounded-2xl w-full max-w-3xl max-h-[95vh] sm:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden border pointer-events-auto"
+        style={{ 
+          background: getThemeModalGradient(palette, isLight),
+          borderColor: getThemeCardBorder(palette, false), 
+          boxShadow: `0 25px 60px -15px rgba(0,0,0,0.85), 0 0 35px ${hexToRgba(palette.bull, 0.25)}` 
+        }}
+        onClick={(e) => e.stopPropagation()}
       >
+        {/* Top Theme Accent Bar */}
+        <div 
+          className="absolute top-0 left-0 right-0 h-[2.5px] z-20"
+          style={{
+            background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`,
+            boxShadow: `0 0 12px ${hexToRgba(palette.bull, 0.4)}`
+          }}
+        />
+
         {/* Header */}
-        <div className="px-3 sm:px-5 py-3 sm:py-4 border-b border-[var(--color-border)] flex items-center justify-between bg-[var(--color-panel)]">
+        <div 
+          style={{
+            background: `linear-gradient(90deg, ${hexToRgba(palette.bull, 0.14)} 0%, rgba(255,255,255,0.02) 50%, ${hexToRgba(palette.bear, 0.12)} 100%)`,
+          }}
+          className="px-3 sm:px-5 py-3 sm:py-4 border-b border-white/10 flex items-center justify-between"
+        >
           <div className="flex items-center gap-2 sm:gap-3">
             <MountAlgoLogo size="sm" className="w-8 h-8" />
             <div>
@@ -380,7 +412,14 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
                 <h2 className="text-sm sm:text-base font-extrabold text-[var(--color-text)] tracking-wide">
                   Kelola Akun Broker Real & Demo
                 </h2>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold uppercase" style={{ backgroundColor: `${palette.bull}20`, color: palette.bull, border: `1px solid ${palette.bull}40` }}>
+                <span 
+                  className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold uppercase" 
+                  style={{ 
+                    background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.2)} 0%, ${hexToRgba(palette.bear, 0.15)} 100%)`, 
+                    color: palette.bull, 
+                    border: `1px solid ${hexToRgba(palette.bull, 0.4)}` 
+                  }}
+                >
                   Multi-Broker
                 </span>
               </div>
@@ -391,21 +430,25 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
           </div>
           <button
             onClick={onClose}
-            className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
         </div>
 
         {/* View Switcher Tabs */}
-        <div className="flex items-center justify-between px-3 sm:px-5 py-2 sm:py-2.5 bg-[var(--color-bg)]/20 border-b border-[var(--color-border)] gap-2 overflow-x-auto hide-scrollbar">
+        <div className="flex items-center justify-between px-3 sm:px-5 py-2 sm:py-2.5 bg-black/20 border-b border-[var(--color-border)]/60 gap-2 overflow-x-auto hide-scrollbar">
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => { setViewTab('list'); resetForm(); }}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              style={viewTab === 'list' ? {
+                background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.16)} 0%, ${hexToRgba(palette.bear, 0.10)} 100%)`,
+                borderColor: hexToRgba(palette.bull, 0.4)
+              } : {}}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 border ${
                 viewTab === 'list'
-                  ? 'bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] shadow-sm'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                  ? 'text-[var(--color-text)] shadow-sm'
+                  : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
               }`}
             >
               <Wallet size={14} style={{ color: viewTab === 'list' ? palette.bull : undefined }} />
@@ -414,10 +457,14 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
 
             <button
               onClick={() => handleOpenAdd('BINANCE')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              style={viewTab === 'add' ? {
+                background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.16)} 0%, ${hexToRgba(palette.bear, 0.10)} 100%)`,
+                borderColor: hexToRgba(palette.bull, 0.4)
+              } : {}}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5 border ${
                 viewTab === 'add'
-                  ? 'bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] shadow-sm'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                  ? 'text-[var(--color-text)] shadow-sm'
+                  : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-white/5'
               }`}
             >
               <Plus size={14} style={{ color: viewTab === 'add' ? palette.bull : undefined }} />
@@ -427,7 +474,11 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
 
           <div 
             className="hidden sm:flex items-center gap-2 text-[10px] px-2.5 py-1 rounded-full font-mono border"
-            style={{ color: palette.bull, backgroundColor: `${palette.bull}10`, borderColor: `${palette.bull}30` }}
+            style={{ 
+              color: palette.bull, 
+              background: `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.12)} 0%, ${hexToRgba(palette.bear, 0.08)} 100%)`, 
+              borderColor: hexToRgba(palette.bull, 0.35) 
+            }}
           >
             <ShieldCheck size={13} />
             <span>Kredensial tersimpan lokal (Aman & Terisolasi)</span>
@@ -479,11 +530,16 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
                     <div
                       key={acc.id}
                       style={{
-                        borderColor: acc.status === 'ERROR' ? '#f43f5e' : isActive ? palette.bull : 'var(--color-border)',
-                        backgroundColor: acc.status === 'ERROR' ? '#f43f5e0a' : isActive ? `${palette.bull}08` : 'var(--color-panel)',
+                        background: acc.status === 'ERROR' 
+                          ? `${hexToRgba(palette.bear, 0.08)}`
+                          : isActive 
+                            ? `linear-gradient(135deg, ${hexToRgba(palette.bull, 0.14)} 0%, ${hexToRgba(palette.bear, 0.08)} 100%)` 
+                            : getThemeCardGradient(palette, isLight, false),
+                        borderColor: acc.status === 'ERROR' ? '#f43f5e' : isActive ? hexToRgba(palette.bull, 0.6) : getThemeCardBorder(palette, false),
+                        boxShadow: isActive ? `0 4px 20px -2px ${hexToRgba(palette.bull, 0.25)}` : undefined,
                       }}
                       className={`p-3.5 rounded-xl border transition-all flex flex-col gap-2.5 ${
-                        isActive ? 'shadow-md ring-1 ring-[var(--color-bull)]/40' : 'hover:border-white/20'
+                        isActive ? 'ring-1 ring-[var(--color-bull)]/40' : 'hover:border-white/20'
                       }`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1196,8 +1252,13 @@ export default function AccountManagerModal({ isOpen, onClose }: AccountManagerM
                 <button
                   type="submit"
                   disabled={isConnecting}
-                  style={{ backgroundColor: palette.bull, color: '#000000' }}
-                  className="px-5 py-2 rounded-xl text-xs font-extrabold transition-all hover:opacity-90 active:scale-95 cursor-pointer flex items-center gap-2 shadow-lg disabled:opacity-50"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${palette.bull} 0%, ${palette.bear} 100%)`, 
+                    color: '#ffffff',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+                    boxShadow: `0 4px 15px -2px ${hexToRgba(palette.bull, 0.4)}`
+                  }}
+                  className="px-5 py-2 rounded-xl text-xs font-extrabold transition-all hover:opacity-90 hover:brightness-110 active:scale-95 cursor-pointer flex items-center gap-2 shadow-lg disabled:opacity-50"
                 >
                   {isConnecting ? (
                     <>

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Brain, Zap, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { loadAiAgentSettings, AI_PROVIDERS_METADATA } from '../types/aiSettings';
+import { useTheme } from '../context/ThemeContext';
+import { getThemeCardGradient, getThemeCardBorder, hexToRgba } from '../utils/themeGradient';
 
 interface AiTapeAnalyzerProps {
   tapeData: any[];
@@ -10,6 +12,7 @@ interface AiTapeAnalyzerProps {
 }
 
 export function AiTapeAnalyzer({ tapeData, symbol, timeframe }: AiTapeAnalyzerProps) {
+  const { palette, isLight } = useTheme();
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastAnalyzedAt, setLastAnalyzedAt] = useState<number>(0);
@@ -62,23 +65,34 @@ export function AiTapeAnalyzer({ tapeData, symbol, timeframe }: AiTapeAnalyzerPr
   }, [analyzeTape, lastAnalyzedAt]);
 
   return (
-    <div className="bg-[var(--color-panel)]/70 backdrop-blur-xl border border-emerald-500/30 rounded-xl p-3 shadow-2xl shadow-black/30 shadow-lg shadow-black/20">
+    <div 
+      style={{
+        background: getThemeCardGradient(palette, isLight, false),
+        borderColor: getThemeCardBorder(palette, false),
+      }}
+      className="backdrop-blur-xl border rounded-xl p-3 shadow-2xl"
+    >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <div className="p-1 bg-emerald-500/20 rounded">
-            <Brain className="w-4 h-4 text-emerald-400" />
+          <div 
+            style={{
+              backgroundColor: hexToRgba(palette.bull, 0.2),
+            }}
+            className="p-1 rounded"
+          >
+            <Brain size={16} style={{ color: palette.bull }} />
           </div>
-          <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase">Multi-Provider AI Tape Intelligence</span>
+          <span style={{ color: palette.bull }} className="text-xs font-bold tracking-wider uppercase">Multi-Provider AI Tape Intelligence</span>
         </div>
         <button 
           onClick={analyzeTape}
           disabled={isAnalyzing}
-          className="p-1 hover:bg-[var(--color-bg)] rounded transition-colors disabled:opacity-50"
+          className="p-1 hover:bg-white/10 rounded transition-colors disabled:opacity-50 cursor-pointer"
         >
           {isAnalyzing ? (
-            <Loader2 className="w-3 h-3 text-emerald-400 animate-spin" />
+            <Loader2 size={12} style={{ color: palette.bull }} className="animate-spin" />
           ) : (
-            <Zap className="w-3 h-3 text-emerald-400" />
+            <Zap size={12} style={{ color: palette.bull }} />
           )}
         </button>
       </div>

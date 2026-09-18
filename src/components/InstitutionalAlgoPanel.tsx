@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTheme } from '../context/ThemeContext';
+import { hexToRgba, getThemeModalGradient, getThemeCardBorder } from '../utils/themeGradient';
 import { Clock, BarChart, Shield, Activity, Target } from 'lucide-react';
 
 interface InstitutionalAlgoPanelProps {
@@ -21,14 +22,28 @@ const InstitutionalAlgoPanel = React.memo(function InstitutionalAlgoPanel({
   setAlgoSettings,
   symbol
 }: InstitutionalAlgoPanelProps) {
-  const { palette } = useTheme();
+  const { palette, isLight } = useTheme();
 
   const handleChange = (key: string, value: any) => {
     setAlgoSettings({ ...algoSettings, [key]: value });
   };
 
   return (
-    <div className="bg-[var(--color-panel)]/80 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl shadow-black/30 p-3.5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+    <div 
+      style={{
+        background: getThemeModalGradient(palette, isLight),
+        borderColor: getThemeCardBorder(palette, false),
+        boxShadow: `0 16px 40px -4px rgba(0,0,0,0.8), 0 0 25px ${hexToRgba(palette.poc || palette.bull, 0.2)}`
+      }}
+      className="backdrop-blur-2xl rounded-xl border p-3.5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 shadow-2xl relative overflow-hidden"
+    >
+      {/* Accent Gradient Bar */}
+      <div 
+        className="h-[2px] w-full -mx-3.5 -mt-3.5 mb-3.5 shrink-0"
+        style={{
+          background: `linear-gradient(90deg, ${palette.bull} 0%, ${palette.poc || '#6366f1'} 50%, ${palette.bear} 100%)`
+        }}
+      />
       <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2">
         <div className="flex items-center gap-2">
           {orderType === 'TWAP' && <Clock size={14} className="text-amber-400" />}
