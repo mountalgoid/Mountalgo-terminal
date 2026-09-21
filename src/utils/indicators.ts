@@ -161,7 +161,7 @@ export const DEFAULT_INDICATOR_SETTINGS: IndicatorSettings = {
   showIcdCandles: false,
   showRSI: false,
   showMACD: false,
-  showFootprints: true,
+  showFootprints: false,
 
   liquidityHeatmapConfig: { ...DEFAULT_HEATMAP_SETTINGS, showVolumeDelta: false },
   volumeProfileConfig: { ...DEFAULT_VOLUME_PROFILE_CONFIG },

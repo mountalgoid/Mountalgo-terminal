@@ -1462,7 +1462,7 @@ export default function IndicatorModal({
                                 }
                                 className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
-                              <span className="text-white">📈 Option Gamma Exposure (GEX)</span>
+                              <span className="text-white">📈 Option Gamma Exposure (GEX) & Dealer Greeks Overlay</span>
                             </label>
 
                             <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">

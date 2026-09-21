@@ -155,13 +155,18 @@ export interface LiquidityHeatmapSettings {
   showWhaleIcebergTracker?: boolean; // 1. Whale Iceberg Campaign Tracker & TWAP Slicer
   showWhaleExhaustionRadar?: boolean; // 2. Whale Exhaustion Reversal Radar (Climax Detection)
   showWhaleCrossExchangeDelta?: boolean; // 3. Cross-Exchange Multi-Venue Absorption Delta
+
+  // Fixed Non-Repainting & Liquidity Zone Mitigation
+  showZoneMitigation?: boolean; // Track and highlight mitigated (swept/consumed) liquidity zones
+  showFreshZoneMagnets?: boolean; // Highlight unmitigated fresh liquidity pools as price targets
+  mitigationDisplayMode?: 'marker_and_ghost' | 'cutoff' | 'badge_only';
 }
 
 export const DEFAULT_HEATMAP_SETTINGS: LiquidityHeatmapSettings = {
   enabled: true,
-  colorMode: "theme",
+  colorMode: "thermal",
   intensity: 1.35,
-  opacity: 0.9,
+  opacity: 0.95,
   depthBins: 84,
   showVolumeBubbles: true,
   bubbleScale: 1.0,
@@ -242,6 +247,11 @@ export const DEFAULT_HEATMAP_SETTINGS: LiquidityHeatmapSettings = {
   leftVpShowPocBadge: true,
   leftVpShowHvnLvn: true,
   leftVpShowVolumeLabels: true,
+
+  // Fixed Non-Repainting & Liquidity Zone Mitigation Defaults
+  showZoneMitigation: true,
+  showFreshZoneMagnets: true,
+  mitigationDisplayMode: 'marker_and_ghost',
 };
 
 export interface GexVolumeNode {
@@ -437,6 +447,10 @@ export interface DepthRaySegment {
   kylesLambda?: number;
   elasticity?: number;
   isLayering?: boolean;
+  isMitigated?: boolean; // True if price has swept/tapped and consumed this liquidity zone
+  mitigatedBarIndex?: number | null; // Exact bar index when mitigation occurred
+  mitigationType?: 'full_sweep' | 'partial_tap' | 'absorbed'; // Specific order flow mitigation classification
+  consumedVolume?: number; // Estimated volume absorbed during mitigation
 }
 
 export interface SpoofingGhostEvent {
@@ -1480,42 +1494,41 @@ export function calculateLiquidityHeatmap(
     return cachedHeatmapResult;
   }
 
-  // ADAPTIVE SUB-SAMPLED HEATMAP HISTORY RANGE (Ultra Lightweight 60 Candles)
-  const MAX_PROCESSED_CANDLES = 60;
+  // EXPANDED ULTRA-DEEP HEATMAP HISTORY RANGE (Up to 3000 candles for deep historical liquidity depth)
+  const MAX_PROCESSED_CANDLES = 3000;
   const startIndex = Math.max(0, candles.length - MAX_PROCESSED_CANDLES);
 
-  // Focus bounds tightly around active price action
+  // Focus bounds solidly across full history to prevent any repainting or boundary shifts
   const currentPrice = curP;
   
-  let recentMin = Infinity;
-  let recentMax = -Infinity;
+  let historyMin = Infinity;
+  let historyMax = -Infinity;
   let totalVol = 0;
 
   for (let i = startIndex; i < candles.length; i++) {
     const c = candles[i];
-    if (c.low < recentMin) recentMin = c.low;
-    if (c.high > recentMax) recentMax = c.high;
+    if (c.low < historyMin) historyMin = c.low;
+    if (c.high > historyMax) historyMax = c.high;
     totalVol += c.volume;
   }
 
+  if (!Number.isFinite(historyMin) || historyMin <= 0) historyMin = currentPrice * 0.95;
+  if (!Number.isFinite(historyMax) || historyMax <= 0) historyMax = currentPrice * 1.05;
+
   const avgVol = totalVol / Math.max(1, candles.length - startIndex) || 1000;
 
-  // Calculate tight, focused price channel bounds centered around active price
-  const activeSpan = Math.max(currentPrice * 0.012, recentMax - recentMin);
-  const maxAllowedHalfSpan = currentPrice * 0.032; // Max 3.2% channel spread
-  const minAllowedHalfSpan = currentPrice * 0.012; // Min 1.2% channel spread
-  const halfSpan = Math.min(maxAllowedHalfSpan, Math.max(minAllowedHalfSpan, activeSpan * 0.62));
-
-  const rawPriceMin = Math.max(0.0001, currentPrice - halfSpan);
-  const rawPriceMax = currentPrice + halfSpan;
+  // Non-repainting stable price grid: anchor boundaries to history span with a safety margin
+  const fullPriceSpan = Math.max(currentPrice * 0.04, historyMax - historyMin);
+  const rawPriceMin = Math.max(0.0001, historyMin - fullPriceSpan * 0.06);
+  const rawPriceMax = historyMax + fullPriceSpan * 0.06;
   const rawPriceSpan = rawPriceMax - rawPriceMin;
 
-  const targetBinsCount = Math.max(32, Math.min(64, settings.depthBins));
+  const targetBinsCount = Math.max(48, Math.min(128, settings.depthBins * 2));
   const priceDecimals = currentPrice > 1000 ? 2 : currentPrice > 10 ? 2 : 4;
   const rawStep = rawPriceSpan / targetBinsCount;
   
-  // Snap priceStep to a nice round number (1, 2, 2.5, 5 multipliers) to keep bands stable
-  const stepMagnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  // Snap priceStep to standard round numbers (1, 2, 2.5, 5 multipliers) to keep bands stable
+  const stepMagnitude = Math.pow(10, Math.floor(Math.log10(Math.max(1e-6, rawStep))));
   const normalizedStep = rawStep / stepMagnitude;
   let snappedStep = stepMagnitude;
   if (normalizedStep > 5) snappedStep = 10 * stepMagnitude;
@@ -1526,15 +1539,9 @@ export function calculateLiquidityHeatmap(
 
   const priceStep = Math.max(Math.pow(10, -priceDecimals), snappedStep);
 
-  // Snap priceMin to an exact multiple of priceStep so the heatmap grid never shifts sub-tick
+  // Snap priceMin to an exact multiple of priceStep so the heatmap grid NEVER shifts sub-tick
   const priceMin = Math.floor(rawPriceMin / priceStep) * priceStep;
-  
-  // Dynamically calculate actual binsCount needed to cover the raw price span safely
-  // Adaptive binsCount: scale with visible candle count so cell density stays
-  // consistent at any zoom level — more candles → more bins, fewer → fewer.
-  const rawBinCount = Math.ceil((rawPriceMax - priceMin) / priceStep) + 2;
-  const targetBinDensity = visibleCount ? Math.max(32, Math.min(200, Math.floor(visibleCount * 1.5))) : rawBinCount;
-  const binsCount = Math.min(rawBinCount, targetBinDensity);
+  const binsCount = Math.ceil((rawPriceMax - priceMin) / priceStep) + 2;
   const priceMax = priceMin + binsCount * priceStep;
 
   // Calculate Liquidation Radar HUD metrics (with active timeframe mode)
@@ -1556,15 +1563,67 @@ export function calculateLiquidityHeatmap(
     return s - Math.floor(s);
   };
 
-  // Pre-seed major institutional resting liquidity walls at key psychological & structural levels
-  const numWallSeeds = 8;
-  const wallBins = new Set<number>();
-  for (let w = 0; w < numWallSeeds; w++) {
-    const targetBin = Math.floor(8 + pseudoRandom(w * 19, 71) * (binsCount - 16));
-    wallBins.add(targetBin);
+  // Identify key structural price levels across the price span (pivots, round levels, high-conviction zones)
+  const initialWallBins = new Map<number, { volumeMultiplier: number; side: 'bid' | 'ask'; isMajor: boolean }>();
+  const firstCandle = candles[startIndex] || candles[0];
+  const initialPrice = firstCandle ? (firstCandle.open + firstCandle.close) / 2 : currentPrice;
+  const initialPriceBin = Math.floor((initialPrice - priceMin) / priceStep);
+
+  // 1. Structural distribution: ensure 4-6 prominent resting liquidity walls across the vertical range
+  const askBinsAvailable = Math.max(1, binsCount - initialPriceBin - 2);
+  const bidBinsAvailable = Math.max(1, initialPriceBin - 2);
+
+  // Ask walls above initial price
+  const askOffsets = [
+    Math.round(askBinsAvailable * 0.22),
+    Math.round(askBinsAvailable * 0.55),
+    Math.round(askBinsAvailable * 0.85)
+  ];
+  askOffsets.forEach((offset, idx) => {
+    const b = initialPriceBin + Math.max(3, offset);
+    if (b >= 0 && b < binsCount) {
+      initialWallBins.set(b, {
+        volumeMultiplier: idx === 1 ? 4.8 : 3.6,
+        side: 'ask',
+        isMajor: true,
+      });
+    }
+  });
+
+  // Bid walls below initial price
+  const bidOffsets = [
+    Math.round(bidBinsAvailable * 0.22),
+    Math.round(bidBinsAvailable * 0.55),
+    Math.round(bidBinsAvailable * 0.85)
+  ];
+  bidOffsets.forEach((offset, idx) => {
+    const b = initialPriceBin - Math.max(3, offset);
+    if (b >= 0 && b < binsCount) {
+      initialWallBins.set(b, {
+        volumeMultiplier: idx === 1 ? 4.8 : 3.6,
+        side: 'bid',
+        isMajor: true,
+      });
+    }
+  });
+
+  // Also include major round numbers that fall in the range
+  for (let b = 0; b < binsCount; b++) {
+    if (initialWallBins.has(b)) continue;
+    const binPrice = priceMin + (b + 0.5) * priceStep;
+    const stepCount = Math.round(binPrice / priceStep);
+    if (stepCount % 25 === 0) {
+      const isBid = binPrice < initialPrice;
+      initialWallBins.set(b, {
+        volumeMultiplier: 3.8,
+        side: isBid ? 'bid' : 'ask',
+        isMajor: true,
+      });
+    }
   }
 
   // Pre-calculate Whale Volume Clusters for continuous heatmap matrix integration
+  const wallBinsSet = new Set<number>(initialWallBins.keys());
   const whaleClusters: WhaleVolumeCluster[] = calculateWhaleVolumeClusters({
     candles,
     startIndex,
@@ -1572,13 +1631,13 @@ export function calculateLiquidityHeatmap(
     priceStep,
     settings,
     footprintData,
-    wallBins,
+    wallBins: wallBinsSet,
     priceMin,
     pseudoRandom,
     priceDecimals,
   });
 
-  // Track persistent resting depth rays across time (Price Bin -> active Ray)
+  // Track active resting limit rays (Price Bin -> active Ray)
   const activeRaysByBin = new Map<number, DepthRaySegment>();
   const completedRays: DepthRaySegment[] = [];
   const matrix: PreciseHeatmapData['matrix'] = [];
@@ -1587,6 +1646,27 @@ export function calculateLiquidityHeatmap(
   const spoofEvents: SpoofingGhostEvent[] = [];
   const icebergEvents: IcebergOrderEvent[] = [];
   const absorptionNodes: AbsorptionNode[] = [];
+
+  // Initialize initial resting walls before price start
+  initialWallBins.forEach((wallInfo, b) => {
+    const binPrice = priceMin + (b + 0.5) * priceStep;
+    const initVol = avgVol * wallInfo.volumeMultiplier;
+    activeRaysByBin.set(b, {
+      price: binPrice,
+      startBar: startIndex,
+      endBar: -1,
+      volume: initVol,
+      density: 0.85,
+      side: wallInfo.side,
+      isLargeWall: wallInfo.isMajor,
+      active: true,
+      isMitigated: false,
+      mitigatedBarIndex: null,
+    });
+  });
+
+  // Track swept / mitigated bins to prevent phantom respawns behind price
+  const mitigatedBins = new Map<number, number>(); // bin -> barIndex when mitigated
 
   // Accumulated volume profile array per bin
   const accTradedVol = new Float64Array(binsCount);
@@ -1671,7 +1751,51 @@ export function calculateLiquidityHeatmap(
       isAbsorption,
     });
 
-    // 3. Process Limit Order Book Matrix, Resting Rays & Spoofing/Iceberg Detection
+    // Dynamic swing high / low liquidity pool creation
+    if (i >= startIndex + 3) {
+      const prevC = candles[i - 1];
+      const prevPrevC = candles[i - 2];
+      // Swing High: Liquidity pool forms above the pivot high
+      if (prevC.high > prevPrevC.high && prevC.high > c.high) {
+        const poolPrice = prevC.high + priceStep * 1.5;
+        const poolBin = Math.floor((poolPrice - priceMin) / priceStep);
+        if (poolBin >= 0 && poolBin < binsCount && !activeRaysByBin.has(poolBin)) {
+          activeRaysByBin.set(poolBin, {
+            price: priceMin + (poolBin + 0.5) * priceStep,
+            startBar: i,
+            endBar: -1,
+            volume: avgVol * (2.8 + pseudoRandom(i, 41) * 1.6),
+            density: 0.78,
+            side: 'ask',
+            isLargeWall: true,
+            active: true,
+            isMitigated: false,
+            mitigatedBarIndex: null,
+          });
+        }
+      }
+      // Swing Low: Liquidity pool forms below the pivot low
+      if (prevC.low < prevPrevC.low && prevC.low < c.low) {
+        const poolPrice = prevC.low - priceStep * 1.5;
+        const poolBin = Math.floor((poolPrice - priceMin) / priceStep);
+        if (poolBin >= 0 && poolBin < binsCount && !activeRaysByBin.has(poolBin)) {
+          activeRaysByBin.set(poolBin, {
+            price: priceMin + (poolBin + 0.5) * priceStep,
+            startBar: i,
+            endBar: -1,
+            volume: avgVol * (2.8 + pseudoRandom(i, 77) * 1.6),
+            density: 0.78,
+            side: 'bid',
+            isLargeWall: true,
+            active: true,
+            isMitigated: false,
+            mitigatedBarIndex: null,
+          });
+        }
+      }
+    }
+
+    // 3. Process Limit Order Book Matrix, Resting Rays & Execution/Mitigation Events
     for (let b = 0; b < binsCount; b++) {
       const binPrice = priceMin + (b + 0.5) * priceStep;
       const binTop = binPrice + priceStep / 2;
@@ -1680,7 +1804,7 @@ export function calculateLiquidityHeatmap(
       const side: 'bid' | 'ask' = isBid ? 'bid' : 'ask';
       sideArr[b] = isBid ? 0 : 1;
 
-      // Price traded through this bin in current bar (Execution event)
+      // Price traded through this bin in current bar (Execution / Mitigation event)
       const isTradedThrough = c.low <= binTop && c.high >= binBottom;
 
       if (isTradedThrough) {
@@ -1689,135 +1813,59 @@ export function calculateLiquidityHeatmap(
         accTradedVol[b] += barPortionTraded;
       }
 
-      // Distance from mid price
-      const distPct = Math.abs(binPrice - midPrice) / (midPrice || 1);
-      const proximityLiquidity = (distPct * 26 < 6) ? Math.exp(-distPct * 26) : 0;
-
-      // Institutional wall candidate
-      const isInstitutionalWall = wallBins.has(b);
-      
-      // Resting depth volume exists ONLY on actual limit order walls & immediate BBO order book depth
-      let depthVol = 0;
-      if (isInstitutionalWall) {
-        const wallMultiplier = 2.8 + NOISE_LOOKUP[(b * 7 + 17) & 511] * 2.2;
-        depthVol = avgVol * wallMultiplier;
-      } else if (proximityLiquidity > 0.85) {
-        // Immediate tight BBO spread liquidity
-        depthVol = avgVol * (proximityLiquidity - 0.85) * 2.0;
-      }
-
-      // Check active ray in this bin
-      let currentRay = activeRaysByBin.get(b);
+      // Check active resting wall in this bin
+      const activeRay = activeRaysByBin.get(b);
 
       if (isTradedThrough) {
-        // Price collided with this limit level -> absorption / execution event!
-        if (currentRay) {
-          currentRay.endBar = i;
-          currentRay.active = false;
-          completedRays.push(currentRay);
-          activeRaysByBin.delete(b);
+        // Price collided with this limit level -> Zone Mitigation (Sweep / Absorption event!)
+        if (activeRay) {
+          const isSweep = (side === 'ask' && (c.high > binTop || c.close > binPrice)) || 
+                          (side === 'bid' && (c.low < binBottom || c.close < binPrice));
+          const isAbsorbed = c.volume > avgVol * 1.35;
+          const mitigationType: 'full_sweep' | 'partial_tap' | 'absorbed' = isSweep 
+            ? 'full_sweep' 
+            : (isAbsorbed ? 'absorbed' : 'partial_tap');
 
-          // Check if this was an ICEBERG replenishment (High volume traded through, but wall refilled immediately)
-          if (settings.showSpoofingAndIceberg && (isInstitutionalWall || c.volume > avgVol * 1.4)) {
-            const refilledVol = depthVol * 1.6;
+          activeRay.endBar = i;
+          activeRay.active = false;
+          activeRay.isMitigated = true;
+          activeRay.mitigatedBarIndex = i;
+          activeRay.mitigationType = mitigationType;
+          activeRay.consumedVolume = Math.round(activeRay.volume * (isSweep ? 0.95 : 0.70));
+          completedRays.push(activeRay);
+          activeRaysByBin.delete(b);
+          mitigatedBins.set(b, i);
+
+          if (settings.showSpoofingAndIceberg && (activeRay.isLargeWall || c.volume > avgVol * 1.4)) {
             icebergEvents.push({
               price: binPrice,
               barIndex: i,
               tradedVolume: Math.round(c.volume * 0.65),
-              refilledVolume: Math.round(refilledVol),
+              refilledVolume: Math.round(activeRay.volume * 0.4),
               side,
               fillRatio: 0.85,
             });
-            // Immediately spawn new replenished iceberg ray
-            depthVol = refilledVol;
-            const icebergRay: DepthRaySegment = {
-              price: binPrice,
-              startBar: i,
-              endBar: -1,
-              volume: depthVol,
-              density: 0,
-              side,
-              isLargeWall: true,
-              active: true,
-            };
-            activeRaysByBin.set(b, icebergRay);
-          } else {
-            depthVol = depthVol * 0.25;
           }
-        } else {
-          depthVol = depthVol * 0.25;
         }
+        // At the moment of trade-through, this bar shows execution flash, then becomes depleted
+        volumeArr[b] = avgVol * 0.10;
       } else {
-        // Price did NOT trade through this bin
-        // Check for SPOOFING: Large limit wall was active for >= 2 bars, but suddenly cancelled when price approached closely (< 0.38% dist)
-        const isNearPrice = distPct < 0.0038;
-        let isSpoofVPIN = false;
-        if (settings.showSpoofingAndIceberg && currentRay && isNearPrice) {
-          const activeBars = i - currentRay.startBar;
-          // Rule 1: The wall must be highly persistent (active for at least 3 bars) 
-          // and represent a heavy, high-confidence institutional level (volume >= 1.35x wall threshold)
-          const isHeavyPersistentWall = activeBars >= 3 && currentRay.volume > avgVol * settings.wallThreshold * 1.35;
-          
-          if (isHeavyPersistentWall) {
-            if (fp && fp.levels) {
-              const fpLevel = fp.levels.find(l => Math.abs(l.price - binPrice) < priceStep * 1.5);
-              const fpTotalVolNear = fpLevel ? fpLevel.totalVol : 0;
-              const orderBookCollisionRatio = fpTotalVolNear / Math.max(1, currentRay.volume);
-              // Rule 2: Under footprint data, spoofing is confirmed ONLY when the collision/fill ratio is virtually zero (< 3%)
-              // despite the price being extremely close, proving the order was pulled before getting filled.
-              if (orderBookCollisionRatio < 0.03 && fp.totalVolume > 20) {
-                isSpoofVPIN = true;
-              }
-            } else {
-              // Rule 3: Without footprint data, spoofing is confirmed based on high-arrival momentum pressure 
-              // heading directly into the wall, but the wall vanishes to avoid any fill.
-              const isHighMomentumArrival = c.volume > avgVol * 1.15;
-              const directionalPressure = (side === 'bid' && c.close < c.open) || (side === 'ask' && c.close > c.open);
-              if (isHighMomentumArrival && directionalPressure) {
-                isSpoofVPIN = true;
-              }
-            }
-          }
-        }
-
-        if (isSpoofVPIN) {
-          // Spoof cancellation detected!
-          currentRay.endBar = i;
-          currentRay.active = false;
-          completedRays.push(currentRay);
-          activeRaysByBin.delete(b);
-
-          spoofEvents.push({
-            price: binPrice,
-            startBar: currentRay.startBar,
-            cancelBar: i,
-            volume: Math.round(currentRay.volume),
-            side,
-            type: side === 'bid' ? 'spoof_bid' : 'spoof_ask',
-            pullDistancePct: distPct * 100,
-          });
-
-          depthVol = depthVol * 0.15; // Depth vanished abruptly
+        // Price did NOT trade through bin in this bar
+        if (activeRay) {
+          // Unmitigated active wall: stays solid, clean, and vibrant
+          volumeArr[b] = activeRay.volume;
         } else {
-          // Limit order persists smoothly over time
-          if (currentRay) {
-            depthVol = currentRay.volume * 0.965 + depthVol * 0.035;
-            currentRay.volume = depthVol;
+          // Ambient depth: subtle background shelf
+          const lastMitigated = mitigatedBins.get(b);
+          const isRecentlyMitigated = lastMitigated !== undefined && (i - lastMitigated) < 35;
+          if (isRecentlyMitigated) {
+            // Mitigated zone is empty (clean background)
+            volumeArr[b] = avgVol * 0.04;
           } else {
-            // Spawn new persistent depth ray if high density wall
-            if (depthVol > avgVol * settings.wallThreshold * 0.88) {
-              const newRay: DepthRaySegment = {
-                price: binPrice,
-                startBar: i,
-                endBar: -1,
-                volume: depthVol,
-                density: 0,
-                side,
-                isLargeWall: isInstitutionalWall || depthVol > avgVol * 2.3,
-                active: true,
-              };
-              activeRaysByBin.set(b, newRay);
-            }
+            const fixedNoiseSeed = NOISE_LOOKUP[(b * 31 + ((i % 128) * 11)) & 511];
+            const distPct = Math.abs(binPrice - midPrice) / (midPrice || 1);
+            const proximityLiquidity = (distPct * 20 < 6) ? Math.exp(-distPct * 20) : 0;
+            volumeArr[b] = avgVol * (0.08 + proximityLiquidity * 0.35 + fixedNoiseSeed * 0.12);
           }
         }
       }
@@ -1826,16 +1874,14 @@ export function calculateLiquidityHeatmap(
       if (i === candles.length - 1 && domData && domData.rows) {
         const matchingDom = domData.rows.find((r) => Math.abs(r.price - binPrice) <= priceStep * 1.1);
         if (matchingDom) {
-          if (matchingDom.bidDepth !== null) depthVol += matchingDom.bidDepth * 8;
-          if (matchingDom.askDepth !== null) depthVol += matchingDom.askDepth * 8;
-          if (matchingDom.isMaxBidWall || matchingDom.isMaxAskWall) depthVol *= 3.5;
+          if (matchingDom.bidDepth !== null) volumeArr[b] += matchingDom.bidDepth * 8;
+          if (matchingDom.askDepth !== null) volumeArr[b] += matchingDom.askDepth * 8;
+          if (matchingDom.isMaxBidWall || matchingDom.isMaxAskWall) volumeArr[b] *= 3.5;
         }
       }
 
-      accRestingVol[b] += depthVol;
-      if (depthVol > globalMaxDepthVol) globalMaxDepthVol = depthVol;
-
-      volumeArr[b] = depthVol;
+      accRestingVol[b] += volumeArr[b];
+      if (volumeArr[b] > globalMaxDepthVol) globalMaxDepthVol = volumeArr[b];
     }
 
     // 4. Calculate Institutional Liquidity Absorption & Exhaustion Nodes
@@ -1903,7 +1949,7 @@ export function calculateLiquidityHeatmap(
         tradedVolume: traded,
         totalVolume: traded + resting,
         side: price < currentPrice ? 'bid' : 'ask',
-        isWall: wallBins.has(b),
+        isWall: wallBinsSet.has(b),
         densityRatio: 0,
         isBestBid: false,
         isBestAsk: false,
@@ -1930,35 +1976,28 @@ export function calculateLiquidityHeatmap(
 
         // Distinct higher-intensity multipliers for GEX strikes
         const intensityMult = node.nodeType === 'CALL_WALL' || node.nodeType === 'PUT_WALL'
-          ? 3.8
+          ? 3.4
           : node.nodeType === 'GAMMA_FLIP'
-          ? 3.2
+          ? 2.8
           : node.nodeType === 'MAX_PAIN'
-          ? 2.7
-          : 1.8 + node.intensity * 1.6;
+          ? 2.4
+          : 1.6 + node.intensity * 1.4;
 
-        const baseAddedVol = avgVol * intensityMult * (node.openInterest > 0 ? Math.min(3.8, 1.2 + node.openInterest / 1200) : 2.2);
+        const baseAddedVol = avgVol * intensityMult * (node.openInterest > 0 ? Math.min(3.4, 1.2 + node.openInterest / 1200) : 2.0);
 
-        // Continuous horizontal ribbon across timeline columns (smooth institutional horizon)
-        for (let t = 0; t < totalCols; t++) {
-          // Horizon persistence: full intensity on recent columns, smooth persistence into history
-          const horizonDepth = totalCols - 1 - t;
-          const tWeight = horizonDepth <= 42 ? 1.0 : Math.max(0.40, 1.0 - ((horizonDepth - 42) / totalCols) * 0.60);
+        // Inject strictly into recent active horizon columns to prevent noise over past swept candles
+        const horizonLimit = Math.min(totalCols, 40);
+        const startCol = totalCols - horizonLimit;
 
+        for (let t = startCol; t < totalCols; t++) {
           const col = matrix[t];
           if (!col) continue;
 
-          // Razor-thin vertical distribution (Area Tipis: strictly concentrated on binCenter)
-          // Primary center bin
-          col.volume[binCenter] += baseAddedVol * tWeight;
+          const progress = (t - startCol) / horizonLimit;
+          const tWeight = 0.35 + 0.65 * progress;
 
-          // Sub-pixel boundary feathering (strictly immediate adjacent ±1 bin only, with minimal 0.22 weight)
-          if (binCenter > 0) {
-            col.volume[binCenter - 1] += baseAddedVol * tWeight * 0.22;
-          }
-          if (binCenter < binsCount - 1) {
-            col.volume[binCenter + 1] += baseAddedVol * tWeight * 0.22;
-          }
+          // Razor-thin vertical distribution (strictly concentrated on binCenter)
+          col.volume[binCenter] += baseAddedVol * tWeight;
 
           // Register dominant dealer side for color profile
           if (node.dominantSide === 'call') {
@@ -1979,69 +2018,34 @@ export function calculateLiquidityHeatmap(
     }
   }
 
-  // Collect any remaining active rays
+  // Collect any remaining active rays (Fresh / Unmitigated Liquidity Pools)
   activeRaysByBin.forEach((ray) => {
     ray.endBar = candles.length - 1;
     ray.active = true;
+    ray.isMitigated = false;
+    ray.mitigatedBarIndex = null;
     completedRays.push(ray);
   });
 
   // ---------------------------------------------------------------------------
-  // 5. Dynamic Auto-Normalized Heat Spectrum (Z-Score Relative Normalization)
+  // 5. Dynamic Continuous Order Book Heat Spectrum Normalization
   // ---------------------------------------------------------------------------
-  if (settings.autoNormalizeSpectrum) {
-    // Anchor normalization to stable average candle volume (avgVol)
-    const minWallThreshold = avgVol * 1.5;
-    const maxWallThreshold = avgVol * 5.0;
+  const minDepth = avgVol * 0.18;
+  const maxDepth = avgVol * 4.2;
 
-    for (let i = 0; i < matrix.length; i++) {
-      const col = matrix[i];
-      for (let b = 0; b < binsCount; b++) {
-        const v = col.volume[b];
-        if (v < minWallThreshold) {
-          col.density[b] = 0; // 100% transparent dark chart background
-        } else {
-          const norm = Math.min(1.0, 0.25 + 0.75 * ((v - minWallThreshold) / (maxWallThreshold - minWallThreshold)));
-          col.density[b] = norm * settings.intensity;
-        }
-      }
+  for (let i = 0; i < matrix.length; i++) {
+    const col = matrix[i];
+    for (let b = 0; b < binsCount; b++) {
+      const v = col.volume[b];
+      const norm = Math.max(0, Math.min(1.0, (v - minDepth) / (maxDepth - minDepth)));
+      col.density[b] = Math.min(1.0, Math.pow(norm, 0.88) * settings.intensity);
     }
-
-    completedRays.forEach((ray) => {
-      if (ray.volume < minWallThreshold) {
-        ray.density = 0;
-      } else {
-        const norm = Math.min(1.0, 0.25 + 0.75 * ((ray.volume - minWallThreshold) / (maxWallThreshold - minWallThreshold)));
-        ray.density = norm * settings.intensity;
-      }
-    });
-  } else {
-    // Linear normalization anchored to stable avgVol with strict noise suppression
-    const minWallThreshold = avgVol * 1.5;
-    const maxWallThreshold = avgVol * 5.0;
-
-    for (let i = 0; i < matrix.length; i++) {
-      const col = matrix[i];
-      for (let b = 0; b < binsCount; b++) {
-        const v = col.volume[b];
-        if (v < minWallThreshold) {
-          col.density[b] = 0;
-        } else {
-          const norm = Math.min(1.0, 0.25 + 0.75 * ((v - minWallThreshold) / (maxWallThreshold - minWallThreshold)));
-          col.density[b] = norm * settings.intensity;
-        }
-      }
-    }
-
-    completedRays.forEach((ray) => {
-      if (ray.volume < minWallThreshold) {
-        ray.density = 0;
-      } else {
-        const norm = Math.min(1.0, 0.25 + 0.75 * ((ray.volume - minWallThreshold) / (maxWallThreshold - minWallThreshold)));
-        ray.density = norm * settings.intensity;
-      }
-    });
   }
+
+  completedRays.forEach((ray) => {
+    const norm = Math.max(0, Math.min(1.0, (ray.volume - minDepth) / (maxDepth - minDepth)));
+    ray.density = Math.min(1.0, Math.pow(norm, 0.88) * settings.intensity);
+  });
 
   // ---------------------------------------------------------------------------
   // 6. Build Right-Side Liquidity Volume Profile Ladder with Exact Numerical Values
@@ -2066,7 +2070,7 @@ export function calculateLiquidityHeatmap(
       tradedVolume: traded,
       totalVolume: totalVol,
       side: isBid ? 'bid' : 'ask',
-      isWall: wallBins.has(b) || totalVol > avgVol * 3.6,
+      isWall: wallBinsSet.has(b) || totalVol > avgVol * 3.6,
       densityRatio: 0,
       isBestBid: false,
       isBestAsk: false,
@@ -2291,7 +2295,7 @@ export function calculateLiquidityHeatmap(
   }
 
   // ---------------------------------------------------------------------------
-  // 10. Calculate Liquidity Vacuum & High-Slippage Risk Zones
+  // 10. Calculate Non-Repainting Liquidity Vacuum & High-Slippage Risk Zones
   // ---------------------------------------------------------------------------
   const vacuumZones: LiquidityVacuumZone[] = [];
   if (settings.showLiquidityVacuums && matrix.length > 0) {
@@ -2317,10 +2321,30 @@ export function calculateLiquidityHeatmap(
             if (prevWall || nextWall) {
               const bPrice = priceMin + (vacuumStartBin + 0.5) * priceStep;
               const tPrice = priceMin + (vacuumEndBin + 0.5) * priceStep;
+              
+              // Non-repainting anchor: scan back to find when this vacuum void actually opened up
+              let formationCol = matrix.length - 1;
+              for (let t = matrix.length - 2; t >= Math.max(0, matrix.length - 80); t--) {
+                const pastCol = matrix[t];
+                let stillVacuum = true;
+                for (let testBin = vacuumStartBin; testBin <= vacuumEndBin; testBin++) {
+                  if (pastCol.density[testBin] >= 0.22) {
+                    stillVacuum = false;
+                    break;
+                  }
+                }
+                if (stillVacuum) {
+                  formationCol = t;
+                } else {
+                  break;
+                }
+              }
+              const startBar = startIndex + formationCol;
+
               vacuumZones.push({
                 bottomPrice: Math.min(bPrice, tPrice),
                 topPrice: Math.max(bPrice, tPrice),
-                startBar: Math.max(0, candles.length - 16),
+                startBar,
                 endBar: candles.length - 1,
                 slippageRiskPct: Number(((Math.abs(tPrice - bPrice) / (currentPrice || 1)) * 100)?.toFixed(2)),
                 thicknessBins: span,
@@ -2482,19 +2506,36 @@ export function calculateLiquidityHeatmap(
   }
 
   // ---------------------------------------------------------------------------
-  // 13. Liquidity Sweep & Stop-Hunt Reversal Predictor
+  // 13. Non-Repainting Liquidity Sweep & Stop-Hunt Reversal Predictor
   // ---------------------------------------------------------------------------
   const sweepZones: SweepPredictorZone[] = [];
   if (settings.showSweepPredictor && candles.length >= 15) {
-    const lookback = Math.min(45, candles.length);
+    const lookback = Math.min(60, candles.length);
     const recent = candles.slice(-lookback);
 
-    // Identify swing highs and lows
+    // Identify swing highs and lows using fractal pivots to prevent repaint
     let recentHigh = -Infinity;
     let recentLow = Infinity;
-    for (let k = 0; k < recent.length - 3; k++) {
-      if (recent[k].high > recentHigh) recentHigh = recent[k].high;
-      if (recent[k].low < recentLow) recentLow = recent[k].low;
+    for (let k = 2; k < recent.length - 2; k++) {
+      const bar = recent[k];
+      const isHigh = bar.high >= recent[k - 1].high && bar.high >= recent[k - 2].high &&
+                     bar.high >= recent[k + 1].high && bar.high >= recent[k + 2].high;
+      if (isHigh && bar.high > recentHigh) recentHigh = bar.high;
+
+      const isLow = bar.low <= recent[k - 1].low && bar.low <= recent[k - 2].low &&
+                    bar.low <= recent[k + 1].low && bar.low <= recent[k + 2].low;
+      if (isLow && bar.low < recentLow) recentLow = bar.low;
+    }
+    // Fallback if no strict 5-bar fractal found
+    if (!Number.isFinite(recentHigh) || recentHigh === -Infinity) {
+      for (let k = 0; k < recent.length - 3; k++) {
+        if (recent[k].high > recentHigh) recentHigh = recent[k].high;
+      }
+    }
+    if (!Number.isFinite(recentLow) || recentLow === Infinity) {
+      for (let k = 0; k < recent.length - 3; k++) {
+        if (recent[k].low < recentLow) recentLow = recent[k].low;
+      }
     }
 
     // Resistance Sweep Target (Retail Buy Stops sitting just above recent swing high)
@@ -3423,18 +3464,27 @@ interface ColorStop {
 /**
  * Smoothstep interpolation for 3D-topological gradient rendering
  * Eliminates banding by softening the transitions between color stops.
+ * Transition gradients are strictly clamped to the specific zone's normalized value range.
  */
 function interpolateSmoothStops(d: number, stops: ColorStop[]): [number, number, number] {
-  if (d <= stops[0].pos) return stops[0].rgb;
-  if (d >= stops[stops.length - 1].pos) return stops[stops.length - 1].rgb;
+  if (!stops || stops.length === 0) return [0, 0, 0];
+  if (stops.length === 1) return stops[0].rgb;
+
+  const minPos = stops[0].pos;
+  const maxPos = stops[stops.length - 1].pos;
+  const clampedD = Math.max(minPos, Math.min(maxPos, d));
+
+  if (clampedD <= minPos) return stops[0].rgb;
+  if (clampedD >= maxPos) return stops[stops.length - 1].rgb;
   
   for (let i = 0; i < stops.length - 1; i++) {
     const s1 = stops[i];
     const s2 = stops[i + 1];
-    if (d >= s1.pos && d <= s2.pos) {
+    if (clampedD >= s1.pos && clampedD <= s2.pos) {
       const range = s2.pos - s1.pos;
-      if (range === 0) return s2.rgb;
-      const t = (d - s1.pos) / range;
+      if (range <= 0) return s2.rgb;
+      // Strictly clamp t to the specific stop segment's normalized value range [0, 1]
+      const t = Math.max(0, Math.min(1, (clampedD - s1.pos) / range));
       // Hermite spline (smoothstep) for 3D contour blending
       const smoothT = t * t * (3 - 2 * t);
       return mixRgbColors(s1.rgb, s2.rgb, smoothT);
@@ -3444,56 +3494,98 @@ function interpolateSmoothStops(d: number, stops: ColorStop[]): [number, number,
 }
 
 /**
- * Super Gradient Color mapper matching Bookmap aesthetic with theme-consistent palette
- * Features smoothstep 3D interpolation and continuous comfortable alpha layering.
+ * Super Gradient Color mapper matching Bookmap aesthetic with thermal and theme palettes.
+ * Features smoothstep 3D interpolation and a logarithmic opacity scale for liquidity zones
+ * (0.3 for weak liquidity up to 0.8 for strong/deep liquidity) with transition gradients
+ * strictly clamped to the zone's normalized value range.
  */
 export function getBookmapThemeColor(
   density: number, // 0 to 1
   side: 'bid' | 'ask',
-  mode: 'theme' | 'thermal' | 'bid_ask',
+  mode: 'theme' | 'thermal' | 'bid_ask' = 'thermal',
   palette: ThemeColors,
   _baseOpacity: number = 0.90
 ): string {
   const rawD = Math.max(0, Math.min(1, density));
-  if (rawD < 0.12) return 'rgba(0,0,0,0)'; // Zero opacity for low noise to keep background 100% clean
+  if (rawD < 0.02) return 'rgba(0,0,0,0)';
   
-  // Softer gamma curve to restore smooth detail without harsh over-contrast
-  const d = Math.pow(rawD, 0.95);
+  // Strictly clamp normalized density to [0, 1]
+  const d = Math.max(0, Math.min(1.0, (rawD - 0.02) / 0.98));
 
   const opacityMultiplier = typeof _baseOpacity === 'number' && !isNaN(_baseOpacity)
     ? Math.max(0.2, Math.min(1.0, _baseOpacity))
-    : 0.90;
+    : 0.95;
 
-  // Exponential alpha curve for dramatic depth
-  const alphaLevel = 0.20 + 0.80 * Math.pow(d, 1.2);
-  const finalAlpha = Number((alphaLevel * opacityMultiplier).toFixed(3));
+  // Logarithmic opacity scale for liquidity zones:
+  // Deeper liquidity levels exhibit higher opacity (0.3 for weak, 0.8 for strong)
+  const logFactor = Math.log(1 + 9 * d) / Math.LN10; // Logarithmic progression in [0, 1]
+  const rawOpacity = 0.30 + (0.80 - 0.30) * Math.max(0, Math.min(1, logFactor));
+  const finalAlpha = Math.max(0.05, Math.min(1.0, Number((rawOpacity * opacityMultiplier).toFixed(3))));
   
-  const bgRGB = parseHexToRgb(palette?.dark, '#0b0e14');
-
-  let rgb: [number, number, number];
-
+  const bgRGB = parseHexToRgb(palette?.dark, '#0a101d');
   const isBid = side === 'bid';
-  const targetRGB = isBid
-    ? parseHexToRgb(palette?.bull, '#00ff66')
-    : parseHexToRgb(palette?.bear, '#ff0044');
-  const pocRGB = parseHexToRgb(palette?.poc, '#ffd600');
-  const coreRGB: [number, number, number] = [255, 255, 255]; // White hot peak
 
-  const shadowRGB = mixRgbColors(bgRGB, targetRGB, 0.25);
-  const deepNeonRGB = mixRgbColors(targetRGB, isBid ? [0, 200, 255] : [200, 0, 255], 0.35); 
-  const hotRGB = mixRgbColors(targetRGB, pocRGB, 0.55);
+  let stops: ColorStop[];
 
-  const stops: ColorStop[] = [
-    { pos: 0.00, rgb: bgRGB },
-    { pos: 0.12, rgb: shadowRGB },
-    { pos: 0.35, rgb: deepNeonRGB },
-    { pos: 0.60, rgb: targetRGB },
-    { pos: 0.80, rgb: hotRGB },
-    { pos: 0.94, rgb: pocRGB },
-    { pos: 1.00, rgb: coreRGB }
-  ];
-  rgb = interpolateSmoothStops(d, stops);
+  if (mode === 'thermal') {
+    // 100% Authentic Bookmap Classic Thermal Multi-Tier Gradient matching reference screenshot
+    stops = [
+      { pos: 0.00, rgb: [2, 32, 64] },       // Level 1: Deep Background Navy #022040
+      { pos: 0.12, rgb: [0, 64, 116] },      // Level 1-2: Cobalt Blue #004074
+      { pos: 0.25, rgb: [0, 119, 182] },     // Level 2: Ocean Blue #0077b6
+      { pos: 0.40, rgb: [0, 180, 216] },     // Level 2-3: Electric Cyan #00b4d8
+      { pos: 0.55, rgb: [72, 202, 228] },    // Level 3: Bright Sky Cyan #48cae4
+      { pos: 0.68, rgb: [255, 214, 10] },    // Level 3-4: Bright Lemon Yellow #ffd60a
+      { pos: 0.80, rgb: [255, 123, 0] },     // Level 4: Fiery Amber Orange #ff7b00
+      { pos: 0.90, rgb: [230, 57, 70] },     // Level 4-5: Crimson Red #e63946
+      { pos: 0.96, rgb: [193, 18, 31] },     // Level 5: Deep Ruby Red #c1121f
+      { pos: 1.00, rgb: [255, 255, 255] }    // Level 5 Peak: White Hot Core #ffffff
+    ];
+  } else if (mode === 'bid_ask') {
+    // Bookmap Dual Bid/Ask Thermal Spectrum
+    if (isBid) {
+      stops = [
+        { pos: 0.00, rgb: [4, 35, 30] },     // Level 1: Deep Emerald Navy
+        { pos: 0.25, rgb: [0, 137, 123] },   // Level 2: Teal Green
+        { pos: 0.50, rgb: [0, 230, 118] },   // Level 3: Mint Neon
+        { pos: 0.75, rgb: [238, 255, 65] },  // Level 4: Golden Lime
+        { pos: 0.92, rgb: [255, 255, 180] }, // Level 5: Light Core
+        { pos: 1.00, rgb: [255, 255, 255] }  // Level 5 Peak: White Hot
+      ];
+    } else {
+      stops = [
+        { pos: 0.00, rgb: [42, 8, 21] },     // Level 1: Deep Crimson Navy
+        { pos: 0.25, rgb: [173, 20, 87] },   // Level 2: Magenta Red
+        { pos: 0.50, rgb: [245, 0, 87] },    // Level 3: Hot Coral Pink
+        { pos: 0.75, rgb: [255, 109, 0] },   // Level 4: Flame Amber
+        { pos: 0.92, rgb: [255, 214, 0] },   // Level 5: Gold
+        { pos: 1.00, rgb: [255, 255, 255] }  // Level 5 Peak: White Hot
+      ];
+    }
+  } else {
+    // Theme-Adaptive High Contrast Spectrum
+    const targetRGB = isBid
+      ? parseHexToRgb(palette?.bull, '#00ff66')
+      : parseHexToRgb(palette?.bear, '#ff0044');
+    const pocRGB = parseHexToRgb(palette?.poc, '#ffd600');
+    const coreRGB: [number, number, number] = [255, 255, 255];
 
+    const shadowRGB = mixRgbColors(bgRGB, targetRGB, 0.25);
+    const deepNeonRGB = mixRgbColors(targetRGB, isBid ? [0, 200, 255] : [200, 0, 255], 0.35); 
+    const hotRGB = mixRgbColors(targetRGB, pocRGB, 0.55);
+
+    stops = [
+      { pos: 0.00, rgb: bgRGB },
+      { pos: 0.15, rgb: shadowRGB },
+      { pos: 0.35, rgb: deepNeonRGB },
+      { pos: 0.58, rgb: targetRGB },
+      { pos: 0.78, rgb: hotRGB },
+      { pos: 0.92, rgb: pocRGB },
+      { pos: 1.00, rgb: coreRGB }
+    ];
+  }
+
+  const rgb = interpolateSmoothStops(d, stops);
   return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${finalAlpha})`;
 }
 
@@ -3702,8 +3794,8 @@ export function renderLiquidityHeatmapLayer({
   const colStride = 1;
   const binAggFactor = 1;
   const quantLevels = lodProfile.heatmap.quantizationLevels;
-  // Render only significant liquidity value bins to keep rendering ultra-fast, clean, and lightweight
-  const minDensity = 0.15;
+  // Render all depth levels from ambient background blue to institutional walls
+  const minDensity = 0.02;
 
   // Canvas 2D blur is disabled for ultra-fast 120+ FPS performance and clean crisp visuals
   const shouldBlur = false;
@@ -3795,28 +3887,12 @@ export function renderLiquidityHeatmapLayer({
       
       if (drawY <= mainChartHeight + 10 && drawY + drawH >= -10) {
         const quantizedDensity = Math.round(maxDensityInAgg * quantLevels) / Math.max(1, quantLevels);
-        if (quantizedDensity >= 0.15) {
-          const binPrice = data.priceMin + (b + binAggFactor / 2) * data.priceStep;
-          let distanceFade = 1.0;
-          if (currentPrice != null) {
-            const distance = Math.abs(binPrice - currentPrice);
-            const range = (priceMax && priceMin) ? Math.max((priceMax - priceMin) * 0.8, currentPrice * 0.05) : currentPrice * 0.05;
-            distanceFade = Math.max(0.15, 1 - (distance / (range * 0.75)));
-          }
-
+        if (quantizedDensity >= 0.10) {
           ctx.globalCompositeOperation = 'source-over';
-          // Clean single-pass fill for high performance
-          const baseOpacity = (settings.opacity ?? 0.90) * distanceFade;
+          // Clean solid single-pass fill matching authentic Bookmap depth rendering
+          const baseOpacity = settings.opacity ?? 0.95;
           ctx.fillStyle = getBookmapThemeColor(quantizedDensity, sideInAgg, settings.colorMode, palette, baseOpacity);
           ctx.fillRect(drawX, drawY, drawW, drawH);
-
-          // Subtle top highlight edge for high-value peak liquidity walls
-          if (quantizedDensity > 0.70) {
-            ctx.globalAlpha = distanceFade;
-            ctx.fillStyle = sideInAgg === 'bid' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 215, 0, 0.7)';
-            ctx.fillRect(drawX, drawY, drawW, 1);
-            ctx.globalAlpha = 1.0;
-          }
         }
       }
     }
@@ -3826,7 +3902,7 @@ export function renderLiquidityHeatmapLayer({
   ctx.globalCompositeOperation = 'source-over';
 
   // -------------------------------------------------------------------------
-  // 2. Continuous Resting Limit Order Wall Rays (Significant Levels Only)
+  // 2. Continuous Resting Limit Order Wall Rays (Rectangular Gradient Area Zones)
   // -------------------------------------------------------------------------
   if (settings.showRestingWalls && data.depthRays.length > 0) {
     data.depthRays.forEach((ray) => {
@@ -3842,50 +3918,80 @@ export function renderLiquidityHeatmapLayer({
       const y = getY(ray.price);
       if (y < -5 || y > mainChartHeight + 5) return;
 
+      const isMitigated = ray.isMitigated === true;
+      const targetEndBar = (isMitigated && ray.mitigatedBarIndex !== null && ray.mitigatedBarIndex !== undefined)
+        ? ray.mitigatedBarIndex
+        : (ray.endBar !== -1 ? ray.endBar : endIndex);
+
       const x1 = Math.max(0, getX(ray.startBar) - candleWidth / 2);
-      const x2 = ray.active ? effectiveChartWidth : Math.min(effectiveChartWidth, getX(ray.endBar) + candleWidth / 2);
+      const x2 = (!isMitigated && ray.active) 
+        ? effectiveChartWidth 
+        : Math.min(effectiveChartWidth, getX(targetEndBar) + candleWidth / 2);
       if (x2 <= x1) return;
 
       const isBid = ray.side === 'bid';
       const rayHeight = ray.isLargeWall
-        ? Math.max(3.2, (mainChartHeight / data.binsCount) * 0.95)
-        : Math.max(1.6, Math.min(3.2, smoothedBinPx * 0.9));
+        ? Math.max(5.0, Math.min(10.0, (mainChartHeight / data.binsCount) * 1.4))
+        : Math.max(2.8, Math.min(5.5, smoothedBinPx * 1.15));
 
-      // Age calculation for half-life decay
-      const ageBars = (ray.endBar === -1 ? data.matrix.length - 1 : ray.endBar) - ray.startBar;
-      const isFresh = ageBars <= 3;
-      const isAgedCore = ageBars >= 25;
+      const baseAlpha = isMitigated ? 0.38 : (ray.isLargeWall ? 0.92 : 0.78);
+      const rayColor = getBookmapThemeColor(ray.density, ray.side, settings.colorMode, palette, baseAlpha);
 
-      // Multi-layer glowing horizontal stripe
-      const rayColor = getBookmapThemeColor(ray.density, ray.side, settings.colorMode, palette, 0.96);
+      // 1. Smooth Horizontal Rectangular Gradient Fill (Fade-in / Fade-out with zero line style)
+      const rectGrad = ctx.createLinearGradient(x1, 0, x2, 0);
+      if (isMitigated) {
+        rectGrad.addColorStop(0, hexToRgbAlpha(rayColor, 0.35));
+        rectGrad.addColorStop(0.2, rayColor);
+        rectGrad.addColorStop(0.75, rayColor);
+        rectGrad.addColorStop(1.0, hexToRgbAlpha(rayColor, 0.12));
+      } else {
+        rectGrad.addColorStop(0, hexToRgbAlpha(rayColor, 0.40));
+        rectGrad.addColorStop(0.12, rayColor);
+        rectGrad.addColorStop(0.88, rayColor);
+        rectGrad.addColorStop(1.0, hexToRgbAlpha(rayColor, 0.75));
+      }
 
-      // Core bright stripe
-      ctx.fillStyle = rayColor;
+      ctx.fillStyle = rectGrad;
       ctx.fillRect(x1, y - rayHeight / 2, x2 - x1, rayHeight);
 
-      // Aging gradient styling
-      if (settings.showAgingDecay) {
-        if (isAgedCore) {
-          // Deep Institutional High-Conviction Core: Solid rich theme bull/bear boundary
-          ctx.strokeStyle = isBid ? palette.bull : palette.bear;
-          ctx.lineWidth = 1.4;
-          ctx.fillRect(x1, y - rayHeight / 2, x2 - x1, rayHeight);
-        } else if (isFresh) {
-          // Fresh / Reactive limit wall: subtle theme poc pulse line
-          ctx.strokeStyle = palette.poc || '#ffd600';
-          ctx.lineWidth = 0.8;
-          ctx.setLineDash([]); // Clean solid line, zero dotted artifacts
-          ctx.fillRect(x1, y - rayHeight / 2, x2 - x1, rayHeight);
+      // 2. Vertical Soft Shading Gradient (adds visual depth inside the rectangular block without lines)
+      const vertGrad = ctx.createLinearGradient(0, y - rayHeight / 2, 0, y + rayHeight / 2);
+      vertGrad.addColorStop(0, 'rgba(255, 255, 255, 0.18)');
+      vertGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.0)');
+      vertGrad.addColorStop(1, 'rgba(0, 0, 0, 0.22)');
+      ctx.fillStyle = vertGrad;
+      ctx.fillRect(x1, y - rayHeight / 2, x2 - x1, rayHeight);
+
+      // 3. Multi-tone layered luminous rectangular gradient for heavy/institutional walls
+      if (ray.isLargeWall || ray.density >= 0.65) {
+        const innerH = Math.max(1.8, rayHeight * 0.5);
+        const coreGrad = ctx.createLinearGradient(x1, 0, x2, 0);
+        const coreTone = isMitigated ? 'rgba(255, 214, 10, 0.45)' : 'rgba(255, 214, 10, 0.85)';
+        coreGrad.addColorStop(0, hexToRgbAlpha(coreTone, 0.25));
+        coreGrad.addColorStop(0.15, coreTone);
+        coreGrad.addColorStop(0.85, coreTone);
+        coreGrad.addColorStop(1.0, hexToRgbAlpha(coreTone, 0.35));
+        ctx.fillStyle = coreGrad;
+        ctx.fillRect(x1, y - innerH / 2, x2 - x1, innerH);
+      }
+
+      // 4. Zone Mitigation Terminal Notch (Rectangular gradient block)
+      if (isMitigated && settings.showZoneMitigation !== false) {
+        const mitColor = isBid ? palette.bull : palette.bear;
+        const mitGrad = ctx.createLinearGradient(x2 - 3, 0, x2 + 1, 0);
+        mitGrad.addColorStop(0, hexToRgbAlpha(mitColor, 0.9));
+        mitGrad.addColorStop(1, hexToRgbAlpha(mitColor, 0.2));
+        ctx.fillStyle = mitGrad;
+        ctx.fillRect(x2 - 2, y - rayHeight / 2 - 1, 3, rayHeight + 2);
+      } else if (!isMitigated && settings.showFreshZoneMagnets !== false && ray.active) {
+        // Fresh Unmitigated Liquidity Magnet Pool Accent at chart right edge
+        if (ray.isLargeWall || ray.density >= 0.6) {
+          ctx.save();
+          const freshColor = isBid ? palette.bull : palette.bear;
+          ctx.fillStyle = freshColor;
+          ctx.fillRect(effectiveChartWidth - 3, y - rayHeight / 2, 3, rayHeight);
+          ctx.restore();
         }
-      } else if (ray.isLargeWall) {
-        ctx.strokeStyle = isBid ? palette.bull : palette.bear;
-        ctx.lineWidth = 0.9;
-        ctx.beginPath();
-        ctx.moveTo(x1, y - rayHeight / 2);
-        ctx.lineTo(x2, y - rayHeight / 2);
-        ctx.moveTo(x1, y + rayHeight / 2);
-        ctx.lineTo(x2, y + rayHeight / 2);
-        ctx.stroke();
       }
     });
   }
@@ -4045,7 +4151,7 @@ export function renderLiquidityHeatmapLayer({
   }
 
   // -------------------------------------------------------------------------
-  // 7D. Liquidity Sweep & Stop-Hunt Reversal Predictor
+  // 7D. Liquidity Sweep & Stop-Hunt Reversal Predictor (Rectangular Gradient Area)
   // -------------------------------------------------------------------------
   if (settings.showSweepPredictor && data.sweepZones && data.sweepZones.length > 0) {
     ctx.save();
@@ -4061,21 +4167,23 @@ export function renderLiquidityHeatmapLayer({
       const isRes = sweep.type === 'bearish_sweep_resistance';
       const col = isRes ? palette.bear : palette.bull;
 
-      // Sweep Trigger Trajectory Line
-      ctx.setLineDash([3, 3]);
-      ctx.strokeStyle = `${col}80`;
-      ctx.lineWidth = 1.1;
-      ctx.beginPath();
-      ctx.moveTo(Math.max(10, effectiveChartWidth - 160), sweepY);
-      ctx.lineTo(effectiveChartWidth, sweepY);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      // Sweep Trigger Trajectory Rectangular Gradient Box
+      const sweepH = Math.max(3.0, smoothedBinPx * 0.9);
+      const sweepW = 180;
+      const startSweepX = Math.max(10, effectiveChartWidth - sweepW);
+      const sweepGrad = ctx.createLinearGradient(startSweepX, 0, effectiveChartWidth, 0);
+      sweepGrad.addColorStop(0, hexToRgbAlpha(col, 0));
+      sweepGrad.addColorStop(0.3, hexToRgbAlpha(col, 0.22));
+      sweepGrad.addColorStop(1.0, hexToRgbAlpha(col, 0.55));
+
+      ctx.fillStyle = sweepGrad;
+      ctx.fillRect(startSweepX, sweepY - sweepH / 2, sweepW, sweepH);
     });
     ctx.restore();
   }
 
   // -------------------------------------------------------------------------
-  // 7E. Liquidation Cascade & Stop-Hunt Predictive Radar
+  // 7E. Liquidation Cascade & Stop-Hunt Predictive Radar (Rectangular Gradient Area)
   // -------------------------------------------------------------------------
   if (settings.showLiquidationRadar && data.liquidationRadar && data.liquidationRadar.clusters.length > 0) {
     ctx.save();
@@ -4093,28 +4201,27 @@ export function renderLiquidityHeatmapLayer({
       const isShortLiq = cluster.side === 'short_liq';
       const col = cluster.color || (isShortLiq ? palette.bull : palette.bear);
 
-      // Clean dashed liquidation reference line across chart
-      ctx.setLineDash([5, 4]);
-      ctx.strokeStyle = `${col}70`;
-      ctx.lineWidth = cluster.isImminent ? 1.4 : 0.9;
-      ctx.beginPath();
-      ctx.moveTo(Math.max(10, effectiveChartWidth - 220), clusterY);
-      ctx.lineTo(effectiveChartWidth, clusterY);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      // Clean rectangular gradient band across chart
+      const liqH = cluster.isImminent ? Math.max(4.0, smoothedBinPx * 0.95) : Math.max(2.5, smoothedBinPx * 0.7);
+      const liqW = 240;
+      const startLiqX = Math.max(10, effectiveChartWidth - liqW);
+      const liqGrad = ctx.createLinearGradient(startLiqX, 0, effectiveChartWidth, 0);
+      liqGrad.addColorStop(0, hexToRgbAlpha(col, 0));
+      liqGrad.addColorStop(0.35, hexToRgbAlpha(col, cluster.isImminent ? 0.35 : 0.18));
+      liqGrad.addColorStop(1.0, hexToRgbAlpha(col, cluster.isImminent ? 0.65 : 0.45));
 
-      // Subtle endpoint pip
+      ctx.fillStyle = liqGrad;
+      ctx.fillRect(startLiqX, clusterY - liqH / 2, liqW, liqH);
+
+      // Subtle endpoint rectangular accent
       ctx.fillStyle = col;
-      const pipR = Math.max(1.5, Math.min(4.0, smoothedBinPx * 0.85));
-      ctx.beginPath();
-      ctx.arc(effectiveChartWidth - 4, clusterY, cluster.isImminent ? pipR + 0.6 : pipR, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fillRect(effectiveChartWidth - 4, clusterY - liqH / 2, 4, liqH);
     });
     ctx.restore();
   }
 
   // -------------------------------------------------------------------------
-  // 8. Liquidity Vacuum & High-Slippage Danger Corridor Radar ⚠️
+  // 8. Liquidity Vacuum & High-Slippage Danger Corridor Radar (Rectangular Gradient Area) ⚠️
   // -------------------------------------------------------------------------
   if (settings.showLiquidityVacuums && data.vacuumZones && data.vacuumZones.length > 0) {
     ctx.save();
@@ -4146,17 +4253,17 @@ export function renderLiquidityHeatmapLayer({
       // Time-based pulsing multiplier (4Hz cycle for natural alert feel)
       const pulseFactor = 0.5 + 0.5 * Math.sin(Date.now() / 220);
 
-      // Soft horizontal gradient background for the vacuum danger corridor (pulsates when price is close)
+      // Soft horizontal rectangular gradient background for the vacuum danger corridor
       const grad = ctx.createLinearGradient(x1, 0, x1 + Math.min(w, 400), 0);
       const baseOpacityMultiplier = 1.0 + 0.8 * proximityWeight * pulseFactor;
       const vacuumColor = palette.poc || palette.bull;
       if (isClean) {
-        grad.addColorStop(0, hexToRgbAlpha(vacuumColor, 0.05 * baseOpacityMultiplier));
-        grad.addColorStop(0.4, hexToRgbAlpha(vacuumColor, 0.02 * baseOpacityMultiplier));
+        grad.addColorStop(0, hexToRgbAlpha(vacuumColor, 0.08 * baseOpacityMultiplier));
+        grad.addColorStop(0.4, hexToRgbAlpha(vacuumColor, 0.03 * baseOpacityMultiplier));
         grad.addColorStop(1, hexToRgbAlpha(vacuumColor, 0.002));
       } else {
-        grad.addColorStop(0, hexToRgbAlpha(vacuumColor, 0.10 * baseOpacityMultiplier));
-        grad.addColorStop(0.3, hexToRgbAlpha(vacuumColor, 0.05 * baseOpacityMultiplier));
+        grad.addColorStop(0, hexToRgbAlpha(vacuumColor, 0.14 * baseOpacityMultiplier));
+        grad.addColorStop(0.3, hexToRgbAlpha(vacuumColor, 0.06 * baseOpacityMultiplier));
         grad.addColorStop(1, hexToRgbAlpha(vacuumColor, 0.005));
       }
       ctx.fillStyle = grad;
@@ -4166,26 +4273,6 @@ export function renderLiquidityHeatmapLayer({
       const vacuumMarkerW = Math.max(1.5, Math.min(4.0, smoothedBinPx * 0.8));
       ctx.fillStyle = hexToRgbAlpha(vacuumColor, 0.80 + 0.20 * proximityWeight * pulseFactor);
       ctx.fillRect(x1, topY, vacuumMarkerW, h);
-
-      // Beautiful diagonal warning texture (Clipped neatly inside the vacuum boundaries with adaptive weight)
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(x1, topY, w, h);
-      ctx.clip();
-
-      const baseSlashOpacity = isClean ? 0.14 : 0.32;
-      const dynamicSlashOpacity = baseSlashOpacity + (isClean ? 0.11 : 0.28) * proximityWeight * pulseFactor;
-      ctx.strokeStyle = hexToRgbAlpha(vacuumColor, dynamicSlashOpacity);
-      ctx.lineWidth = 1.0 + 0.5 * proximityWeight * pulseFactor;
-      ctx.beginPath();
-      
-      const slashSpacing = Math.max(8, Math.min(22, smoothedBinPx * 3.5)); // Comfortably-spaced premium slashes
-      for (let offset = -h; offset < w; offset += slashSpacing) {
-        ctx.moveTo(x1 + offset, topY);
-        ctx.lineTo(x1 + offset + h, botY);
-      }
-      ctx.stroke();
-      ctx.restore();
     });
     ctx.restore();
   }
@@ -4342,24 +4429,53 @@ export function renderLiquidityHeatmapLayer({
 
       let peakT = 0.55;
       let coreHex = '#ffd600';
+      let solidStart = '#7dd3fc';
+      let solidMid = '#38bdf8';
+      let solidEnd = '#0284c7';
 
       if (isCallWall) {
-        peakT = 0.93; // Molten Amber / Red spectrum peak
-        coreHex = '#ff8800';
+        peakT = 0.93; // Emerald spectrum peak (Major Dealer Resistance)
+        coreHex = '#10b981';
+        solidStart = '#34d399'; // Bright Emerald Green
+        solidMid = '#10b981';   // Emerald Core
+        solidEnd = '#047857';   // Deep Forest Green
       } else if (isPutWall) {
-        peakT = 0.89; // Deep Coral / Orange-Red spectrum peak
-        coreHex = '#ff2d55';
+        peakT = 0.89; // Deep Coral / Rose-Red spectrum peak (Major Dealer Support)
+        coreHex = '#f43f5e';
+        solidStart = '#fb7185'; // Radiant Rose
+        solidMid = '#f43f5e';   // Rose Red Core
+        solidEnd = '#9f1239';   // Deep Crimson
       } else if (isFlip) {
-        peakT = 0.76; // Radiant Yellow / Emerald spectrum peak
+        peakT = 0.76; // Radiant Gold spectrum peak (0-Gamma Regime Shift)
         coreHex = '#ffd600';
+        solidStart = '#fde047'; // Bright Lemon Gold
+        solidMid = '#ffd600';   // Radiant Yellow Gold
+        solidEnd = '#b45309';   // Deep Warm Amber
       } else if (isMaxPain) {
-        peakT = 0.70; // Gold spectrum peak
-        coreHex = '#eab308';
+        peakT = 0.70; // Vivid Purple spectrum peak (Option Max Pain Pin)
+        coreHex = '#c084fc';
+        solidStart = '#e879f9'; // Bright Orchid
+        solidMid = '#c084fc';   // Vivid Purple Core
+        solidEnd = '#6b21a8';   // Deep Violet
       } else {
         // High-OI strikes scale through the spectrum based on relative Open Interest
         peakT = 0.35 + 0.48 * scaleFactor;
-        const rgb = getGexSpectrumRgb(peakT);
-        coreHex = `#${rgb.r.toString(16).padStart(2, '0')}${rgb.g.toString(16).padStart(2, '0')}${rgb.b.toString(16).padStart(2, '0')}`;
+        if (node.dominantSide === 'call') {
+          coreHex = '#00e5ff';
+          solidStart = '#67e8f9';
+          solidMid = '#00e5ff';
+          solidEnd = '#0369a1';
+        } else if (node.dominantSide === 'put') {
+          coreHex = '#fb7185';
+          solidStart = '#fda4af';
+          solidMid = '#fb7185';
+          solidEnd = '#be123c';
+        } else {
+          coreHex = '#38bdf8';
+          solidStart = '#7dd3fc';
+          solidMid = '#38bdf8';
+          solidEnd = '#1e40af';
+        }
       }
 
       const baseAlphaRaw = isCallWall || isPutWall ? 0.88 : isFlip || isMaxPain ? 0.78 : 0.55;
@@ -4369,107 +4485,10 @@ export function renderLiquidityHeatmapLayer({
       const rawBandH = (isCallWall || isPutWall ? 6.2 : isFlip || isMaxPain ? 5.0 : 3.8) * heatmapVisualScale;
       const bandH = Math.max(3.0, Math.min(7.0, rawBandH));
 
-      return { peakT, coreHex, finalOpacity, bandH, normalizedScale, scaleFactor };
+      return { peakT, coreHex, solidStart, solidMid, solidEnd, finalOpacity, bandH, normalizedScale, scaleFactor };
     };
 
-    if (activeGexNodes.length >= 1) {
-      // Sort nodes from top of screen to bottom of screen (highest price to lowest price)
-      const sortedGex = [...activeGexNodes].sort((a, b) => getY(a.price) - getY(b.price));
-
-      const gexWidth = 64;
-      const gexHeight = 128;
-
-      // Create an offscreen canvas for hardware-accelerated bilinear filtering
-      const offscreen = document.createElement('canvas');
-      offscreen.width = gexWidth;
-      offscreen.height = gexHeight;
-      const offCtx = offscreen.getContext('2d');
-
-      if (offCtx) {
-        const imgData = offCtx.createImageData(gexWidth, gexHeight);
-
-        const getYForNode = (n: any) => getY(n.price);
-
-        const fadeMargin = 25;
-        const nodeYMin = getYForNode(sortedGex[0]);
-        const nodeYMax = getYForNode(sortedGex[sortedGex.length - 1]);
-
-        const minY = nodeYMin - fadeMargin;
-        const maxY = nodeYMax + fadeMargin;
-        const ySpan = Math.max(1, maxY - minY);
-
-        const nodeProps = sortedGex.map((n) => {
-          const profile = getNodeSpectrumProfile(n);
-          return {
-            y: getYForNode(n),
-            peakT: profile.peakT,
-            bandH: profile.bandH,
-            baseAlpha: (n.nodeType === 'CALL_WALL' || n.nodeType === 'PUT_WALL' ? 0.32 : 0.22) * profile.normalizedScale,
-          };
-        });
-
-        for (let row = 0; row < gexHeight; row++) {
-          const uY = row / (gexHeight - 1);
-          const targetY = minY + uY * ySpan;
-
-          for (let col = 0; col < gexWidth; col++) {
-            let r = 0, g = 0, b = 0, accumulatedAlpha = 0;
-
-            nodeProps.forEach(node => {
-              const distY = Math.abs(targetY - node.y);
-              const maxThickness = node.bandH * 0.75;
-
-              if (distY <= maxThickness) {
-                const normDist = distY / maxThickness;
-                // Spectral dispersion from core peak to cooler envelope
-                const localT = Math.max(0.12, node.peakT * (1 - normDist * 0.72));
-                const specRgb = getGexSpectrumRgb(localT);
-
-                // Cosine envelope for silky-smooth sub-pixel vertical anti-aliasing
-                const verticalFade = Math.cos(normDist * (Math.PI * 0.5));
-                const nodeAlpha = node.baseAlpha * verticalFade * 0.95;
-
-                r += specRgb.r * nodeAlpha;
-                g += specRgb.g * nodeAlpha;
-                b += specRgb.b * nodeAlpha;
-                accumulatedAlpha += nodeAlpha;
-              }
-            });
-
-            const idx = (row * gexWidth + col) * 4;
-            if (accumulatedAlpha > 0) {
-              const norm = Math.min(1.0, accumulatedAlpha);
-              imgData.data[idx] = Math.round(r / accumulatedAlpha);
-              imgData.data[idx + 1] = Math.round(g / accumulatedAlpha);
-              imgData.data[idx + 2] = Math.round(b / accumulatedAlpha);
-              imgData.data[idx + 3] = Math.round(norm * 255);
-            } else {
-              imgData.data[idx] = 0;
-              imgData.data[idx + 1] = 0;
-              imgData.data[idx + 2] = 0;
-              imgData.data[idx + 3] = 0;
-            }
-          }
-        }
-
-        offCtx.putImageData(imgData, 0, 0);
-
-        // Hardware-accelerated bilinear scaling back to main chart
-        ctx.save();
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(
-          offscreen,
-          chartStartX,
-          minY,
-          Math.max(1, effectiveChartWidth - chartStartX),
-          ySpan
-        );
-        ctx.restore();
-      }
-    }
-
-    // Render each GEX node as a Thin Spectrum Area Ribbon & Dealer Greeks Overlay
+    // Render each GEX node as a Solid Gradient Horizon Ribbon & Dealer Greeks Overlay
     nodes.forEach((node) => {
       const nodeY = getY(node.price);
       if (nodeY < -30 || nodeY > mainChartHeight + 30) return;
@@ -4480,30 +4499,35 @@ export function renderLiquidityHeatmapLayer({
       const isMaxPain = node.nodeType === 'MAX_PAIN';
       const isHighOi = node.nodeType === 'HIGH_OI_STRIKE';
 
-      const { peakT, coreHex, finalOpacity, bandH, normalizedScale, scaleFactor } = getNodeSpectrumProfile(node);
+      const isLightBg = palette.dark === '#ffffff';
+      const { peakT, coreHex, solidStart, solidMid, solidEnd, finalOpacity, bandH, normalizedScale, scaleFactor } = getNodeSpectrumProfile(node);
       const halfH = bandH / 2;
 
-      // Extract core RGB for gradient stops
-      const coreRgb = getGexSpectrumRgb(peakT);
-      const coreR = coreRgb.r;
-      const coreG = coreRgb.g;
-      const coreB = coreRgb.b;
-
       // -----------------------------------------------------------------------
-      // 1. Sub-pixel Precision Luminous Center Core Filament (Clean Continuous 1px Line)
+      // 1. Solid Horizontal Gradient Ray across the Chart Width (No transparency)
       // -----------------------------------------------------------------------
       ctx.save();
+      const rayH = isCallWall || isPutWall ? 2.4 : isFlip || isMaxPain ? 1.8 : 1.2;
+      const rayGrad = ctx.createLinearGradient(chartStartX, nodeY, effectiveChartWidth, nodeY);
+      rayGrad.addColorStop(0.00, solidEnd);
+      rayGrad.addColorStop(0.50, solidMid);
+      rayGrad.addColorStop(1.00, solidStart);
+
+      ctx.fillStyle = rayGrad;
+      ctx.fillRect(chartStartX, nodeY - rayH / 2, effectiveChartWidth - chartStartX, rayH);
+
+      // Sharp primary filament line on top
       ctx.beginPath();
       ctx.moveTo(chartStartX, nodeY);
       ctx.lineTo(effectiveChartWidth, nodeY);
-      ctx.strokeStyle = `rgba(${coreR}, ${coreG}, ${coreB}, ${(0.75 * finalOpacity).toFixed(3)})`;
-      ctx.lineWidth = isCallWall || isPutWall ? 1.0 : 0.8;
-      ctx.setLineDash([4, 4]); // Clean dashed line for GEX levels
+      ctx.strokeStyle = solidStart;
+      ctx.lineWidth = isCallWall || isPutWall ? 1.2 : 0.9;
+      ctx.setLineDash(isCallWall || isPutWall ? [8, 4] : isFlip ? [5, 3] : isMaxPain ? [8, 3, 2, 3] : [4, 4]);
       ctx.stroke();
       ctx.restore();
 
       // -----------------------------------------------------------------------
-      // 3. Lateral Dealer Greeks Spectrum Profile Distribution (Right Margin)
+      // 3. Lateral Dealer Greeks Solid Gradient Distribution Bars (Right Margin)
       // -----------------------------------------------------------------------
       const maxBarWidth = 140;
       const barWidth = scaleFactor * maxBarWidth;
@@ -4512,25 +4536,32 @@ export function renderLiquidityHeatmapLayer({
         const bx1 = effectiveChartWidth;
         const bx2 = effectiveChartWidth - barWidth;
 
-        // True horizontal spectrum gradient: Hot Red/Amber -> Gold -> Emerald -> Cyan -> Transparent
+        // Solid horizontal color gradient (No transparency)
         const barGrad = ctx.createLinearGradient(bx1, nodeY, bx2, nodeY);
-        barGrad.addColorStop(0.00, `rgba(255, 45, 65, ${(0.42 * normalizedScale).toFixed(3)})`);
-        barGrad.addColorStop(0.25, `rgba(255, 140, 0, ${(0.38 * normalizedScale).toFixed(3)})`);
-        barGrad.addColorStop(0.50, `rgba(255, 230, 10, ${(0.32 * normalizedScale).toFixed(3)})`);
-        barGrad.addColorStop(0.72, `rgba(30, 225, 100, ${(0.22 * normalizedScale).toFixed(3)})`);
-        barGrad.addColorStop(0.88, `rgba(0, 230, 245, ${(0.14 * normalizedScale).toFixed(3)})`);
-        barGrad.addColorStop(1.00, 'rgba(0, 150, 245, 0.0)');
+        barGrad.addColorStop(0.00, solidStart);
+        barGrad.addColorStop(0.50, solidMid);
+        barGrad.addColorStop(1.00, solidEnd);
 
         ctx.fillStyle = barGrad;
         ctx.fillRect(bx2, nodeY - halfH, barWidth, bandH);
 
-        // Precision left spectral end-cap line
-        ctx.strokeStyle = `rgba(0, 230, 245, ${(0.65 * normalizedScale).toFixed(3)})`;
-        ctx.lineWidth = 0.9;
-        ctx.beginPath();
-        ctx.moveTo(bx2, nodeY - halfH);
-        ctx.lineTo(bx2, nodeY + halfH);
-        ctx.stroke();
+        // Solid crisp border around bar
+        ctx.strokeStyle = solidStart;
+        ctx.lineWidth = 1.0;
+        ctx.strokeRect(bx2, nodeY - halfH, barWidth, bandH);
+
+        // If bar is wide enough, show concise net gamma or OI text inside bar
+        if (barWidth >= 42 && bandH >= 3.5) {
+          ctx.font = 'bold 8px "JetBrains Mono", monospace';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#ffffff';
+          const textStr = node.netGamma !== 0 
+            ? `${node.netGamma >= 0 ? '+' : ''}${node.netGamma}M`
+            : `${(node.openInterest / 1000).toFixed(0)}K`;
+          ctx.fillText(textStr, bx2 + 4, nodeY);
+        }
+
         ctx.restore();
       }
 
@@ -4539,27 +4570,27 @@ export function renderLiquidityHeatmapLayer({
       // -----------------------------------------------------------------------
       if (isCallWall || isPutWall || isFlip || isMaxPain) {
         const bx = effectiveChartWidth - 110;
-        if (bx > chartStartX + 120) {
-          const chipW = 28;
-          const chipH = 12;
+        if (bx > chartStartX + 130) {
+          const chipW = 34;
+          const chipH = 16;
           const chipX = bx - chipW / 2;
           const chipY = nodeY - chipH / 2;
 
           ctx.save();
-          // Subtle drop shadow for crisp visibility
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
-          ctx.shadowBlur = 3;
+          // Drop shadow for crisp contrast
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+          ctx.shadowBlur = 4;
           ctx.shadowOffsetX = 1;
-          ctx.shadowOffsetY = 1.5;
+          ctx.shadowOffsetY = 1;
 
           // Glassmorphic chip background
-          ctx.fillStyle = 'rgba(10, 15, 25, 0.92)';
-          ctx.strokeStyle = hexToRgbaStr(coreHex, 0.75 * normalizedScale);
-          ctx.lineWidth = 0.8;
+          ctx.fillStyle = isLightBg ? 'rgba(255, 255, 255, 0.94)' : 'rgba(10, 15, 25, 0.92)';
+          ctx.strokeStyle = hexToRgbaStr(coreHex, 0.85);
+          ctx.lineWidth = 1.0;
 
           if (typeof (ctx as any).roundRect === 'function') {
             ctx.beginPath();
-            (ctx as any).roundRect(chipX, chipY, chipW, chipH, 2);
+            (ctx as any).roundRect(chipX, chipY, chipW, chipH, 3);
             ctx.fill();
             ctx.stroke();
           } else {
@@ -4569,21 +4600,13 @@ export function renderLiquidityHeatmapLayer({
 
           // Reset shadow
           ctx.shadowColor = 'transparent';
-          ctx.shadowBlur = 0;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 0;
 
-          // Left 4-color chromatic spectrum accent stripe on the chip
-          const chipStripeGrad = ctx.createLinearGradient(0, chipY, 0, chipY + chipH);
-          chipStripeGrad.addColorStop(0.00, '#00d4ff'); // Cyan
-          chipStripeGrad.addColorStop(0.35, '#10b981'); // Emerald
-          chipStripeGrad.addColorStop(0.70, '#ffd600'); // Gold
-          chipStripeGrad.addColorStop(1.00, '#ff3b30'); // Hot Red
-          ctx.fillStyle = chipStripeGrad;
-          ctx.fillRect(chipX, chipY, 2.0, chipH);
+          // Left accent stripe
+          ctx.fillStyle = coreHex;
+          ctx.fillRect(chipX, chipY, 2.5, chipH);
 
           // Dealer signifier glyph inside the spectrum chip
-          ctx.font = 'bold 8.0px monospace';
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillStyle = coreHex;
@@ -4611,22 +4634,34 @@ export function renderLiquidityHeatmapLayer({
         ctx.save();
         const glyph = isCallWall ? 'Γ+ ' : isPutWall ? 'Γ- ' : isFlip ? '0Γ ' : 'Ω ';
         const prefix = isCallWall ? 'CALL WALL' : isPutWall ? 'PUT WALL' : isFlip ? '0-GAMMA FLIP' : 'MAX PAIN';
-        const leftLabelText = `${glyph}${prefix} $${node.priceFormatted}`;
-        ctx.font = 'bold 7.5px monospace';
+        const leftLabelText = `${glyph}${prefix} · $${node.priceFormatted}`;
+        ctx.font = 'bold 9px "JetBrains Mono", "SF Mono", monospace';
         const leftTextWidth = ctx.measureText(leftLabelText).width;
-        const leftBadgeW = leftTextWidth + 18;
-        const leftBadgeH = 13;
+        const leftBadgeW = leftTextWidth + 22;
+        const leftBadgeH = 18;
         const leftBadgeX = chartStartX + 8;
         const leftBadgeY = nodeY - leftBadgeH / 2;
+        
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+        ctx.shadowBlur = 5;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
 
-        const isLightBg = palette.dark === '#ffffff';
-        // Glassmorphic pill container
-        ctx.fillStyle = isLightBg ? 'rgba(255, 255, 255, 0.90)' : 'rgba(15, 23, 42, 0.88)';
-        ctx.strokeStyle = hexToRgbaStr(coreHex, 0.55);
-        ctx.lineWidth = 0.8;
+        // Solid gradient badge container
+        const badgeBgGrad = ctx.createLinearGradient(leftBadgeX, leftBadgeY, leftBadgeX + leftBadgeW, leftBadgeY + leftBadgeH);
+        if (isLightBg) {
+          badgeBgGrad.addColorStop(0, '#ffffff');
+          badgeBgGrad.addColorStop(1, '#f1f5f9');
+        } else {
+          badgeBgGrad.addColorStop(0, '#0f172a');
+          badgeBgGrad.addColorStop(1, '#020617');
+        }
+        ctx.fillStyle = badgeBgGrad;
+        ctx.strokeStyle = solidStart;
+        ctx.lineWidth = 1.0;
         if (typeof (ctx as any).roundRect === 'function') {
           ctx.beginPath();
-          (ctx as any).roundRect(leftBadgeX, leftBadgeY, leftBadgeW, leftBadgeH, 3);
+          (ctx as any).roundRect(leftBadgeX, leftBadgeY, leftBadgeW, leftBadgeH, 4);
           ctx.fill();
           ctx.stroke();
         } else {
@@ -4634,22 +4669,19 @@ export function renderLiquidityHeatmapLayer({
           ctx.strokeRect(leftBadgeX, leftBadgeY, leftBadgeW, leftBadgeH);
         }
 
-        // Left 4-color chromatic spectrum accent stripe
-        const specStripeGrad = ctx.createLinearGradient(0, leftBadgeY, 0, leftBadgeY + leftBadgeH);
-        specStripeGrad.addColorStop(0, '#00d4ff'); // Cyan
-        specStripeGrad.addColorStop(0.35, '#10b981'); // Emerald
-        specStripeGrad.addColorStop(0.70, '#ffd600'); // Gold
-        specStripeGrad.addColorStop(1.00, '#ff3b30'); // Hot Red
-        ctx.fillStyle = specStripeGrad;
-        ctx.fillRect(leftBadgeX, leftBadgeY, 2.5, leftBadgeH);
+        ctx.shadowColor = 'transparent';
 
-        // Glowing vertical micro-bar indicator inside the badge matching core tier (no circle)
+        // Left accent stripe
+        ctx.fillStyle = solidStart;
+        ctx.fillRect(leftBadgeX, leftBadgeY, 3.0, leftBadgeH);
+
+        // Glowing vertical micro-bar indicator
         const ledX = leftBadgeX + 9;
-        ctx.fillStyle = coreHex;
-        ctx.fillRect(ledX - 1.2, nodeY - 3.5, 2.4, 7);
+        ctx.fillStyle = solidStart;
+        ctx.fillRect(ledX - 1.2, nodeY - 4, 2.4, 8);
 
         // Accessible high-contrast text label
-        ctx.fillStyle = isLightBg ? '#0f172a' : '#f8fafc';
+        ctx.fillStyle = isLightBg ? '#0f172a' : '#ffffff';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillText(leftLabelText, leftBadgeX + 16, nodeY);
@@ -4676,10 +4708,10 @@ export function renderLiquidityHeatmapLayer({
           : 'GEX';
 
         const rightLabelText = `${title} $${node.priceFormatted}${shortGexStr || oiStr}`;
-        ctx.font = 'bold 7.5px monospace';
+        ctx.font = 'bold 9px "JetBrains Mono", "SF Mono", monospace';
         const rightTextWidth = ctx.measureText(rightLabelText).width;
-        const badgeW = rightTextWidth + 18;
-        const badgeH = 14;
+        const badgeW = rightTextWidth + 24;
+        const badgeH = 18;
 
         const candidateX = effectiveChartWidth - badgeW - 8;
         const candidateY = nodeY - badgeH / 2;
@@ -4688,8 +4720,8 @@ export function renderLiquidityHeatmapLayer({
           [
             { x: candidateX, y: candidateY, w: badgeW, h: badgeH },
             { x: candidateX - 15, y: candidateY, w: badgeW, h: badgeH },
-            { x: candidateX, y: candidateY - 14, w: badgeW, h: badgeH },
-            { x: candidateX, y: candidateY + 14, w: badgeW, h: badgeH },
+            { x: candidateX, y: candidateY - 16, w: badgeW, h: badgeH },
+            { x: candidateX, y: candidateY + 16, w: badgeW, h: badgeH },
           ],
           isCallWall || isPutWall ? 9 : isFlip ? 8 : 6,
           'gex',
@@ -4697,14 +4729,27 @@ export function renderLiquidityHeatmapLayer({
         );
 
         if (placement) {
-          const isLightBg = palette.dark === '#ffffff';
-          ctx.fillStyle = isLightBg ? 'rgba(255, 255, 255, 0.92)' : 'rgba(15, 23, 42, 0.90)';
-          ctx.strokeStyle = hexToRgbaStr(coreHex, 0.7);
-          ctx.lineWidth = 0.9;
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+          ctx.shadowBlur = 5;
+          ctx.shadowOffsetX = 1;
+          ctx.shadowOffsetY = 1;
+
+          // Solid gradient right badge container
+          const rBadgeBgGrad = ctx.createLinearGradient(placement.x, placement.y, placement.x + placement.w, placement.y + placement.h);
+          if (isLightBg) {
+            rBadgeBgGrad.addColorStop(0, '#ffffff');
+            rBadgeBgGrad.addColorStop(1, '#f1f5f9');
+          } else {
+            rBadgeBgGrad.addColorStop(0, '#0f172a');
+            rBadgeBgGrad.addColorStop(1, '#020617');
+          }
+          ctx.fillStyle = rBadgeBgGrad;
+          ctx.strokeStyle = solidStart;
+          ctx.lineWidth = 1.0;
 
           if (typeof (ctx as any).roundRect === 'function') {
             ctx.beginPath();
-            (ctx as any).roundRect(placement.x, placement.y, placement.w, placement.h, 3);
+            (ctx as any).roundRect(placement.x, placement.y, placement.w, placement.h, 4);
             ctx.fill();
             ctx.stroke();
           } else {
@@ -4712,29 +4757,101 @@ export function renderLiquidityHeatmapLayer({
             ctx.strokeRect(placement.x, placement.y, placement.w, placement.h);
           }
 
-          // Left 4-color chromatic spectrum accent stripe
-          const rightStripeGrad = ctx.createLinearGradient(0, placement.y, 0, placement.y + placement.h);
-          rightStripeGrad.addColorStop(0, '#00d4ff'); // Cyan
-          rightStripeGrad.addColorStop(0.35, '#10b981'); // Emerald
-          rightStripeGrad.addColorStop(0.70, '#ffd600'); // Gold
-          rightStripeGrad.addColorStop(1.00, '#ff3b30'); // Hot Red
-          ctx.fillStyle = rightStripeGrad;
-          ctx.fillRect(placement.x, placement.y, 2.5, placement.h);
+          ctx.shadowColor = 'transparent';
 
-          // Accent vertical micro-bar in spectral tier (no circle)
+          // Left accent stripe
+          ctx.fillStyle = solidStart;
+          ctx.fillRect(placement.x, placement.y, 3.0, placement.h);
+
+          // Accent vertical micro-bar
           const ledX = placement.x + 9;
-          ctx.fillStyle = coreHex;
-          ctx.fillRect(ledX - 1.2, placement.y + placement.h / 2 - 3.5, 2.4, 7);
+          ctx.fillStyle = solidStart;
+          ctx.fillRect(ledX - 1.2, placement.y + placement.h / 2 - 4, 2.4, 8);
 
           // High contrast label text
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.fillStyle = isLightBg ? '#0f172a' : '#f8fafc';
-          ctx.fillText(rightLabelText, placement.x + 15.5, placement.y + placement.h / 2);
+          ctx.fillStyle = isLightBg ? '#0f172a' : '#ffffff';
+          ctx.fillText(rightLabelText, placement.x + 16, placement.y + placement.h / 2);
         }
         ctx.restore();
       }
     });
+
+    // -------------------------------------------------------------------------
+    // 8. Dealer Greeks Macro Regime HUD Badge (Executive Summary on Canvas)
+    // -------------------------------------------------------------------------
+    if (!isClean && gx) {
+      ctx.save();
+      const isLongGamma = gx.gammaRegime === 'LONG_GAMMA_STABILIZING';
+      const regimeCol = isLongGamma ? '#10b981' : '#f43f5e';
+      const netGammaSign = gx.netGammaExposureMillions >= 0 ? '+' : '';
+      const netGammaStr = `${netGammaSign}${gx.netGammaExposureMillions.toFixed(1)}M Γ`;
+      const regimeLabel = isLongGamma ? 'LONG Γ (STABILIZING)' : 'SHORT Γ (CASCADE)';
+      const pcrStr = `PCR: ${gx.putCallRatio.toFixed(2)}`;
+
+      const hudTitle = `DEALER GREEKS OVERLAY`;
+      const hudDetails = `${netGammaStr} · ${regimeLabel} · ${pcrStr}`;
+
+      ctx.font = 'bold 8.5px "JetBrains Mono", monospace';
+      const titleW = ctx.measureText(hudTitle).width;
+      ctx.font = 'bold 9px "JetBrains Mono", monospace';
+      const detailsW = ctx.measureText(hudDetails).width;
+      const contentW = Math.max(titleW, detailsW);
+
+      const hudW = contentW + 28;
+      const hudH = 34;
+      const hudX = Math.max(chartStartX + 12, effectiveChartWidth - hudW - 14);
+      const hudY = 12;
+
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetX = 1;
+      ctx.shadowOffsetY = 2;
+
+      const isLightBg = palette.dark === '#ffffff';
+      const hudBgGrad = ctx.createLinearGradient(hudX, hudY, hudX + hudW, hudY + hudH);
+      if (isLightBg) {
+        hudBgGrad.addColorStop(0, '#ffffff');
+        hudBgGrad.addColorStop(1, '#f1f5f9');
+      } else {
+        hudBgGrad.addColorStop(0, '#0f172a');
+        hudBgGrad.addColorStop(1, '#020617');
+      }
+      ctx.fillStyle = hudBgGrad;
+      ctx.strokeStyle = regimeCol;
+      ctx.lineWidth = 1.0;
+
+      if (typeof (ctx as any).roundRect === 'function') {
+        ctx.beginPath();
+        (ctx as any).roundRect(hudX, hudY, hudW, hudH, 5);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.fillRect(hudX, hudY, hudW, hudH);
+        ctx.strokeRect(hudX, hudY, hudW, hudH);
+      }
+
+      ctx.shadowColor = 'transparent';
+
+      // Left accent bar
+      ctx.fillStyle = regimeCol;
+      ctx.fillRect(hudX, hudY, 3.5, hudH);
+
+      // Top title
+      ctx.font = 'bold 8px "JetBrains Mono", monospace';
+      ctx.fillStyle = isLightBg ? '#64748b' : '#94a3b8';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(hudTitle, hudX + 12, hudY + 6);
+
+      // Bottom details with regime color
+      ctx.font = 'bold 9px "JetBrains Mono", monospace';
+      ctx.fillStyle = regimeCol;
+      ctx.fillText(hudDetails, hudX + 12, hudY + 19);
+
+      ctx.restore();
+    }
 
     ctx.restore();
   }
@@ -4802,7 +4919,7 @@ export function renderLiquidityHeatmapLayer({
 
 
   // -------------------------------------------------------------------------
-  // 4. Sub-Tick Micro Price Action High-Frequency Vector
+  // 4. Sub-Tick Micro Price Action High-Frequency Vector & Microstructure Bars
   // -------------------------------------------------------------------------
   if (settings.showMicroPriceTrail && data.microTrail.length > 0) {
     ctx.save();
@@ -4812,6 +4929,27 @@ export function renderLiquidityHeatmapLayer({
     ctx.rect(chartStartX, 0, Math.max(1, effectiveChartWidth - chartStartX), mainChartHeight);
     ctx.clip();
 
+    // Pass 1: Fine Yellow/Amber Microstructure Tick Wicks (Authentic Bookmap Look)
+    ctx.strokeStyle = '#ffd166';
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    for (let i = 0; i < data.microTrail.length; i++) {
+      const mt = data.microTrail[i];
+      if (mt.barIndex < startIndex - 1 || mt.barIndex > endIndex + 1) continue;
+      
+      const xBase = getX(mt.barIndex);
+      const stepX = xBase - candleWidth * 0.35 + (mt.subIndex / 3) * (candleWidth * 0.7);
+      const yHigh = getY(mt.high);
+      const yLow = getY(mt.low);
+      
+      if (Math.abs(yLow - yHigh) >= 1) {
+        ctx.moveTo(stepX, yHigh);
+        ctx.lineTo(stepX, yLow);
+      }
+    }
+    ctx.stroke();
+
+    // Pass 2: Continuous Cyan High-Frequency Trajectory Trail
     ctx.beginPath();
     let isFirst = true;
     let prevBarIndex = -1;
@@ -4844,7 +4982,7 @@ export function renderLiquidityHeatmapLayer({
     
     if (settings.microTrailGlow !== false) {
       ctx.shadowColor = trailColor;
-      ctx.shadowBlur = 5;
+      ctx.shadowBlur = 4;
     }
     
     ctx.strokeStyle = trailColor;
@@ -4852,6 +4990,7 @@ export function renderLiquidityHeatmapLayer({
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.stroke();
+    ctx.shadowBlur = 0;
 
     // Render Sub-Tick Directional Trajectory Vector Pointer (glowing arrow head & tip on live tick)
     if (settings.showSubTickVector !== false && lastValidPt && lastValidPt.x > 0 && lastValidPt.y >= 0 && lastValidPt.y <= mainChartHeight) {
@@ -4919,101 +5058,130 @@ export function renderLiquidityHeatmapLayer({
 
       const rawCy = getY(bubble.price);
 
-      // ADAPTIVE HARMONIOUS BUBBLE SIZING (Balanced for all zoom levels & timeframes)
-      const userScale = Math.max(0.2, Math.min(2.5, settings.bubbleScale ?? 1.0));
+      // ADAPTIVE HARMONIOUS BUBBLE SIZING (Matching authentic Bookmap standards)
+      const userScale = Math.max(0.2, Math.min(2.5, settings.bubbleScale ?? 1.1));
       const mode = settings.bubbleSizeMode || 'adaptive';
 
-      // Balanced 2D clamp: horizontal cap follows candleWidth (bubbles breathe with
-      // zoom), vertical cap follows the on-screen bin height so zoomed-in bubbles
-      // stay proportional to the price grid instead of flattening horizontally.
-      const horizontalFactor = mode === 'ultra_accurate_tick' ? 1.05 : mode === 'compact' ? 0.9 : 1.35;
-      const verticalFactor = mode === 'ultra_accurate_tick' ? 1.5 : mode === 'compact' ? 1.2 : 2.5;
-      const floorRadius = mode === 'ultra_accurate_tick' ? 3.0 : mode === 'compact' ? 2.8 : 3.2;
-      // Take the larger of horizontal and vertical constraints so bubbles stay visible
-      // at any zoom level without being crushed by either axis alone.
+      const horizontalFactor = mode === 'ultra_accurate_tick' ? 1.15 : mode === 'compact' ? 0.95 : 1.4;
+      const verticalFactor = mode === 'ultra_accurate_tick' ? 1.6 : mode === 'compact' ? 1.3 : 2.6;
+      const floorRadius = mode === 'ultra_accurate_tick' ? 3.0 : mode === 'compact' ? 2.8 : 3.4;
       const maxAllowedRadius = Math.max(floorRadius, Math.max(candleWidth * horizontalFactor, smoothedBinPx * verticalFactor));
 
       const rawR = bubble.radius * userScale;
-      // Guarantee minimum visibility of 2.6px, never crushed to microscopic size
-      const r = Math.max(Math.max(2.6, floorRadius), Math.min(maxAllowedRadius, rawR));
+      const r = Math.max(floorRadius, Math.min(maxAllowedRadius, rawR));
 
       if (r < 2.0 || !isFinite(rawCx) || !isFinite(rawCy) || !isFinite(r)) continue;
 
-      // Subpixel Snap for Ultra-Crisp Sharp Edges (Zero Blur)
+      // Subpixel Snap for Ultra-Crisp Sharp Edges
       const cx = Math.round(rawCx * 2) / 2;
       const cy = Math.round(rawCy * 2) / 2;
 
       ctx.save();
 
-      const buyFraction = Math.max(0.05, Math.min(0.95, bubble.buyRatio));
+      const buyFraction = Math.max(0.0, Math.min(1.0, bubble.buyRatio));
       
-      // High-Contrast Deep Drop Shadow to pop off blue/dark heatmap
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.88)';
-      ctx.shadowBlur = Math.max(3, r * 0.45);
-      ctx.shadowOffsetX = Math.max(1, r * 0.15);
-      ctx.shadowOffsetY = Math.max(1, r * 0.2);
+      // High-Contrast Deep Drop Shadow
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+      ctx.shadowBlur = Math.max(2.0, r * 0.35);
+      ctx.shadowOffsetX = Math.max(0.8, r * 0.12);
+      ctx.shadowOffsetY = Math.max(0.8, r * 0.16);
 
-      // Bottom Hemisphere / Arc (Sell Volume - High Saturation Ruby)
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = bearCol;
-      ctx.fill();
+      // 1. Dual-Tone Radial Pie Chart Split (Authentic Bookmap Standard)
+      // Top starts at 12 o'clock (-PI/2) and sweeps clockwise by buyFraction
+      if (buyFraction >= 0.99) {
+        // 100% Full Buy Sphere
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = bullCol;
+        ctx.fill();
+      } else if (buyFraction <= 0.01) {
+        // 100% Full Sell Sphere
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = bearCol;
+        ctx.fill();
+      } else {
+        // Mixed Trades: Radial Pie Chart with Buy (Green) and Sell (Red) sectors
+        const startAngle = -Math.PI / 2;
+        const splitAngle = startAngle + Math.PI * 2 * buyFraction;
 
-      // Top Sliced Segment (Buy Volume - High Saturation Emerald)
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, r, -Math.PI / 2 - Math.PI * buyFraction, -Math.PI / 2 + Math.PI * buyFraction);
-      ctx.closePath();
-      ctx.fillStyle = bullCol;
-      ctx.fill();
+        // Buy Sector (Green)
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, startAngle, splitAngle, false);
+        ctx.closePath();
+        ctx.fillStyle = bullCol;
+        ctx.fill();
 
-      // Reset shadows for overlay layers to avoid double-shadow artifacts
+        // Sell Sector (Red)
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, splitAngle, startAngle + Math.PI * 2, false);
+        ctx.closePath();
+        ctx.fillStyle = bearCol;
+        ctx.fill();
+
+        // Crisp dividing seam line between Buy and Sell sectors
+        if (r >= 3.0) {
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+          ctx.lineWidth = 0.85;
+          ctx.beginPath();
+          // Top radius line
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + r * Math.cos(startAngle), cy + r * Math.sin(startAngle));
+          // Split radius line
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + r * Math.cos(splitAngle), cy + r * Math.sin(splitAngle));
+          ctx.stroke();
+        }
+      }
+
+      // Reset shadows for overlay layers
       ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
 
-      // High Contrast Crisp Dual Border Ring (Eliminates fuzzy blurred borders)
-      // Pass 1: Solid Dark Outer Boundary
+      // 3. Crisp Dark Outer Rim Boundary
       ctx.strokeStyle = '#000000';
-      ctx.lineWidth = Math.max(1.2, Math.min(2.4, r * 0.22));
+      ctx.lineWidth = Math.max(1.0, Math.min(1.8, r * 0.16));
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Pass 2: High Contrast Inner Accent Specular Edge
+      // 4. Inner Specular Accent Rim
       if (r >= 3.2) {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-        ctx.lineWidth = 0.8;
+        ctx.lineWidth = 0.75;
         ctx.beginPath();
         ctx.arc(cx, cy, Math.max(1.0, r - 0.7), 0, Math.PI * 2);
         ctx.stroke();
       }
 
-      // 3D Sphere Radial Highlight (Crystal-clear glossy pearl look)
-      if (r >= 2.0) {
-        // Multi-layered lighting: Ambient shadow gradient
+      // 5. 3D Glossy Marble Specular Lighting (Authentic Sphere Reflection)
+      if (r >= 2.5) {
+        // Ambient 3D sphere gradient
         const ambientGrad = ctx.createRadialGradient(
           cx - r * 0.25, cy - r * 0.25, 0,
           cx - r * 0.15, cy - r * 0.15, r
         );
-        ambientGrad.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+        ambientGrad.addColorStop(0, 'rgba(255, 255, 255, 0.28)');
         ambientGrad.addColorStop(0.45, 'rgba(0, 0, 0, 0)');
-        ambientGrad.addColorStop(0.82, 'rgba(0, 0, 0, 0.42)');
-        ambientGrad.addColorStop(1, 'rgba(0, 0, 0, 0.78)');
+        ambientGrad.addColorStop(0.82, 'rgba(0, 0, 0, 0.45)');
+        ambientGrad.addColorStop(1, 'rgba(0, 0, 0, 0.80)');
 
         ctx.fillStyle = ambientGrad;
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fill();
 
-        // Specular highlight spot (upper-left corner)
+        // Upper-left glossy specular highlight spot
         const specGrad = ctx.createRadialGradient(
-          cx - r * 0.38, cy - r * 0.38, 0,
-          cx - r * 0.38, cy - r * 0.38, r * 0.45
+          cx - r * 0.35, cy - r * 0.35, 0,
+          cx - r * 0.35, cy - r * 0.35, r * 0.42
         );
         specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
-        specGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.52)');
+        specGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.48)');
         specGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
         ctx.fillStyle = specGrad;
@@ -5021,19 +5189,38 @@ export function renderLiquidityHeatmapLayer({
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fill();
 
-        // Ambient reflection on bottom-right edge
+        // Bottom bounce rim reflection
         const bounceGrad = ctx.createRadialGradient(
-          cx + r * 0.35, cy + r * 0.35, 0,
-          cx + r * 0.35, cy + r * 0.35, r * 0.7
+          cx + r * 0.3, cy + r * 0.3, 0,
+          cx + r * 0.3, cy + r * 0.3, r * 0.65
         );
-        bounceGrad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
-        bounceGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+        bounceGrad.addColorStop(0, 'rgba(255, 255, 255, 0.35)');
+        bounceGrad.addColorStop(0.45, 'rgba(255, 255, 255, 0)');
         bounceGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
         ctx.fillStyle = bounceGrad;
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fill();
+      }
+
+      // 6. Clean Volume Badge for prominent large executed trades
+      if (r >= 9.5 && bubble.totalVol > 0) {
+        ctx.save();
+        const volText = bubble.totalVol >= 1000000 
+          ? `${(bubble.totalVol / 1000000).toFixed(1)}M` 
+          : bubble.totalVol >= 1000 
+            ? `${(bubble.totalVol / 1000).toFixed(1)}k` 
+            : `${bubble.totalVol}`;
+        const fontSize = Math.max(7.5, Math.min(10.5, r * 0.65));
+        ctx.font = `bold ${fontSize}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#000000';
+        ctx.shadowBlur = 3;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(volText, cx, cy + 0.5);
+        ctx.restore();
       }
 
       ctx.restore();
@@ -5138,23 +5325,55 @@ export function renderLiquidityHeatmapLayer({
         ctx.stroke();
       }
 
-      // 4. Main Split Volume Sphere Body (100% High Contrast)
+      // 4. Main Split Volume Sphere Body (100% High Contrast Radial Pie Sector)
       ctx.globalAlpha = 1.0;
-      const buyFraction = Math.max(0.05, Math.min(0.95, cluster.buyRatio));
+      const buyFraction = Math.max(0.0, Math.min(1.0, cluster.buyRatio));
 
-      // Sell Hemisphere
-      ctx.beginPath();
-      ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
-      ctx.fillStyle = palette.bear || '#ff1744';
-      ctx.fill();
+      if (buyFraction >= 0.99) {
+        // Full Buy Sphere
+        ctx.beginPath();
+        ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
+        ctx.fillStyle = palette.bull || '#00f090';
+        ctx.fill();
+      } else if (buyFraction <= 0.01) {
+        // Full Sell Sphere
+        ctx.beginPath();
+        ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
+        ctx.fillStyle = palette.bear || '#ff1744';
+        ctx.fill();
+      } else {
+        // Radial Pie Split
+        const startAngle = -Math.PI / 2;
+        const splitAngle = startAngle + Math.PI * 2 * buyFraction;
 
-      // Buy Sliced Segment
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, baseR, -Math.PI / 2 - Math.PI * buyFraction, -Math.PI / 2 + Math.PI * buyFraction);
-      ctx.closePath();
-      ctx.fillStyle = palette.bull || '#00f090';
-      ctx.fill();
+        // Buy Sector
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, baseR, startAngle, splitAngle, false);
+        ctx.closePath();
+        ctx.fillStyle = palette.bull || '#00f090';
+        ctx.fill();
+
+        // Sell Sector
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, baseR, splitAngle, startAngle + Math.PI * 2, false);
+        ctx.closePath();
+        ctx.fillStyle = palette.bear || '#ff1744';
+        ctx.fill();
+
+        // Seam Divider Line
+        if (baseR >= 3.0) {
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+          ctx.lineWidth = 0.85;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + baseR * Math.cos(startAngle), cy + baseR * Math.sin(startAngle));
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + baseR * Math.cos(splitAngle), cy + baseR * Math.sin(splitAngle));
+          ctx.stroke();
+        }
+      }
 
       // Ultra High Contrast Border Rim
       ctx.strokeStyle = cluster.isAbsorption ? (palette.poc || '#ffd600') : '#000000';

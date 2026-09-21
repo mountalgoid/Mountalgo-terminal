@@ -10,7 +10,7 @@ interface CircuitBreakerModalProps {
 }
 
 export function CircuitBreakerModal({ isOpen, onClose, equity, drawdown }: CircuitBreakerModalProps) {
-  const { closeAllPositions, cancelAllPendingOrders } = useTrade();
+  const { closeAllPositions } = useTrade();
   const [unlockCode, setUnlockCode] = useState('');
   const [isLockedDown, setIsLockedDown] = useState(true);
   const [countdown, setCountdown] = useState(5);
@@ -20,7 +20,6 @@ export function CircuitBreakerModal({ isOpen, onClose, equity, drawdown }: Circu
       // Auto trigger safety mechanisms upon open
       try {
         closeAllPositions();
-        cancelAllPendingOrders();
       } catch(e) {}
       
       let timer = 5;
@@ -93,9 +92,6 @@ export function CircuitBreakerModal({ isOpen, onClose, equity, drawdown }: Circu
           <div className="space-y-3 mb-8 font-mono text-xs">
             <div className="flex items-center gap-3 text-emerald-500 opacity-80">
               <CheckIcon /> All active positions force-closed via market execution
-            </div>
-            <div className="flex items-center gap-3 text-emerald-500 opacity-80">
-              <CheckIcon /> All pending limits/stops cancelled
             </div>
             <div className="flex items-center gap-3 text-rose-500 opacity-80">
               <ServerCrash className="w-4 h-4" /> Trading Engine Halted. Submitting cross-exchange hedge...

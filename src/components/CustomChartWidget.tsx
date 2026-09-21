@@ -3300,10 +3300,11 @@ export default function CustomChartWidget({
       ? (isLight ? '#000000' : '#ffffff')
       : (isLight ? '#cbd5e1' : (darkBase === '#242119' ? '#3e3626' : 'rgba(255, 255, 255, 0.12)'));
 
-    // Keep the heatmap surface uninterrupted; its density pixels replace the chart grid.
-    const showChartGrid = !(indicators.showLiquidityHeatmap && liquidityHeatmapData);
-    ctx.strokeStyle = chartGrid;
+    // Dotted subtle grid lines matching Bookmap aesthetic
+    const showChartGrid = true;
+    ctx.strokeStyle = indicators.showLiquidityHeatmap ? 'rgba(255, 255, 255, 0.08)' : chartGrid;
     ctx.lineWidth = 1;
+    ctx.setLineDash([2, 4]);
 
     // Professional trading-grade Nice Price Steps (multiples of 1, 2, 5 * 10^n)
     const targetTicks = Math.max(4, Math.min(12, Math.round(mainChartHeight / 55)));
@@ -3360,6 +3361,7 @@ export default function CustomChartWidget({
         ctx.stroke();
       }
     }
+    ctx.setLineDash([]);
 
     // 2B. Real-Time Liquidity Heatmap Layer (Order Book & Limit Density Depth Matrix)
     if (indicators.showLiquidityHeatmap && liquidityHeatmapData) {
@@ -4325,6 +4327,8 @@ export default function CustomChartWidget({
           ctx.lineWidth = 1.2;
           ctx.strokeRect(x, topY, candleWidth, bodyHeight);
         });
+      } else if (indicators.showLiquidityHeatmap) {
+        // High-frequency microstructure trail wicks and executed volume bubbles are rendered seamlessly inside renderLiquidityHeatmapLayer in exact z-order
       } else if (indicators.showBookmapPro) {
         // Bookmap visual style with thin tracker line only
         ctx.beginPath();
@@ -4445,8 +4449,8 @@ export default function CustomChartWidget({
     ctx.beginPath();
     ctx.rect(0, 0, chartWidth, mainChartHeight);
     ctx.clip();
-    // 7. Heatmap Volume Bubbles (3D Spherical Volume Nodes with Dynamic Volume Colors & Responsive Scale)
-    if (indicators.showLiquidityHeatmap && indicators.liquidityHeatmapConfig?.showVolumeBubbles && bookmapData && bookmapData.bubbles && bookmapData.bubbles.length > 0) {
+    // 7. Heatmap Volume Bubbles (Only rendered if standalone BookmapPro mode is active and Liquidity Heatmap Layer is disabled)
+    if (!indicators.showLiquidityHeatmap && indicators.showBookmapPro && (bookmapSettings.showVolumeBubbles ?? true) && bookmapData && bookmapData.bubbles && bookmapData.bubbles.length > 0) {
       // Dynamic Responsive Zoom Factor: Medium high-contrast responsive scaling
       // Adaptive candle scale for balanced volume bubble sizing
       const candleScale = Math.max(0.4, Math.min(1.4, candleWidth / 14));
@@ -7275,8 +7279,8 @@ export default function CustomChartWidget({
             ? '💀 MAX PAIN EXPIRATION PIN'
             : `📊 GEX STRIKE · ${hoveredGex.dominantSide.toUpperCase()} GAMMA`;
 
-          const boxW = 280;
-          const boxH = 82;
+          const boxW = 340;
+          const boxH = 96;
           let tipX = crosshairRef.current.x + 14;
           let tipY = gY - boxH / 2;
 
@@ -7287,62 +7291,73 @@ export default function CustomChartWidget({
           if (tipY + boxH > fullHeight - 35) tipY = fullHeight - boxH - 35;
 
           // Background card with glassmorphic aesthetic
-          const gexBgGrad = ctx.createLinearGradient(tipX, tipY, tipX + boxW, tipY + boxH);
-          const [rBull, gBull, bBull] = hexToRgbTuple(currentPalette.bull || '#10b981', [81, 52, 255]);
-          const [rBear, gBear, bBear] = hexToRgbTuple(currentPalette.bear || '#ef4444', [23, 156, 116]);
-          const [darkR, darkG, darkB] = hexToRgbTuple(
-            currentPalette.dark && currentPalette.dark !== '#000000' && currentPalette.dark !== '#ffffff' ? currentPalette.dark : '#060913',
-            [6, 9, 19]
-          );
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+          ctx.shadowBlur = 8;
+          ctx.shadowOffsetX = 1;
+          ctx.shadowOffsetY = 2;
 
+          // Solid gradient background card
+          const gexBgGrad = ctx.createLinearGradient(tipX, tipY, tipX + boxW, tipY + boxH);
           if (isLight) {
-            gexBgGrad.addColorStop(0, accentCol + '20');
-            gexBgGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.95)');
-            gexBgGrad.addColorStop(1, 'rgba(248, 250, 252, 0.92)');
+            gexBgGrad.addColorStop(0, '#ffffff');
+            gexBgGrad.addColorStop(1, '#f1f5f9');
           } else {
-            gexBgGrad.addColorStop(0, accentCol + '30');
-            gexBgGrad.addColorStop(0.5, `rgba(${darkR + 4}, ${darkG + 6}, ${darkB + 10}, 0.94)`);
-            gexBgGrad.addColorStop(1, 'rgba(11, 15, 26, 0.88)');
+            gexBgGrad.addColorStop(0, '#0f172a');
+            gexBgGrad.addColorStop(1, '#020617');
           }
 
           ctx.fillStyle = gexBgGrad;
           ctx.strokeStyle = accentCol;
-          ctx.lineWidth = 1.2;
+          ctx.lineWidth = 1.0;
           ctx.beginPath();
-          ctx.roundRect(tipX, tipY, boxW, boxH, 6);
+          if (typeof (ctx as any).roundRect === 'function') {
+            (ctx as any).roundRect(tipX, tipY, boxW, boxH, 6);
+          } else {
+            ctx.rect(tipX, tipY, boxW, boxH);
+          }
           ctx.fill();
           ctx.stroke();
 
+          ctx.shadowColor = 'transparent';
+
+          // Left accent stripe
+          ctx.fillStyle = accentCol;
+          ctx.fillRect(tipX, tipY, 3.5, boxH);
+
           // Title banner
           ctx.fillStyle = accentCol;
-          ctx.font = 'bold 9px monospace';
-          ctx.fillText(titleText, tipX + 8, tipY + 15);
+          ctx.font = 'bold 9.5px "JetBrains Mono", monospace';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.fillText(titleText, tipX + 12, tipY + 10);
 
           // Line 1: Strike Price & Distance from Spot
           const distSign = hoveredGex.distPctFromSpot >= 0 ? '+' : '';
-          ctx.fillStyle = isLight ? '#0f172a' : '#f8fafc';
-          ctx.font = 'bold 8.5px monospace';
-          ctx.fillText(`Strike: $${hoveredGex.priceFormatted} (${distSign}${hoveredGex.distPctFromSpot.toFixed(2)}% from Spot)`, tipX + 8, tipY + 30);
+          ctx.fillStyle = isLight ? '#0f172a' : '#ffffff';
+          ctx.font = 'bold 9px "JetBrains Mono", monospace';
+          ctx.fillText(`Strike: $${hoveredGex.priceFormatted}  ·  ${distSign}${hoveredGex.distPctFromSpot.toFixed(2)}% from Spot`, tipX + 12, tipY + 28);
 
           // Line 2: Net Gamma & Open Interest Breakdown
           const gexSign = hoveredGex.netGamma >= 0 ? '+' : '';
           ctx.fillStyle = isLight ? '#334155' : '#cbd5e1';
-          ctx.font = '8px monospace';
-          ctx.fillText(`Net Gamma: ${gexSign}$${hoveredGex.netGamma}M | OI: ${hoveredGex.openInterest.toLocaleString()} (${hoveredGex.callOi} C / ${hoveredGex.putOi} P)`, tipX + 8, tipY + 45);
+          ctx.font = '8.5px "JetBrains Mono", monospace';
+          ctx.fillText(`Net Gamma: ${gexSign}$${hoveredGex.netGamma}M  ·  OI: ${hoveredGex.openInterest.toLocaleString()} (${hoveredGex.callOi} C / ${hoveredGex.putOi} P)`, tipX + 12, tipY + 46);
 
           // Line 3: Dealer Hedging Behavior
           const regimeText = isFlip
             ? 'Regime Boundary: Volatility Dampening ↔ Acceleration Flip'
             : hoveredGex.netGamma >= 0
-            ? 'Dealer Long Gamma: Sells rallies, buys dips (Mean-Reverting)'
-            : 'Dealer Short Gamma: Buys rallies, sells dips (Momentum Amplifier)';
+            ? 'Dealer Long Γ: Sells rallies, buys dips (Mean-Reverting)'
+            : 'Dealer Short Γ: Buys rallies, sells dips (Momentum Amplifier)';
           ctx.fillStyle = isFlip ? '#ffd600' : hoveredGex.netGamma >= 0 ? '#10b981' : '#f43f5e';
-          ctx.fillText(regimeText, tipX + 8, tipY + 60);
+          ctx.font = 'bold 8px "JetBrains Mono", monospace';
+          ctx.fillText(regimeText, tipX + 12, tipY + 64);
 
           // Line 4: Notional Heat intensity
           ctx.fillStyle = isLight ? '#64748b' : '#94a3b8';
-          ctx.font = '7.5px monospace';
-          ctx.fillText(`Heat Intensity: ${(hoveredGex.intensity * 100).toFixed(0)}% | Notional: $${(hoveredGex.notionalUsd / 1e6).toFixed(1)}M`, tipX + 8, tipY + 73);
+          ctx.font = '8px "JetBrains Mono", monospace';
+          ctx.fillText(`Heat Intensity: ${(hoveredGex.intensity * 100).toFixed(0)}%  ·  Notional: $${(hoveredGex.notionalUsd / 1e6).toFixed(1)}M`, tipX + 12, tipY + 80);
 
           ctx.restore();
         }
