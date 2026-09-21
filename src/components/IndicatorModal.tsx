@@ -1106,17 +1106,122 @@ export default function IndicatorModal({
                             </div>
                           )}
 
+                          {/* Sub-Tick Micro Price Trail Config Card */}
+                          {Boolean(localSettings.liquidityHeatmapConfig.showMicroPriceTrail) && (
+                            <div className="flex flex-col gap-2 p-2.5 bg-[var(--color-panel)]/80 border border-[var(--color-border)] rounded-sm text-xs">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-white flex items-center gap-1.5">
+                                  <span>⚡</span>
+                                  <span>Sub-Tick Micro Price Trail & Vector Config</span>
+                                </span>
+                                <span className="text-[10px] text-zinc-400 font-mono">High-Frequency Intrabar Action</span>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                <div>
+                                  <label className="text-zinc-400 block mb-1 text-[11px]">Warna Trail:</label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="color"
+                                      value={localSettings.liquidityHeatmapConfig.microTrailColor || '#00F0FF'}
+                                      onChange={(e) =>
+                                        updateSubConfig('liquidityHeatmapConfig', {
+                                          microTrailColor: e.target.value,
+                                        })
+                                      }
+                                      className="w-7 h-7 rounded border border-[var(--color-border)] bg-transparent cursor-pointer p-0"
+                                    />
+                                    <div className="flex items-center gap-1">
+                                      {['#00F0FF', '#38BDF8', '#10B981', '#F59E0B', '#A855F7', '#FFFFFF'].map((c) => (
+                                        <button
+                                          key={c}
+                                          type="button"
+                                          onClick={() =>
+                                            updateSubConfig('liquidityHeatmapConfig', {
+                                              microTrailColor: c,
+                                            })
+                                          }
+                                          style={{ backgroundColor: c }}
+                                          className={`w-5 h-5 rounded-full border transition-all ${
+                                            (localSettings.liquidityHeatmapConfig.microTrailColor || '#00F0FF') === c
+                                              ? 'border-white scale-110 shadow-sm'
+                                              : 'border-white/20 hover:scale-105'
+                                          }`}
+                                          title={c}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <div className="flex justify-between items-center mb-1">
+                                    <label className="text-zinc-400 font-medium text-[11px]">Ketebalan Garis:</label>
+                                    <span className="text-white font-mono text-[11px] font-bold">
+                                      {(localSettings.liquidityHeatmapConfig.microTrailWidth ?? 1.5).toFixed(1)}px
+                                    </span>
+                                  </div>
+                                  <input
+                                    type="range"
+                                    min="0.8"
+                                    max="3.0"
+                                    step="0.2"
+                                    value={localSettings.liquidityHeatmapConfig.microTrailWidth ?? 1.5}
+                                    onChange={(e) =>
+                                      updateSubConfig('liquidityHeatmapConfig', {
+                                        microTrailWidth: parseFloat(e.target.value) || 1.5,
+                                      })
+                                    }
+                                    className="w-full accent-white h-1.5 bg-[var(--color-panel)] rounded-md cursor-pointer mt-1"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-[var(--color-border)]/40">
+                                <label className="flex items-center gap-2 cursor-pointer text-white">
+                                  <input
+                                    type="checkbox"
+                                    checked={localSettings.liquidityHeatmapConfig.microTrailGlow !== false}
+                                    onChange={(e) =>
+                                      updateSubConfig('liquidityHeatmapConfig', {
+                                        microTrailGlow: e.target.checked,
+                                      })
+                                    }
+                                    className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                  />
+                                  <span className="text-[11px] text-zinc-300">Efek Cahaya Neon (Glow)</span>
+                                </label>
+
+                                <label className="flex items-center gap-2 cursor-pointer text-white">
+                                  <input
+                                    type="checkbox"
+                                    checked={localSettings.liquidityHeatmapConfig.showSubTickVector !== false}
+                                    onChange={(e) =>
+                                      updateSubConfig('liquidityHeatmapConfig', {
+                                        showSubTickVector: e.target.checked,
+                                      })
+                                    }
+                                    className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
+                                  />
+                                  <span className="text-[11px] text-zinc-300">Glowing Vector Arrow Pointer di Ujung Live Tick</span>
+                                </label>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Grid Toggles Section */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-2.5 border-t border-[var(--color-border)]/60 text-xs">
                             <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
                                 checked={Boolean(localSettings.liquidityHeatmapConfig.showMicroPriceTrail)}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const isChecked = e.target.checked;
                                   updateSubConfig('liquidityHeatmapConfig', {
-                                    showMicroPriceTrail: e.target.checked,
-                                  })
-                                }
+                                    showMicroPriceTrail: isChecked,
+                                    showSubTickVector: isChecked ? (localSettings.liquidityHeatmapConfig.showSubTickVector ?? true) : false,
+                                  });
+                                }}
                                 className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="font-semibold text-white">Sub-Tick Micro Price Trail</span>
@@ -1419,12 +1524,14 @@ export default function IndicatorModal({
                             <label className="flex items-center gap-2 cursor-pointer text-white bg-[var(--color-panel)]/40 p-2 rounded-md border border-[var(--color-border)]/40 hover:bg-[var(--color-panel)]/40 transition-all">
                               <input
                                 type="checkbox"
-                                checked={Boolean(localSettings.liquidityHeatmapConfig.showSubTickVector)}
-                                onChange={(e) =>
+                                checked={Boolean(localSettings.liquidityHeatmapConfig.showSubTickVector && localSettings.liquidityHeatmapConfig.showMicroPriceTrail)}
+                                onChange={(e) => {
+                                  const isChecked = e.target.checked;
                                   updateSubConfig('liquidityHeatmapConfig', {
-                                    showSubTickVector: e.target.checked,
-                                  })
-                                }
+                                    showSubTickVector: isChecked,
+                                    ...(isChecked && !localSettings.liquidityHeatmapConfig.showMicroPriceTrail ? { showMicroPriceTrail: true } : {}),
+                                  });
+                                }}
                                 className="rounded bg-[var(--color-panel)] border-[var(--color-border)] text-white focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5 cursor-pointer"
                               />
                               <span className="text-white">⚡ Sub-Tick Price Action Vector</span>

@@ -1432,7 +1432,49 @@ export function calculateLiquidityHeatmap(
   const lastCandle = candles[candles.length - 1];
   const curP = currentPriceOverride !== undefined && currentPriceOverride > 0 ? currentPriceOverride : (lastCandle?.close || 100);
   const quantP = Math.round(curP * 10); // Quantize price to 0.1 step
-  const cacheKey = `${candles.length}_${lastCandle?.time}_${lastCandle?.close}_${quantP}_${settings.depthBins}_${settings.showLiquidationRadar}_${settings.showGexGammaOverlay}_${settings.intensity}_${settings.showWhaleBubbles}`;
+  const settingsHash = [
+    settings.depthBins,
+    settings.timeframeMode,
+    settings.wallThreshold,
+    settings.minNotionalFilter,
+    settings.showWhaleBubbles,
+    settings.whaleThresholdMultiplier,
+    settings.whaleMinNotionalUsd,
+    settings.whaleClusterMode,
+    settings.showLiquidationRadar,
+    settings.showGexGammaOverlay,
+    settings.intensity,
+    settings.opacity,
+    settings.colorMode,
+    settings.showSpoofingAndIceberg,
+    settings.showAbsorptionNodes,
+    settings.autoNormalizeSpectrum,
+    settings.showLiquidityGravity,
+    settings.showVpinToxicity,
+    settings.showCvdDivergence,
+    settings.showLiquidityVacuums,
+    settings.showOfiAndLambda,
+    settings.showLayeringDetector,
+    settings.showSweepPredictor,
+    settings.showSlippageSimulator,
+    settings.simulatedTradeSize,
+    settings.showHawkesFlashCrashWarning,
+    settings.showAlmgrenChrissTrajectory,
+    settings.showCrossExchangeMatrix,
+    settings.showWhaleIcebergTracker,
+    settings.showWhaleExhaustionRadar,
+    settings.showWhaleCrossExchangeDelta,
+    settings.showMicroPriceTrail,
+    settings.showSubTickVector,
+    settings.microTrailColor,
+    settings.microTrailWidth,
+    settings.microTrailGlow,
+    settings.showVolumeBubbles,
+    settings.bubbleScale,
+    settings.bubbleSizeMode,
+    settings.cleanMode,
+  ].join('_');
+  const cacheKey = `${candles.length}_${lastCandle?.time}_${lastCandle?.close}_${quantP}_${settingsHash}`;
 
   if (cacheKey === heatmapCacheKey && cachedHeatmapResult) {
     return cachedHeatmapResult;
@@ -4762,15 +4804,19 @@ export function renderLiquidityHeatmapLayer({
   // -------------------------------------------------------------------------
   // 4. Sub-Tick Micro Price Action High-Frequency Vector
   // -------------------------------------------------------------------------
-  if ((settings.showMicroPriceTrail || settings.showSubTickVector) && data.microTrail.length > 0) {
+  if (settings.showMicroPriceTrail && data.microTrail.length > 0) {
     ctx.save();
     // Keep the micro zigzag trail above every overlay, but clip it inside the chart region
     // so it never paints over the left/right volume profile panels.
     ctx.beginPath();
     ctx.rect(chartStartX, 0, Math.max(1, effectiveChartWidth - chartStartX), mainChartHeight);
     ctx.clip();
+
     ctx.beginPath();
     let isFirst = true;
+    let prevBarIndex = -1;
+    let lastValidPt: { x: number; y: number; direction?: 'up' | 'down' | 'neutral'; price: number } | null = null;
+
     for (let i = 0; i < data.microTrail.length; i++) {
       const mt = data.microTrail[i];
       if (mt.barIndex < startIndex - 1 || mt.barIndex > endIndex + 1) continue;
@@ -4780,23 +4826,25 @@ export function renderLiquidityHeatmapLayer({
       const stepX = xBase - candleWidth * 0.35 + (mt.subIndex / 3) * (candleWidth * 0.7);
       const stepY = getY(mt.price);
       
-      if (isFirst) {
+      if (isFirst || (prevBarIndex !== -1 && Math.abs(mt.barIndex - prevBarIndex) > 1)) {
         ctx.moveTo(stepX, stepY);
         isFirst = false;
       } else {
         ctx.lineTo(stepX, stepY);
       }
+      prevBarIndex = mt.barIndex;
+      lastValidPt = { x: stepX, y: stepY, direction: mt.direction, price: mt.price };
     }
     
     const trailColor = settings.microTrailColor || '#00F0FF';
     const baseWidth = settings.microTrailWidth ?? 1.5;
     const lineWidth = candleWidth < 4
       ? Math.max(0.75, baseWidth * 0.6)
-      : Math.max(0.9, Math.min(2.2, baseWidth * heatmapVisualScale));
+      : Math.max(0.9, Math.min(3.5, baseWidth * Math.max(0.7, heatmapVisualScale)));
     
     if (settings.microTrailGlow !== false) {
       ctx.shadowColor = trailColor;
-      ctx.shadowBlur = 4;
+      ctx.shadowBlur = 5;
     }
     
     ctx.strokeStyle = trailColor;
@@ -4804,6 +4852,47 @@ export function renderLiquidityHeatmapLayer({
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.stroke();
+
+    // Render Sub-Tick Directional Trajectory Vector Pointer (glowing arrow head & tip on live tick)
+    if (settings.showSubTickVector !== false && lastValidPt && lastValidPt.x > 0 && lastValidPt.y >= 0 && lastValidPt.y <= mainChartHeight) {
+      ctx.save();
+      const isUp = lastValidPt.direction === 'up';
+      const vectorColor = trailColor;
+      const ptrSize = Math.max(3.5, Math.min(6.5, candleWidth * 0.45));
+
+      // Glow halo around the active tick pointer
+      ctx.beginPath();
+      ctx.arc(lastValidPt.x, lastValidPt.y, ptrSize * 1.6, 0, Math.PI * 2);
+      ctx.fillStyle = hexToRgbAlpha(vectorColor, 0.28);
+      ctx.fill();
+
+      // Sharp glowing directional arrowhead
+      ctx.beginPath();
+      if (isUp) {
+        ctx.moveTo(lastValidPt.x, lastValidPt.y - ptrSize);
+        ctx.lineTo(lastValidPt.x + ptrSize * 0.8, lastValidPt.y + ptrSize * 0.6);
+        ctx.lineTo(lastValidPt.x - ptrSize * 0.8, lastValidPt.y + ptrSize * 0.6);
+      } else {
+        ctx.moveTo(lastValidPt.x, lastValidPt.y + ptrSize);
+        ctx.lineTo(lastValidPt.x + ptrSize * 0.8, lastValidPt.y - ptrSize * 0.6);
+        ctx.lineTo(lastValidPt.x - ptrSize * 0.8, lastValidPt.y - ptrSize * 0.6);
+      }
+      ctx.closePath();
+      ctx.fillStyle = vectorColor;
+      ctx.shadowColor = vectorColor;
+      ctx.shadowBlur = 6;
+      ctx.fill();
+
+      // Bright white central focal dot
+      ctx.beginPath();
+      ctx.arc(lastValidPt.x, lastValidPt.y, Math.max(1.2, ptrSize * 0.32), 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowBlur = 0;
+      ctx.fill();
+
+      ctx.restore();
+    }
+
     ctx.restore();
   }
 

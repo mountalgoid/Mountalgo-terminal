@@ -7230,7 +7230,7 @@ export default function CustomChartWidget({
       // GEX & Dealer Greeks Volume Node Inspector Tooltip on Hover
       // -----------------------------------------------------------------------
       if (
-        indicators.liquidityHeatmap &&
+        (indicators.showLiquidityHeatmap || indicators.liquidityHeatmap) &&
         (indicators.liquidityHeatmapConfig?.showGexGammaOverlay ?? true) &&
         liquidityHeatmapData?.gexMetric &&
         crosshairRef.current.active
