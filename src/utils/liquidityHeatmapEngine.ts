@@ -3524,55 +3524,61 @@ export function getBookmapThemeColor(
   const bgRGB = parseHexToRgb(palette?.dark, '#0a101d');
   const bullRGB = parseHexToRgb(palette?.bull, '#00ff66');
   const bearRGB = parseHexToRgb(palette?.bear, '#ff0044');
-  const pocRGB = parseHexToRgb(palette?.poc, '#ffd600');
-  const coreRGB: [number, number, number] = [255, 255, 255];
 
   const isBid = side === 'bid';
+  const targetRGB = isBid ? bullRGB : bearRGB;
+
+  // Luminous peak variant within the SAME theme color family (brighter/saturated version of targetRGB)
+  const peakTargetRGB: [number, number, number] = [
+    Math.min(255, Math.round(targetRGB[0] + (255 - targetRGB[0]) * 0.38)),
+    Math.min(255, Math.round(targetRGB[1] + (255 - targetRGB[1]) * 0.38)),
+    Math.min(255, Math.round(targetRGB[2] + (255 - targetRGB[2]) * 0.38))
+  ];
+
   let stops: ColorStop[];
 
   if (mode === 'thermal') {
-    // Rich Multi-Hue Classic Thermal Spectrum (Navy -> Cyan -> Bull -> POC Gold -> Orange -> Bear Crimson -> White)
+    // Thermal mode - Anchor strictly to Buy (bullRGB) vs Sell (bearRGB) theme spectrum
+    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.25);
+    const midRGB = mixRgbColors(bgRGB, targetRGB, 0.55);
+    const highRGB = targetRGB;
+    const peakRGB = peakTargetRGB;
     stops = [
-      { pos: 0.00, rgb: bgRGB },
-      { pos: 0.12, rgb: mixRgbColors(bgRGB, [0, 80, 160], 0.5) },
-      { pos: 0.28, rgb: [0, 180, 216] },
-      { pos: 0.45, rgb: bullRGB },
-      { pos: 0.62, rgb: pocRGB },
-      { pos: 0.78, rgb: [255, 120, 0] },
-      { pos: 0.90, rgb: bearRGB },
-      { pos: 1.00, rgb: coreRGB }
+      { pos: 0.00, rgb: lowRGB },
+      { pos: 0.25, rgb: midRGB },
+      { pos: 0.60, rgb: highRGB },
+      { pos: 0.85, rgb: mixRgbColors(highRGB, peakRGB, 0.5) },
+      { pos: 1.00, rgb: peakRGB }
     ];
   } else if (mode === 'bid_ask') {
-    // Multi-Hue Dual Bid/Ask Spectrum
-    const targetRGB = isBid ? bullRGB : bearRGB;
-    const secondaryRGB = isBid ? mixRgbColors(bullRGB, [0, 210, 255], 0.4) : mixRgbColors(bearRGB, [255, 80, 0], 0.4);
+    // Dual Bid/Ask Spectrum - 100% theme color consistency
+    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.20);
+    const midRGB = mixRgbColors(bgRGB, targetRGB, 0.50);
+    const fullRGB = targetRGB;
+    const peakRGB = peakTargetRGB;
     stops = [
-      { pos: 0.00, rgb: mixRgbColors(bgRGB, targetRGB, 0.22) },
-      { pos: 0.20, rgb: mixRgbColors(bgRGB, secondaryRGB, 0.55) },
-      { pos: 0.45, rgb: targetRGB },
-      { pos: 0.70, rgb: mixRgbColors(targetRGB, pocRGB, 0.65) },
-      { pos: 0.88, rgb: pocRGB },
-      { pos: 1.00, rgb: coreRGB }
+      { pos: 0.00, rgb: lowRGB },
+      { pos: 0.22, rgb: midRGB },
+      { pos: 0.52, rgb: fullRGB },
+      { pos: 0.80, rgb: mixRgbColors(fullRGB, peakRGB, 0.6) },
+      { pos: 1.00, rgb: peakRGB }
     ];
   } else {
-    // Multi-Stop Rich Spectrum Mode (Default 'theme' Mode):
-    // Buy Liquidity (Bids): Ambient Tint -> Mid Bull -> Pure Bull Accent -> Bull-POC Heat -> POC Gold -> White Core
-    // Sell Liquidity (Asks): Ambient Tint -> Mid Bear -> Pure Bear Accent -> Bear-POC Heat -> POC Gold -> White Core
-    const targetRGB = isBid ? bullRGB : bearRGB;
-
-    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.22);
-    const midLowRGB = mixRgbColors(bgRGB, targetRGB, 0.50);
+    // Default 'theme' Mode: 100% theme color consistency for Buy (bullRGB) & Sell (bearRGB)
+    // Buy Liquidity (Bids) uses bullRGB (palette.bull) family exclusively
+    // Sell Liquidity (Asks) uses bearRGB (palette.bear) family exclusively
+    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.20);
+    const midLowRGB = mixRgbColors(bgRGB, targetRGB, 0.48);
     const fullRGB = targetRGB;
-    const hotRGB = mixRgbColors(targetRGB, pocRGB, 0.65);
-    const peakRGB = pocRGB;
+    const highRGB = mixRgbColors(targetRGB, peakTargetRGB, 0.65);
+    const peakRGB = peakTargetRGB;
 
     stops = [
       { pos: 0.00, rgb: lowRGB },
-      { pos: 0.18, rgb: midLowRGB },
-      { pos: 0.42, rgb: fullRGB },
-      { pos: 0.68, rgb: hotRGB },
-      { pos: 0.88, rgb: peakRGB },
-      { pos: 1.00, rgb: coreRGB }
+      { pos: 0.20, rgb: midLowRGB },
+      { pos: 0.45, rgb: fullRGB },
+      { pos: 0.72, rgb: highRGB },
+      { pos: 1.00, rgb: peakRGB }
     ];
   }
 
@@ -3826,9 +3832,9 @@ export function renderLiquidityHeatmapLayer({
 
     if (endX <= 0 || startX >= effectiveChartWidth) continue;
 
-    // Integer pixel snapping with +1px overlap to eliminate all vertical grid seam lines
-    const drawX = Math.floor(startX);
-    const drawW = Math.max(1, Math.ceil(endX) - drawX + 1);
+    // Discrete non-overlapping cell grid calculation with horizontal & vertical gaps
+    const rawX = Math.floor(startX);
+    const rawW = Math.max(1, Math.ceil(endX) - rawX);
 
     const binCount = data.binsCount;
     for (let b = 0; b < binCount; b += binAggFactor) {
@@ -3873,17 +3879,33 @@ export function renderLiquidityHeatmapLayer({
 
       const topY = Math.min(aggYTop, aggYBottom);
       const bottomY = Math.max(aggYTop, aggYBottom);
-      const drawY = Math.floor(topY) - 1;
-      const drawH = Math.max(2, Math.ceil(bottomY) - drawY + 1);
-      
-      if (drawY <= mainChartHeight + 10 && drawY + drawH >= -10) {
+      const rawY = Math.floor(topY);
+      const rawH = Math.max(1, Math.ceil(bottomY) - rawY);
+
+      // Create distinct spacing gaps so grid boxes do NOT overlap, with slightly increased gap (strictly sharp 90-deg boxes)
+      const gapX = rawW >= 3 ? 1.8 : (rawW >= 1.8 ? 1.2 : 0.6);
+      const gapY = rawH >= 3 ? 1.8 : (rawH >= 1.8 ? 1.2 : 0.6);
+
+      const boxX = rawX + gapX / 2;
+      const boxW = Math.max(0.5, rawW - gapX);
+      const boxY = rawY + gapY / 2;
+      const boxH = Math.max(0.5, rawH - gapY);
+
+      if (boxY <= mainChartHeight + 10 && boxY + boxH >= -10) {
         const quantizedDensity = Math.round(maxDensityInAgg * quantLevels) / Math.max(1, quantLevels);
         if (quantizedDensity >= 0.10) {
           ctx.globalCompositeOperation = 'source-over';
-          // Clean solid single-pass fill matching authentic Bookmap depth rendering
           const baseOpacity = settings.opacity ?? 0.95;
-          ctx.fillStyle = getBookmapThemeColor(quantizedDensity, sideInAgg, settings.colorMode, palette, baseOpacity);
-          ctx.fillRect(drawX, drawY, drawW, drawH);
+
+          // Time progression weight across timeline columns (0.2 historical time -> 1.0 recent time)
+          const timeProgress = numCols > 1 ? Math.min(1.0, Math.max(0.20, i / (numCols - 1))) : 1.0;
+
+          // Solid color tone adjusted according to liquidity level, time progression, and price level tier
+          const effectiveDensity = Math.min(1.0, Math.max(0.10, quantizedDensity * (0.85 + 0.15 * timeProgress)));
+
+          ctx.fillStyle = getBookmapThemeColor(effectiveDensity, sideInAgg, settings.colorMode, palette, baseOpacity);
+          // Strictly sharp rectangular box grid without any corner rounding
+          ctx.fillRect(boxX, boxY, boxW, boxH);
         }
       }
     }
@@ -3893,9 +3915,9 @@ export function renderLiquidityHeatmapLayer({
   ctx.globalCompositeOperation = 'source-over';
 
   // -------------------------------------------------------------------------
-  // 2. Continuous Resting Limit Order Wall Rays (Rectangular Gradient Area Zones)
+  // 2. Continuous Resting Limit Order Wall Rays (Bypassed - Box Grid Mode Active)
   // -------------------------------------------------------------------------
-  if (settings.showRestingWalls && data.depthRays.length > 0) {
+  if (false && settings.showRestingWalls && data.depthRays.length > 0) {
     data.depthRays.forEach((ray) => {
       if (ray.startBar > endIndex + 2) return;
       if (ray.endBar !== -1 && ray.endBar < startIndex && !ray.active) return;
