@@ -385,7 +385,7 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
   const pocColor = palette.poc || '#f59e0b';
   const bullColor = palette.bull || '#10b981';
   const bearColor = palette.bear || '#ef4444';
-  const opacity = Math.max(0.20, Math.min(1.0, baseConfig.opacity ?? 0.85));
+  const opacity = Math.max(0.15, Math.min(1.0, baseConfig.opacity ?? 0.45));
 
   ctx.save();
   // Clip strictly to main chart display area to eliminate any visual leak in multi-chart or dual-split grid
@@ -607,6 +607,7 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
       const pocTagX = isRightLayout ? (pStart - pocTagW - 3) : (pEnd + 3);
 
       ctx.fillStyle = pocColor;
+      ctx.beginPath();
       if (typeof (ctx as any).roundRect === 'function') {
         (ctx as any).roundRect(pocTagX, pocY - pocTagH / 2, pocTagW, pocTagH, 3);
       } else {
@@ -653,6 +654,7 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
       const tagX = isRightLayout ? (vStart - vahTagW - 3) : (vEnd + 3);
 
       ctx.fillStyle = bullColor;
+      ctx.beginPath();
       if (typeof (ctx as any).roundRect === 'function') {
         (ctx as any).roundRect(tagX, vahY - vahTagH / 2, vahTagW, vahTagH, 3);
       } else {
@@ -691,6 +693,7 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
       const tagX = isRightLayout ? (vStart - valTagW - 3) : (vEnd + 3);
 
       ctx.fillStyle = bearColor;
+      ctx.beginPath();
       if (typeof (ctx as any).roundRect === 'function') {
         (ctx as any).roundRect(tagX, valY - valTagH / 2, valTagW, valTagH, 3);
       } else {
@@ -743,6 +746,7 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
         const tagX = isRightLayout ? (hStart - hvnTagW - 3) : (hEnd + 3);
 
         ctx.fillStyle = hvnColor;
+        ctx.beginPath();
         if (typeof (ctx as any).roundRect === 'function') {
           (ctx as any).roundRect(tagX, y - hvnTagH / 2, hvnTagW, hvnTagH, 2.5);
         } else {
@@ -788,6 +792,7 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
         const tagX = isRightLayout ? (lStart - lvnTagW - 3) : (lEnd + 3);
 
         ctx.fillStyle = lvnColor;
+        ctx.beginPath();
         if (typeof (ctx as any).roundRect === 'function') {
           (ctx as any).roundRect(tagX, y - lvnTagH / 2, lvnTagW, lvnTagH, 2.5);
         } else {

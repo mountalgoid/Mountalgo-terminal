@@ -3518,7 +3518,7 @@ export function getBookmapThemeColor(
 
   // Logarithmic opacity scale for liquidity zones
   const logFactor = Math.log(1 + 9 * d) / Math.LN10;
-  const rawOpacity = 0.28 + (0.85 - 0.28) * Math.max(0, Math.min(1, logFactor));
+  const rawOpacity = 0.25 + (0.85 - 0.25) * Math.max(0, Math.min(1, logFactor));
   const finalAlpha = Math.max(0.08, Math.min(1.0, Number((rawOpacity * opacityMultiplier).toFixed(3))));
   
   const bgRGB = parseHexToRgb(palette?.dark, '#0a101d');
@@ -3531,41 +3531,47 @@ export function getBookmapThemeColor(
   let stops: ColorStop[];
 
   if (mode === 'thermal') {
-    // Thermal spectrum: Distinct Buy spectrum (bullRGB) vs Sell spectrum (bearRGB)
-    const targetRGB = isBid ? bullRGB : bearRGB;
+    // Rich Multi-Hue Classic Thermal Spectrum (Navy -> Cyan -> Bull -> POC Gold -> Orange -> Bear Crimson -> White)
     stops = [
-      { pos: 0.00, rgb: mixRgbColors(bgRGB, targetRGB, 0.30) },
-      { pos: 0.25, rgb: mixRgbColors(bgRGB, targetRGB, 0.65) },
-      { pos: 0.55, rgb: targetRGB },
-      { pos: 0.82, rgb: mixRgbColors(targetRGB, pocRGB, 0.50) },
+      { pos: 0.00, rgb: bgRGB },
+      { pos: 0.12, rgb: mixRgbColors(bgRGB, [0, 80, 160], 0.5) },
+      { pos: 0.28, rgb: [0, 180, 216] },
+      { pos: 0.45, rgb: bullRGB },
+      { pos: 0.62, rgb: pocRGB },
+      { pos: 0.78, rgb: [255, 120, 0] },
+      { pos: 0.90, rgb: bearRGB },
       { pos: 1.00, rgb: coreRGB }
     ];
   } else if (mode === 'bid_ask') {
-    // Dual Bid/Ask Theme Spectrum - High-contrast separation between Buy and Sell liquidity
+    // Multi-Hue Dual Bid/Ask Spectrum
     const targetRGB = isBid ? bullRGB : bearRGB;
+    const secondaryRGB = isBid ? mixRgbColors(bullRGB, [0, 210, 255], 0.4) : mixRgbColors(bearRGB, [255, 80, 0], 0.4);
     stops = [
-      { pos: 0.00, rgb: mixRgbColors(bgRGB, targetRGB, 0.30) },
-      { pos: 0.25, rgb: mixRgbColors(bgRGB, targetRGB, 0.68) },
-      { pos: 0.55, rgb: targetRGB },
-      { pos: 0.82, rgb: mixRgbColors(targetRGB, coreRGB, 0.45) },
+      { pos: 0.00, rgb: mixRgbColors(bgRGB, targetRGB, 0.22) },
+      { pos: 0.20, rgb: mixRgbColors(bgRGB, secondaryRGB, 0.55) },
+      { pos: 0.45, rgb: targetRGB },
+      { pos: 0.70, rgb: mixRgbColors(targetRGB, pocRGB, 0.65) },
+      { pos: 0.88, rgb: pocRGB },
       { pos: 1.00, rgb: coreRGB }
     ];
   } else {
-    // Default 'theme' Mode: 100% theme-harmonized distinction
-    // BUY Liquidity (Bids) uses bullRGB (palette.bull) family exclusively
-    // SELL Liquidity (Asks) uses bearRGB (palette.bear) family exclusively
+    // Multi-Stop Rich Spectrum Mode (Default 'theme' Mode):
+    // Buy Liquidity (Bids): Ambient Tint -> Mid Bull -> Pure Bull Accent -> Bull-POC Heat -> POC Gold -> White Core
+    // Sell Liquidity (Asks): Ambient Tint -> Mid Bear -> Pure Bear Accent -> Bear-POC Heat -> POC Gold -> White Core
     const targetRGB = isBid ? bullRGB : bearRGB;
 
-    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.35);
-    const midRGB = mixRgbColors(bgRGB, targetRGB, 0.70);
+    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.22);
+    const midLowRGB = mixRgbColors(bgRGB, targetRGB, 0.50);
     const fullRGB = targetRGB;
-    const hotRGB = mixRgbColors(targetRGB, coreRGB, 0.38);
+    const hotRGB = mixRgbColors(targetRGB, pocRGB, 0.65);
+    const peakRGB = pocRGB;
 
     stops = [
       { pos: 0.00, rgb: lowRGB },
-      { pos: 0.22, rgb: midRGB },
-      { pos: 0.50, rgb: fullRGB },
-      { pos: 0.80, rgb: hotRGB },
+      { pos: 0.18, rgb: midLowRGB },
+      { pos: 0.42, rgb: fullRGB },
+      { pos: 0.68, rgb: hotRGB },
+      { pos: 0.88, rgb: peakRGB },
       { pos: 1.00, rgb: coreRGB }
     ];
   }
