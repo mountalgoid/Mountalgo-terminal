@@ -581,7 +581,7 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
     }
   }
 
-  // 5. Point of Control (POC) Short Line & Compact Tag with Hover Proximity Highlighting
+  // 5. Point of Control (POC) Solid Box Bar & Solid Badge
   if (data.pocNode) {
     const pocY = getY(data.pocPrice);
 
@@ -593,47 +593,46 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
         ctx.shadowColor = pocColor;
       }
 
-      const lineLen = isHovered ? 40 : 32;
+      const lineLen = isHovered ? 44 : 36;
       const pStart = isRightLayout ? (vpEndX - barMaxW - lineLen) : vpStartX;
       const pEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + lineLen);
 
-      // Sharp golden short dashed line
-      ctx.strokeStyle = pocColor;
-      ctx.lineWidth = isHovered ? 2.8 : 1.8;
-      ctx.setLineDash([4, 3]);
-      ctx.beginPath();
-      ctx.moveTo(pStart, pocY);
-      ctx.lineTo(pEnd, pocY);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      // Solid Accent Bar
+      ctx.fillStyle = pocColor;
+      ctx.fillRect(pStart, pocY - 1.5, pEnd - pStart, 3);
 
-      // Sleek Compact POC Pill Tag
-      const pocTagW = isHovered ? 28 : 24;
-      const pocTagH = isHovered ? 15 : 13;
-      const pocTagX = isRightLayout ? (pStart - pocTagW - 2) : (pEnd + 2);
+      // Solid Box POC Badge
+      const pocTagW = isHovered ? 34 : 28;
+      const pocTagH = isHovered ? 17 : 14;
+      const pocTagX = isRightLayout ? (pStart - pocTagW - 3) : (pEnd + 3);
 
       ctx.fillStyle = pocColor;
       if (typeof (ctx as any).roundRect === 'function') {
-        (ctx as any).roundRect(pocTagX, pocY - pocTagH / 2, pocTagW, pocTagH, 2.5);
+        (ctx as any).roundRect(pocTagX, pocY - pocTagH / 2, pocTagW, pocTagH, 3);
       } else {
         ctx.rect(pocTagX, pocY - pocTagH / 2, pocTagW, pocTagH);
       }
       ctx.fill();
 
+      // Sharp solid border
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
       ctx.fillStyle = getContrastTextColor(pocColor);
-      ctx.font = isHovered ? 'bold 9px monospace' : 'bold 8px monospace';
+      ctx.font = isHovered ? 'bold 9.5px monospace' : 'bold 8.5px monospace';
       ctx.textAlign = 'center';
       ctx.fillText('POC', pocTagX + pocTagW / 2, pocY + (isHovered ? 3.5 : 3.0));
       ctx.restore();
     }
   }
 
-  // 6. Value Area High (VAH) & Value Area Low (VAL) Short Lines and Compact Tags
+  // 6. Value Area High (VAH) & Value Area Low (VAL) Solid Box Bars and Badges
   if (baseConfig.showVahValLines) {
     ctx.save();
-    const lineLen = 28;
+    const lineLen = 32;
 
-    // VAH Short Line & Tag
+    // VAH Solid Box Bar & Badge
     if (vahY >= 0 && vahY <= mainChartHeight) {
       const isHovered = crosshairY !== null && crosshairY !== undefined && Math.abs(crosshairY - vahY) <= 10;
       if (isHovered) {
@@ -641,34 +640,37 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
         ctx.shadowColor = bullColor;
       }
 
-      const vStart = isRightLayout ? (vpEndX - barMaxW - (isHovered ? 36 : lineLen)) : vpStartX;
-      const vEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + (isHovered ? 36 : lineLen));
+      const vStart = isRightLayout ? (vpEndX - barMaxW - (isHovered ? 40 : lineLen)) : vpStartX;
+      const vEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + (isHovered ? 40 : lineLen));
 
-      ctx.strokeStyle = bullColor;
-      ctx.lineWidth = isHovered ? 2.4 : 1.3;
-      ctx.setLineDash([3, 3]);
-      ctx.beginPath();
-      ctx.moveTo(vStart, vahY);
-      ctx.lineTo(vEnd, vahY);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      // Solid Box Bar for VAH
+      ctx.fillStyle = bullColor;
+      ctx.fillRect(vStart, vahY - 1.5, vEnd - vStart, 3);
 
-      const tagX = isRightLayout ? (vStart - 23) : (vEnd + 2);
+      // Solid Box Badge for VAH
+      const vahTagW = isHovered ? 34 : 28;
+      const vahTagH = isHovered ? 17 : 14;
+      const tagX = isRightLayout ? (vStart - vahTagW - 3) : (vEnd + 3);
+
       ctx.fillStyle = bullColor;
       if (typeof (ctx as any).roundRect === 'function') {
-        (ctx as any).roundRect(tagX, vahY - (isHovered ? 7.5 : 6), 21, isHovered ? 15 : 12, 2);
+        (ctx as any).roundRect(tagX, vahY - vahTagH / 2, vahTagW, vahTagH, 3);
       } else {
-        ctx.rect(tagX, vahY - (isHovered ? 7.5 : 6), 21, isHovered ? 15 : 12);
+        ctx.rect(tagX, vahY - vahTagH / 2, vahTagW, vahTagH);
       }
       ctx.fill();
 
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
       ctx.fillStyle = getContrastTextColor(bullColor);
-      ctx.font = isHovered ? 'bold 8.5px monospace' : 'bold 7.5px monospace';
+      ctx.font = isHovered ? 'bold 9px monospace' : 'bold 8px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('VAH', tagX + 10.5, vahY + 3.0);
+      ctx.fillText('VAH', tagX + vahTagW / 2, vahY + 3.0);
     }
 
-    // VAL Short Line & Tag
+    // VAL Solid Box Bar & Badge
     if (valY >= 0 && valY <= mainChartHeight) {
       const isHovered = crosshairY !== null && crosshairY !== undefined && Math.abs(crosshairY - valY) <= 10;
       if (isHovered) {
@@ -676,40 +678,43 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
         ctx.shadowColor = bearColor;
       }
 
-      const vStart = isRightLayout ? (vpEndX - barMaxW - (isHovered ? 36 : lineLen)) : vpStartX;
-      const vEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + (isHovered ? 36 : lineLen));
+      const vStart = isRightLayout ? (vpEndX - barMaxW - (isHovered ? 40 : lineLen)) : vpStartX;
+      const vEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + (isHovered ? 40 : lineLen));
 
-      ctx.strokeStyle = bearColor;
-      ctx.lineWidth = isHovered ? 2.4 : 1.3;
-      ctx.setLineDash([3, 3]);
-      ctx.beginPath();
-      ctx.moveTo(vStart, valY);
-      ctx.lineTo(vEnd, valY);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      // Solid Box Bar for VAL
+      ctx.fillStyle = bearColor;
+      ctx.fillRect(vStart, valY - 1.5, vEnd - vStart, 3);
 
-      const tagX = isRightLayout ? (vStart - 23) : (vEnd + 2);
+      // Solid Box Badge for VAL
+      const valTagW = isHovered ? 34 : 28;
+      const valTagH = isHovered ? 17 : 14;
+      const tagX = isRightLayout ? (vStart - valTagW - 3) : (vEnd + 3);
+
       ctx.fillStyle = bearColor;
       if (typeof (ctx as any).roundRect === 'function') {
-        (ctx as any).roundRect(tagX, valY - (isHovered ? 7.5 : 6), 21, isHovered ? 15 : 12, 2);
+        (ctx as any).roundRect(tagX, valY - valTagH / 2, valTagW, valTagH, 3);
       } else {
-        ctx.rect(tagX, valY - (isHovered ? 7.5 : 6), 21, isHovered ? 15 : 12);
+        ctx.rect(tagX, valY - valTagH / 2, valTagW, valTagH);
       }
       ctx.fill();
 
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
       ctx.fillStyle = getContrastTextColor(bearColor);
-      ctx.font = isHovered ? 'bold 8.5px monospace' : 'bold 7.5px monospace';
+      ctx.font = isHovered ? 'bold 9px monospace' : 'bold 8px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('VAL', tagX + 10.5, valY + 3.0);
+      ctx.fillText('VAL', tagX + valTagW / 2, valY + 3.0);
     }
 
     ctx.restore();
   }
 
-  // 7. High Volume Nodes (HVN) & Low Volume Nodes (LVN) Short Lines & Compact Tags
+  // 7. High Volume Nodes (HVN) & Low Volume Nodes (LVN) Solid Box Bars & Badges
   if (baseConfig.showHvnLvn) {
     ctx.save();
-    const lineLen = 22;
+    const lineLen = 26;
 
     // Render prominent HVNs (excluding POC)
     if (data.hvnNodes && data.hvnNodes.length > 0) {
@@ -725,31 +730,34 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
           ctx.shadowColor = hvnColor;
         }
 
-        const hStart = isRightLayout ? (vpEndX - barMaxW - (isHovered ? 30 : lineLen)) : vpStartX;
-        const hEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + (isHovered ? 30 : lineLen));
+        const hStart = isRightLayout ? (vpEndX - barMaxW - (isHovered ? 34 : lineLen)) : vpStartX;
+        const hEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + (isHovered ? 34 : lineLen));
 
-        ctx.strokeStyle = hvnColor;
-        ctx.lineWidth = isHovered ? 2.2 : 1.2;
-        ctx.setLineDash([2, 2]);
-        ctx.beginPath();
-        ctx.moveTo(hStart, y);
-        ctx.lineTo(hEnd, y);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        // Solid Bar for HVN
+        ctx.fillStyle = hvnColor;
+        ctx.fillRect(hStart, y - 1, hEnd - hStart, 2.5);
 
-        const tagX = isRightLayout ? (hStart - 22) : (hEnd + 2);
+        // Solid Box Badge for HVN
+        const hvnTagW = isHovered ? 32 : 26;
+        const hvnTagH = isHovered ? 15 : 13;
+        const tagX = isRightLayout ? (hStart - hvnTagW - 3) : (hEnd + 3);
+
         ctx.fillStyle = hvnColor;
         if (typeof (ctx as any).roundRect === 'function') {
-          (ctx as any).roundRect(tagX, y - (isHovered ? 6.5 : 5.5), 20, isHovered ? 13 : 11, 2);
+          (ctx as any).roundRect(tagX, y - hvnTagH / 2, hvnTagW, hvnTagH, 2.5);
         } else {
-          ctx.rect(tagX, y - (isHovered ? 6.5 : 5.5), 20, isHovered ? 13 : 11);
+          ctx.rect(tagX, y - hvnTagH / 2, hvnTagW, hvnTagH);
         }
         ctx.fill();
 
+        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+
         ctx.fillStyle = getContrastTextColor(hvnColor);
-        ctx.font = isHovered ? 'bold 7.5px monospace' : 'bold 7px monospace';
+        ctx.font = isHovered ? 'bold 8.5px monospace' : 'bold 7.5px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('HVN', tagX + 10, y + 2.5);
+        ctx.fillText('HVN', tagX + hvnTagW / 2, y + 2.8);
       });
     }
 
@@ -767,31 +775,34 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
           ctx.shadowColor = lvnColor;
         }
 
-        const lStart = isRightLayout ? (vpEndX - barMaxW - (isHovered ? 30 : lineLen)) : vpStartX;
-        const lEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + (isHovered ? 30 : lineLen));
+        const lStart = isRightLayout ? (vpEndX - barMaxW - (isHovered ? 34 : lineLen)) : vpStartX;
+        const lEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + (isHovered ? 34 : lineLen));
 
-        ctx.strokeStyle = lvnColor;
-        ctx.lineWidth = isHovered ? 2.2 : 1.2;
-        ctx.setLineDash([2, 2]);
-        ctx.beginPath();
-        ctx.moveTo(lStart, y);
-        ctx.lineTo(lEnd, y);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        // Solid Bar for LVN
+        ctx.fillStyle = lvnColor;
+        ctx.fillRect(lStart, y - 1, lEnd - lStart, 2.5);
 
-        const tagX = isRightLayout ? (lStart - 22) : (lEnd + 2);
+        // Solid Box Badge for LVN
+        const lvnTagW = isHovered ? 32 : 26;
+        const lvnTagH = isHovered ? 15 : 13;
+        const tagX = isRightLayout ? (lStart - lvnTagW - 3) : (lEnd + 3);
+
         ctx.fillStyle = lvnColor;
         if (typeof (ctx as any).roundRect === 'function') {
-          (ctx as any).roundRect(tagX, y - 5.5, 20, 11, 2);
+          (ctx as any).roundRect(tagX, y - lvnTagH / 2, lvnTagW, lvnTagH, 2.5);
         } else {
-          ctx.rect(tagX, y - 5.5, 20, 11);
+          ctx.rect(tagX, y - lvnTagH / 2, lvnTagW, lvnTagH);
         }
         ctx.fill();
 
+        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+
         ctx.fillStyle = getContrastTextColor(lvnColor);
-        ctx.font = 'bold 7px monospace';
+        ctx.font = isHovered ? 'bold 8.5px monospace' : 'bold 7.5px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('LVN', tagX + 10, y + 2.5);
+        ctx.fillText('LVN', tagX + lvnTagW / 2, y + 2.8);
       });
     }
 

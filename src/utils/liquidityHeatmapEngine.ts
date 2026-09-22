@@ -164,7 +164,7 @@ export interface LiquidityHeatmapSettings {
 
 export const DEFAULT_HEATMAP_SETTINGS: LiquidityHeatmapSettings = {
   enabled: true,
-  colorMode: "thermal",
+  colorMode: "theme",
   intensity: 1.35,
   opacity: 0.95,
   depthBins: 84,
@@ -3329,7 +3329,7 @@ export function calculateLiquidationCascadeRadar(
       formattedPrice: `$${liqPrice.toFixed(priceDecimals)}`,
       leverageTier: t.tier,
       side: 'short_liq',
-      color: '#f23645',
+      color: '',
       estimatedNotionalUsd: notionalUsd,
       estimatedUnits: units,
       distancePct: distPct,
@@ -3383,7 +3383,7 @@ export function calculateLiquidationCascadeRadar(
       formattedPrice: `$${liqPrice.toFixed(priceDecimals)}`,
       leverageTier: t.tier,
       side: 'long_liq',
-      color: '#089981',
+      color: '',
       estimatedNotionalUsd: notionalUsd,
       estimatedUnits: units,
       distancePct: distPct,
@@ -3502,85 +3502,70 @@ function interpolateSmoothStops(d: number, stops: ColorStop[]): [number, number,
 export function getBookmapThemeColor(
   density: number, // 0 to 1
   side: 'bid' | 'ask',
-  mode: 'theme' | 'thermal' | 'bid_ask' = 'thermal',
+  mode: 'theme' | 'thermal' | 'bid_ask' = 'theme',
   palette: ThemeColors,
   _baseOpacity: number = 0.90
 ): string {
   const rawD = Math.max(0, Math.min(1, density));
-  if (rawD < 0.02) return 'rgba(0,0,0,0)';
+  if (rawD < 0.01) return 'rgba(0,0,0,0)';
   
   // Strictly clamp normalized density to [0, 1]
-  const d = Math.max(0, Math.min(1.0, (rawD - 0.02) / 0.98));
+  const d = Math.max(0, Math.min(1.0, (rawD - 0.01) / 0.99));
 
   const opacityMultiplier = typeof _baseOpacity === 'number' && !isNaN(_baseOpacity)
     ? Math.max(0.2, Math.min(1.0, _baseOpacity))
     : 0.95;
 
-  // Logarithmic opacity scale for liquidity zones:
-  // Deeper liquidity levels exhibit higher opacity (0.3 for weak, 0.8 for strong)
-  const logFactor = Math.log(1 + 9 * d) / Math.LN10; // Logarithmic progression in [0, 1]
-  const rawOpacity = 0.30 + (0.80 - 0.30) * Math.max(0, Math.min(1, logFactor));
-  const finalAlpha = Math.max(0.05, Math.min(1.0, Number((rawOpacity * opacityMultiplier).toFixed(3))));
+  // Logarithmic opacity scale for liquidity zones
+  const logFactor = Math.log(1 + 9 * d) / Math.LN10;
+  const rawOpacity = 0.28 + (0.85 - 0.28) * Math.max(0, Math.min(1, logFactor));
+  const finalAlpha = Math.max(0.08, Math.min(1.0, Number((rawOpacity * opacityMultiplier).toFixed(3))));
   
   const bgRGB = parseHexToRgb(palette?.dark, '#0a101d');
-  const isBid = side === 'bid';
+  const bullRGB = parseHexToRgb(palette?.bull, '#00ff66');
+  const bearRGB = parseHexToRgb(palette?.bear, '#ff0044');
+  const pocRGB = parseHexToRgb(palette?.poc, '#ffd600');
+  const coreRGB: [number, number, number] = [255, 255, 255];
 
+  const isBid = side === 'bid';
   let stops: ColorStop[];
 
   if (mode === 'thermal') {
-    // 100% Authentic Bookmap Classic Thermal Multi-Tier Gradient matching reference screenshot
+    // Thermal spectrum: Distinct Buy spectrum (bullRGB) vs Sell spectrum (bearRGB)
+    const targetRGB = isBid ? bullRGB : bearRGB;
     stops = [
-      { pos: 0.00, rgb: [2, 32, 64] },       // Level 1: Deep Background Navy #022040
-      { pos: 0.12, rgb: [0, 64, 116] },      // Level 1-2: Cobalt Blue #004074
-      { pos: 0.25, rgb: [0, 119, 182] },     // Level 2: Ocean Blue #0077b6
-      { pos: 0.40, rgb: [0, 180, 216] },     // Level 2-3: Electric Cyan #00b4d8
-      { pos: 0.55, rgb: [72, 202, 228] },    // Level 3: Bright Sky Cyan #48cae4
-      { pos: 0.68, rgb: [255, 214, 10] },    // Level 3-4: Bright Lemon Yellow #ffd60a
-      { pos: 0.80, rgb: [255, 123, 0] },     // Level 4: Fiery Amber Orange #ff7b00
-      { pos: 0.90, rgb: [230, 57, 70] },     // Level 4-5: Crimson Red #e63946
-      { pos: 0.96, rgb: [193, 18, 31] },     // Level 5: Deep Ruby Red #c1121f
-      { pos: 1.00, rgb: [255, 255, 255] }    // Level 5 Peak: White Hot Core #ffffff
+      { pos: 0.00, rgb: mixRgbColors(bgRGB, targetRGB, 0.30) },
+      { pos: 0.25, rgb: mixRgbColors(bgRGB, targetRGB, 0.65) },
+      { pos: 0.55, rgb: targetRGB },
+      { pos: 0.82, rgb: mixRgbColors(targetRGB, pocRGB, 0.50) },
+      { pos: 1.00, rgb: coreRGB }
     ];
   } else if (mode === 'bid_ask') {
-    // Bookmap Dual Bid/Ask Thermal Spectrum
-    if (isBid) {
-      stops = [
-        { pos: 0.00, rgb: [4, 35, 30] },     // Level 1: Deep Emerald Navy
-        { pos: 0.25, rgb: [0, 137, 123] },   // Level 2: Teal Green
-        { pos: 0.50, rgb: [0, 230, 118] },   // Level 3: Mint Neon
-        { pos: 0.75, rgb: [238, 255, 65] },  // Level 4: Golden Lime
-        { pos: 0.92, rgb: [255, 255, 180] }, // Level 5: Light Core
-        { pos: 1.00, rgb: [255, 255, 255] }  // Level 5 Peak: White Hot
-      ];
-    } else {
-      stops = [
-        { pos: 0.00, rgb: [42, 8, 21] },     // Level 1: Deep Crimson Navy
-        { pos: 0.25, rgb: [173, 20, 87] },   // Level 2: Magenta Red
-        { pos: 0.50, rgb: [245, 0, 87] },    // Level 3: Hot Coral Pink
-        { pos: 0.75, rgb: [255, 109, 0] },   // Level 4: Flame Amber
-        { pos: 0.92, rgb: [255, 214, 0] },   // Level 5: Gold
-        { pos: 1.00, rgb: [255, 255, 255] }  // Level 5 Peak: White Hot
-      ];
-    }
+    // Dual Bid/Ask Theme Spectrum - High-contrast separation between Buy and Sell liquidity
+    const targetRGB = isBid ? bullRGB : bearRGB;
+    stops = [
+      { pos: 0.00, rgb: mixRgbColors(bgRGB, targetRGB, 0.30) },
+      { pos: 0.25, rgb: mixRgbColors(bgRGB, targetRGB, 0.68) },
+      { pos: 0.55, rgb: targetRGB },
+      { pos: 0.82, rgb: mixRgbColors(targetRGB, coreRGB, 0.45) },
+      { pos: 1.00, rgb: coreRGB }
+    ];
   } else {
-    // Theme-Adaptive High Contrast Spectrum
-    const targetRGB = isBid
-      ? parseHexToRgb(palette?.bull, '#00ff66')
-      : parseHexToRgb(palette?.bear, '#ff0044');
-    const pocRGB = parseHexToRgb(palette?.poc, '#ffd600');
-    const coreRGB: [number, number, number] = [255, 255, 255];
+    // Default 'theme' Mode: 100% theme-harmonized distinction
+    // BUY Liquidity (Bids) uses bullRGB (palette.bull) family exclusively
+    // SELL Liquidity (Asks) uses bearRGB (palette.bear) family exclusively
+    const targetRGB = isBid ? bullRGB : bearRGB;
 
-    const shadowRGB = mixRgbColors(bgRGB, targetRGB, 0.25);
-    const deepNeonRGB = mixRgbColors(targetRGB, isBid ? [0, 200, 255] : [200, 0, 255], 0.35); 
-    const hotRGB = mixRgbColors(targetRGB, pocRGB, 0.55);
+    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.35);
+    const midRGB = mixRgbColors(bgRGB, targetRGB, 0.70);
+    const fullRGB = targetRGB;
+    const hotRGB = mixRgbColors(targetRGB, coreRGB, 0.38);
 
     stops = [
-      { pos: 0.00, rgb: bgRGB },
-      { pos: 0.15, rgb: shadowRGB },
-      { pos: 0.35, rgb: deepNeonRGB },
-      { pos: 0.58, rgb: targetRGB },
-      { pos: 0.78, rgb: hotRGB },
-      { pos: 0.92, rgb: pocRGB },
+      { pos: 0.00, rgb: lowRGB },
+      { pos: 0.22, rgb: midRGB },
+      { pos: 0.50, rgb: fullRGB },
+      { pos: 0.80, rgb: hotRGB },
       { pos: 1.00, rgb: coreRGB }
     ];
   }
@@ -3966,7 +3951,8 @@ export function renderLiquidityHeatmapLayer({
       if (ray.isLargeWall || ray.density >= 0.65) {
         const innerH = Math.max(1.8, rayHeight * 0.5);
         const coreGrad = ctx.createLinearGradient(x1, 0, x2, 0);
-        const coreTone = isMitigated ? 'rgba(255, 214, 10, 0.45)' : 'rgba(255, 214, 10, 0.85)';
+        const wallPocColor = palette?.poc || '#ffd600';
+        const coreTone = isMitigated ? hexToRgbAlpha(wallPocColor, 0.45) : hexToRgbAlpha(wallPocColor, 0.85);
         coreGrad.addColorStop(0, hexToRgbAlpha(coreTone, 0.25));
         coreGrad.addColorStop(0.15, coreTone);
         coreGrad.addColorStop(0.85, coreTone);
@@ -4108,7 +4094,7 @@ export function renderLiquidityHeatmapLayer({
       ctx.lineTo(0, size);
       ctx.lineTo(-size, 0);
       ctx.closePath();
-      ctx.fillStyle = isBull ? 'rgba(6, 44, 28, 0.95)' : 'rgba(44, 10, 18, 0.95)';
+      ctx.fillStyle = hexToRgbAlpha(nodeCol, 0.28);
       ctx.fill();
       ctx.stroke();
 
@@ -4434,17 +4420,17 @@ export function renderLiquidityHeatmapLayer({
       let solidEnd = '#0284c7';
 
       if (isCallWall) {
-        peakT = 0.93; // Emerald spectrum peak (Major Dealer Resistance)
-        coreHex = '#10b981';
-        solidStart = '#34d399'; // Bright Emerald Green
-        solidMid = '#10b981';   // Emerald Core
-        solidEnd = '#047857';   // Deep Forest Green
+        peakT = 0.93; // Bearish spectrum peak (Major Dealer Resistance)
+        coreHex = palette?.bear || '#f43f5e';
+        solidStart = palette?.bear || '#fb7185';
+        solidMid = palette?.bear || '#f43f5e';
+        solidEnd = palette?.bear || '#9f1239';
       } else if (isPutWall) {
-        peakT = 0.89; // Deep Coral / Rose-Red spectrum peak (Major Dealer Support)
-        coreHex = '#f43f5e';
-        solidStart = '#fb7185'; // Radiant Rose
-        solidMid = '#f43f5e';   // Rose Red Core
-        solidEnd = '#9f1239';   // Deep Crimson
+        peakT = 0.89; // Bullish spectrum peak (Major Dealer Support)
+        coreHex = palette?.bull || '#10b981';
+        solidStart = palette?.bull || '#34d399';
+        solidMid = palette?.bull || '#10b981';
+        solidEnd = palette?.bull || '#047857';
       } else if (isFlip) {
         peakT = 0.76; // Radiant Gold spectrum peak (0-Gamma Regime Shift)
         coreHex = '#ffd600';
@@ -4815,8 +4801,9 @@ export function renderLiquidityHeatmapLayer({
         hudBgGrad.addColorStop(0, '#ffffff');
         hudBgGrad.addColorStop(1, '#f1f5f9');
       } else {
-        hudBgGrad.addColorStop(0, '#0f172a');
-        hudBgGrad.addColorStop(1, '#020617');
+        const darkBase = palette?.dark && palette.dark !== '#000000' ? palette.dark : '#060913';
+        hudBgGrad.addColorStop(0, hexToRgbAlpha(darkBase, 0.94));
+        hudBgGrad.addColorStop(1, hexToRgbAlpha(darkBase, 0.98));
       }
       ctx.fillStyle = hudBgGrad;
       ctx.strokeStyle = regimeCol;
@@ -4974,7 +4961,7 @@ export function renderLiquidityHeatmapLayer({
       lastValidPt = { x: stepX, y: stepY, direction: mt.direction, price: mt.price };
     }
     
-    const trailColor = settings.microTrailColor || '#00F0FF';
+    const trailColor = settings.microTrailColor || palette?.poc || palette?.bull || '#00F0FF';
     const baseWidth = settings.microTrailWidth ?? 1.5;
     const lineWidth = candleWidth < 4
       ? Math.max(0.75, baseWidth * 0.6)

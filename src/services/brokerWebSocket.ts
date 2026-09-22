@@ -36,13 +36,16 @@ class BrokerWebSocketManager {
   private listeners: Set<MessageCallback> = new Set();
   private reconnectTimer: any = null;
   private pollTimer: any = null;
+  private heartbeatTimer: any = null;
   private isConnected: boolean = false;
   private reconnectAttempts: number = 0;
+  private pendingQueue: string[] = [];
 
   constructor() {
     this.connect();
     // Background polling fallback in case WebSocket is blocked in certain sandbox environments
     this.startHttpPollingFallback();
+    this.startHeartbeat();
   }
 
   public connect() {
@@ -62,6 +65,7 @@ class BrokerWebSocketManager {
         this.isConnected = true;
         this.reconnectAttempts = 0;
         this.notifyListeners({ type: 'WS_STATUS', status: 'CONNECTED' });
+        this.flushPendingQueue();
       };
 
       this.ws.onmessage = (event) => {
@@ -75,7 +79,6 @@ class BrokerWebSocketManager {
 
       this.ws.onclose = () => {
         this.isConnected = false;
-        // Keep connected if fallback HTTP works, else DISCONNECTED
         this.scheduleReconnect();
       };
 
@@ -89,14 +92,62 @@ class BrokerWebSocketManager {
     }
   }
 
+  public send(data: any) {
+    const payload = typeof data === 'string' ? data : JSON.stringify(data);
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(payload);
+        return true;
+      } catch {
+        this.pendingQueue.push(payload);
+        return false;
+      }
+    } else {
+      // Buffer message if disconnected
+      if (this.pendingQueue.length < 200) {
+        this.pendingQueue.push(payload);
+      }
+      return false;
+    }
+  }
+
+  private flushPendingQueue() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    while (this.pendingQueue.length > 0) {
+      const msg = this.pendingQueue.shift();
+      if (msg) {
+        try {
+          this.ws.send(msg);
+        } catch {
+          this.pendingQueue.unshift(msg);
+          break;
+        }
+      }
+    }
+  }
+
   private scheduleReconnect() {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    const backoffMs = Math.min(1500 * Math.pow(1.25, Math.min(this.reconnectAttempts, 8)), 10000);
+    // Exponential backoff with random jitter (100-500ms) to prevent reconnect thundering herd
+    const baseMs = Math.min(1000 * Math.pow(1.3, Math.min(this.reconnectAttempts, 8)), 12000);
+    const jitter = Math.floor(Math.random() * 400);
+    const backoffMs = baseMs + jitter;
     this.reconnectAttempts++;
 
     this.reconnectTimer = setTimeout(() => {
       this.connect();
     }, backoffMs);
+  }
+
+  private startHeartbeat() {
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        try {
+          this.ws.send(JSON.stringify({ type: 'PING', timestamp: Date.now() }));
+        } catch {}
+      }
+    }, 25000);
   }
 
   private startHttpPollingFallback() {

@@ -25,10 +25,12 @@ export class TickRingBuffer {
   private lastTpsTimestamp: number = Date.now();
   private tradesInCurrentWindow: number = 0;
   private currentTps: number = 0;
+  private reusableDrainBuffer: Float64Array;
 
   constructor(capacity: number = 16384) {
     this.capacity = capacity;
     this.buffer = new Float64Array(capacity * 4);
+    this.reusableDrainBuffer = new Float64Array(capacity * 4);
   }
 
   /**
@@ -65,28 +67,36 @@ export class TickRingBuffer {
   }
 
   /**
-   * Batch drain all pending trades into a continuous Float64Array slice for 60 FPS requestAnimationFrame
+   * Zero-Allocation Drain into reusable Float64Array view to prevent Garbage Collection micro-stutter
    */
-  public drainAll(): Float64Array {
-    if (this.count === 0) return new Float64Array(0);
+  public drainAllReuse(): { data: Float64Array; length: number } {
+    const totalItems = this.count * 4;
+    if (this.count === 0) return { data: this.reusableDrainBuffer, length: 0 };
 
-    const drained = new Float64Array(this.count * 4);
     let outIdx = 0;
-
     while (this.count > 0) {
       const inIdx = this.tail * 4;
-      drained[outIdx++] = this.buffer[inIdx];
-      drained[outIdx++] = this.buffer[inIdx + 1];
-      drained[outIdx++] = this.buffer[inIdx + 2];
-      drained[outIdx++] = this.buffer[inIdx + 3];
-      
+      this.reusableDrainBuffer[outIdx++] = this.buffer[inIdx];
+      this.reusableDrainBuffer[outIdx++] = this.buffer[inIdx + 1];
+      this.reusableDrainBuffer[outIdx++] = this.buffer[inIdx + 2];
+      this.reusableDrainBuffer[outIdx++] = this.buffer[inIdx + 3];
+
       this.tail = (this.tail + 1) % this.capacity;
       this.count--;
     }
 
     this.head = 0;
     this.tail = 0;
-    return drained;
+    return { data: this.reusableDrainBuffer, length: totalItems };
+  }
+
+  /**
+   * Legacy Drain method for backwards compatibility
+   */
+  public drainAll(): Float64Array {
+    const { data, length } = this.drainAllReuse();
+    if (length === 0) return new Float64Array(0);
+    return data.slice(0, length);
   }
 
   /**

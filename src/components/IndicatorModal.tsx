@@ -818,7 +818,7 @@ export default function IndicatorModal({
                           <div>
                             <label className="text-zinc-400 font-medium block mb-1 text-[11px]">Palet Warna:</label>
                             <select
-                              value={localSettings.liquidityHeatmapConfig.colorMode}
+                              value={localSettings.liquidityHeatmapConfig.colorMode || 'theme'}
                               onChange={(e) =>
                                 updateSubConfig('liquidityHeatmapConfig', {
                                   colorMode: e.target.value as any,
@@ -827,6 +827,8 @@ export default function IndicatorModal({
                               className="w-full h-7 bg-[var(--color-panel)]/90 border border-[var(--color-border)] rounded-md px-2 text-white font-medium text-xs focus:outline-none focus:border-[var(--color-border)] cursor-pointer"
                             >
                               <option value="theme" className="bg-[var(--color-panel)] text-white">Sinkron Tema Terminal ({theme})</option>
+                              <option value="bid_ask" className="bg-[var(--color-panel)] text-white">Bid/Ask Split Tema</option>
+                              <option value="thermal" className="bg-[var(--color-panel)] text-white">Classic Thermal</option>
                             </select>
                           </div>
                           <div>

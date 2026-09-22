@@ -64,7 +64,7 @@ import { IndicatorSettings,
   calculateMACD, 
   transformToHeikinAshi 
 } from '../utils/indicators';
-import { computeVolumeProfile, renderVolumeProfileOverlay, VolumeProfileResult } from '../utils/volumeProfileEngine';
+import { computeVolumeProfile, renderVolumeProfileOverlay, VolumeProfileResult, getContrastTextColor } from '../utils/volumeProfileEngine';
 import { generateFootprintData, FootprintCandleData } from '../utils/footprints';
 import { DrawingToolType, DrawingItem, FIBONACCI_LEVELS } from '../utils/drawingTools';
 import { formatVol } from '../utils/numberFormatters';
@@ -4831,52 +4831,95 @@ export default function CustomChartWidget({
         ctx.restore();
       }
 
-      // POC line & Glass Badge
+      // POC Solid Line & Solid Box Badge
+      const pocCol = currentPalette.poc || '#ffd600';
       ctx.save();
-      ctx.strokeStyle = currentPalette.poc || '#ffd600';
-      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = pocCol;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.moveTo(vpStartX - 10, pocY);
       ctx.lineTo(utils.chartWidth, pocY);
       ctx.stroke();
 
-      // Glass Badge POC
-      ctx.fillStyle = 'rgba(8, 11, 20, 0.90)';
-      ctx.strokeStyle = currentPalette.poc || '#ffd600';
-      ctx.lineWidth = 1;
-      const pocBadgeW = 118;
+      // Solid Box Badge POC
+      const pocBadgeW = 120;
+      const pocBadgeH = 18;
       const pocBadgeX = chartWidth - pocBadgeW - 8;
+      ctx.fillStyle = pocCol;
       if (typeof (ctx as any).roundRect === 'function') {
-        (ctx as any).roundRect(pocBadgeX, pocY - 8, pocBadgeW, 16, 4);
+        (ctx as any).roundRect(pocBadgeX, pocY - pocBadgeH / 2, pocBadgeW, pocBadgeH, 3.5);
       } else {
-        ctx.rect(pocBadgeX, pocY - 8, pocBadgeW, 16);
+        ctx.rect(pocBadgeX, pocY - pocBadgeH / 2, pocBadgeW, pocBadgeH);
       }
       ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.lineWidth = 1;
       ctx.stroke();
 
-      ctx.fillStyle = currentPalette.poc || '#ffd600';
-      ctx.font = 'bold 9px monospace';
+      ctx.fillStyle = getContrastTextColor(pocCol);
+      ctx.font = 'bold 9.5px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(`POC $${bookmapData.pocPrice.toFixed(2)}`, pocBadgeX + pocBadgeW / 2, pocY + 3);
+      ctx.fillText(`POC $${bookmapData.pocPrice.toFixed(2)}`, pocBadgeX + pocBadgeW / 2, pocY + 3.5);
       ctx.restore();
 
-      // VAH & VAL lines & Glass Badges
+      // VAH & VAL Solid Lines & Solid Box Badges
+      const vahCol = currentPalette.bull || '#00ff66';
+      const valCol = currentPalette.bear || '#ff0044';
+
       ctx.save();
-      ctx.setLineDash([4, 3]);
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.8;
+      // VAH Solid Bar & Solid Box Badge
+      ctx.strokeStyle = vahCol;
+      ctx.lineWidth = 2.0;
       ctx.beginPath();
       ctx.moveTo(vpStartX - 10, vahY);
       ctx.lineTo(utils.chartWidth, vahY);
+      ctx.stroke();
+
+      const vahBadgeW = 120;
+      const vahBadgeH = 18;
+      const vahBadgeX = chartWidth - vahBadgeW - 8;
+      ctx.fillStyle = vahCol;
+      if (typeof (ctx as any).roundRect === 'function') {
+        (ctx as any).roundRect(vahBadgeX, vahY - vahBadgeH / 2, vahBadgeW, vahBadgeH, 3.5);
+      } else {
+        ctx.rect(vahBadgeX, vahY - vahBadgeH / 2, vahBadgeW, vahBadgeH);
+      }
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = getContrastTextColor(vahCol);
+      ctx.font = 'bold 9.5px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`VAH $${bookmapData.vahPrice.toFixed(2)}`, vahBadgeX + vahBadgeW / 2, vahY + 3.5);
+
+      // VAL Solid Bar & Solid Box Badge
+      ctx.strokeStyle = valCol;
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
       ctx.moveTo(vpStartX - 10, valY);
       ctx.lineTo(utils.chartWidth, valY);
       ctx.stroke();
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 9px monospace';
-      ctx.textAlign = 'right';
-      ctx.fillText(`VAH $${bookmapData.vahPrice.toFixed(2)}`, chartWidth - 8, vahY - 4);
-      ctx.fillText(`VAL $${bookmapData.valPrice.toFixed(2)}`, chartWidth - 8, valY + 11);
+      const valBadgeW = 120;
+      const valBadgeH = 18;
+      const valBadgeX = chartWidth - valBadgeW - 8;
+      ctx.fillStyle = valCol;
+      if (typeof (ctx as any).roundRect === 'function') {
+        (ctx as any).roundRect(valBadgeX, valY - valBadgeH / 2, valBadgeW, valBadgeH, 3.5);
+      } else {
+        ctx.rect(valBadgeX, valY - valBadgeH / 2, valBadgeW, valBadgeH);
+      }
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = getContrastTextColor(valCol);
+      ctx.font = 'bold 9.5px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`VAL $${bookmapData.valPrice.toFixed(2)}`, valBadgeX + valBadgeW / 2, valY + 3.5);
       ctx.restore();
     }
 
