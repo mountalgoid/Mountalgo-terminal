@@ -4234,7 +4234,7 @@ export default function CustomChartWidget({
     }
 
     // Standard / Heikin-Ashi / Bookmap Glass Candles
-      if (indicators.showBookmapPro && (bookmapSettings.showTransparentCandles ?? true)) {
+      if (!indicators.showLiquidityHeatmap && indicators.showBookmapPro && (bookmapSettings.showTransparentCandles ?? true)) {
         // A. Thin VWAP / Close Tracker Line
         ctx.beginPath();
         visibleCandles.forEach((c, idx) => {
@@ -4327,8 +4327,6 @@ export default function CustomChartWidget({
           ctx.lineWidth = 1.2;
           ctx.strokeRect(x, topY, candleWidth, bodyHeight);
         });
-      } else if (indicators.showLiquidityHeatmap) {
-        // High-frequency microstructure trail wicks and executed volume bubbles are rendered seamlessly inside renderLiquidityHeatmapLayer in exact z-order
       } else if (indicators.showBookmapPro) {
         // Bookmap visual style with thin tracker line only
         ctx.beginPath();
