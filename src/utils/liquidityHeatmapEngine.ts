@@ -3564,20 +3564,18 @@ export function getBookmapThemeColor(
       { pos: 1.00, rgb: peakRGB }
     ];
   } else {
-    // Default 'theme' Mode: 100% theme color consistency for Buy (bullRGB) & Sell (bearRGB)
-    // Buy Liquidity (Bids) uses bullRGB (palette.bull) family exclusively
-    // Sell Liquidity (Asks) uses bearRGB (palette.bear) family exclusively
-    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.20);
-    const midLowRGB = mixRgbColors(bgRGB, targetRGB, 0.48);
-    const fullRGB = targetRGB;
-    const highRGB = mixRgbColors(targetRGB, peakTargetRGB, 0.65);
+    // High-Contrast Theme Mode: Wide dynamic range for clear visual distinction between liquidity tiers
+    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.10);
+    const midLowRGB = mixRgbColors(bgRGB, targetRGB, 0.35);
+    const fullRGB = mixRgbColors(bgRGB, targetRGB, 0.68);
+    const highRGB = targetRGB;
     const peakRGB = peakTargetRGB;
 
     stops = [
       { pos: 0.00, rgb: lowRGB },
-      { pos: 0.20, rgb: midLowRGB },
-      { pos: 0.45, rgb: fullRGB },
-      { pos: 0.72, rgb: highRGB },
+      { pos: 0.15, rgb: midLowRGB },
+      { pos: 0.40, rgb: fullRGB },
+      { pos: 0.70, rgb: highRGB },
       { pos: 1.00, rgb: peakRGB }
     ];
   }
@@ -3892,18 +3890,16 @@ export function renderLiquidityHeatmapLayer({
       const boxH = Math.max(0.5, rawH - gapY);
 
       if (boxY <= mainChartHeight + 10 && boxY + boxH >= -10) {
-        const quantizedDensity = Math.round(maxDensityInAgg * quantLevels) / Math.max(1, quantLevels);
-        if (quantizedDensity >= 0.10) {
+        // Super-accurate exact raw liquidity density mapping without coarse bucket quantization
+        const exactRawDensity = Math.min(1.0, Math.max(0.0, maxDensityInAgg));
+        if (exactRawDensity >= 0.08) {
           ctx.globalCompositeOperation = 'source-over';
           const baseOpacity = settings.opacity ?? 0.95;
 
-          // Time progression weight across timeline columns (0.2 historical time -> 1.0 recent time)
-          const timeProgress = numCols > 1 ? Math.min(1.0, Math.max(0.20, i / (numCols - 1))) : 1.0;
+          // Non-linear gamma contrast curve (gamma=0.72) to vividly amplify visual color separation between low, medium, and heavy liquidity points
+          const highContrastDensity = Math.min(1.0, Math.max(0.05, Math.pow(exactRawDensity, 0.72)));
 
-          // Solid color tone adjusted according to liquidity level, time progression, and price level tier
-          const effectiveDensity = Math.min(1.0, Math.max(0.10, quantizedDensity * (0.85 + 0.15 * timeProgress)));
-
-          ctx.fillStyle = getBookmapThemeColor(effectiveDensity, sideInAgg, settings.colorMode, palette, baseOpacity);
+          ctx.fillStyle = getBookmapThemeColor(highContrastDensity, sideInAgg, settings.colorMode, palette, baseOpacity);
           // Strictly sharp rectangular box grid without any corner rounding
           ctx.fillRect(boxX, boxY, boxW, boxH);
         }
@@ -4282,6 +4278,20 @@ export function renderLiquidityHeatmapLayer({
       }
       ctx.fillStyle = grad;
       ctx.fillRect(x1, topY, w, h);
+
+      // Distinct High-Visibility Technical Border framing the Vacuum Liquidity Corridor Box
+      const borderAlpha = 0.55 + 0.40 * proximityWeight * pulseFactor;
+      const borderGrad = ctx.createLinearGradient(x1, 0, x1 + Math.min(w, 350), 0);
+      borderGrad.addColorStop(0, hexToRgbAlpha(vacuumColor, borderAlpha));
+      borderGrad.addColorStop(0.6, hexToRgbAlpha(vacuumColor, borderAlpha * 0.65));
+      borderGrad.addColorStop(1.0, hexToRgbAlpha(vacuumColor, borderAlpha * 0.25));
+
+      ctx.save();
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([5, 3]); // Sleek technical dashed border framing the vacuum box
+      ctx.strokeStyle = borderGrad;
+      ctx.strokeRect(x1 + 0.5, topY + 0.5, Math.max(1, w - 1.0), Math.max(1, h - 1.0));
+      ctx.restore();
 
       // Solid left limit marker (Left Starting Boundary Accent)
       const vacuumMarkerW = Math.max(1.5, Math.min(4.0, smoothedBinPx * 0.8));
