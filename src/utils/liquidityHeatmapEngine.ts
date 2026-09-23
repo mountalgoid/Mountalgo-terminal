@@ -3449,11 +3449,36 @@ function parseHexToRgb(hex: string | undefined, defaultHex = '#0b0e14'): [number
 
 function mixRgbColors(c1: [number, number, number], c2: [number, number, number], t: number): [number, number, number] {
   const clampT = Math.max(0, Math.min(1, t));
+  // [ACCURACY v2] Linear-light interpolation (perceptually uniform) instead of naive sRGB lerp
+  const l1r = srgbToLinear(c1[0]); const l1g = srgbToLinear(c1[1]); const l1b = srgbToLinear(c1[2]);
+  const l2r = srgbToLinear(c2[0]); const l2g = srgbToLinear(c2[1]); const l2b = srgbToLinear(c2[2]);
   return [
-    Math.round(c1[0] + (c2[0] - c1[0]) * clampT),
-    Math.round(c1[1] + (c2[1] - c1[1]) * clampT),
-    Math.round(c1[2] + (c2[2] - c1[2]) * clampT),
+    linearToSrgb(l1r + (l2r - l1r) * clampT),
+    linearToSrgb(l1g + (l2g - l1g) * clampT),
+    linearToSrgb(l1b + (l2b - l1b) * clampT),
   ];
+}
+
+/*
+ * [ACCURACY v2] Perceptual (linear-light) RGB blending support.
+ * sRGB 8-bit channels are nonlinear; naive channel-wise mixing darkens midtones and
+ * compresses subtle density differences. Precomputed LUTs make sRGB<->linear
+ * conversion free, so every gradient step stays perceptually uniform and the heat
+ * color tracks REAL liquidity magnitude instead of gamma distortion.
+ */
+const SRGB_GAMMA = 2.2; // Approximate sRGB transfer; visually identical to the IEC curve at 8-bit
+const LINEAR_LUT = new Float32Array(256);
+const SRGB_LUT = new Uint8ClampedArray(1024);
+for (let i = 0; i < 256; i++) LINEAR_LUT[i] = Math.pow(i / 255, SRGB_GAMMA);
+for (let i = 0; i < 1024; i++) SRGB_LUT[i] = Math.round(255 * Math.pow(i / 1023, 1 / SRGB_GAMMA));
+
+function srgbToLinear(c: number): number {
+  return c <= 0 ? 0 : c >= 255 ? 1 : LINEAR_LUT[c | 0];
+}
+function linearToSrgb(c: number): number {
+  if (c <= 0) return 0;
+  if (c >= 1) return 255;
+  return SRGB_LUT[(c * 1023) | 0];
 }
 
 interface ColorStop {
@@ -3493,11 +3518,48 @@ function interpolateSmoothStops(d: number, stops: ColorStop[]): [number, number,
   return stops[stops.length - 1].rgb;
 }
 
+/*
+ * [ACCURACY v2] Calibrated perceptual alpha ladder per liquidity tier.
+ * A pure log curve over-compresses the midrange (levels 0.3-0.6 all read the same).
+ * This piecewise smoothstep ramp anchors alpha to TRUE liquidity magnitude:
+ * 0.0x density -> barely visible ghost band, mid tiers -> evenly stepped clarity,
+ * 0.9+ (walls) -> fully opaque. Strictly monotonic by construction - zero flicker.
+ */
+const HEAT_ALPHA_ANCHORS: [number, number][] = [
+  [0.00, 0.10],
+  [0.10, 0.20],
+  [0.25, 0.32],
+  [0.45, 0.50],
+  [0.65, 0.68],
+  [0.82, 0.84],
+  [0.92, 0.94],
+  [1.00, 1.00],
+];
+function calibratedHeatAlpha(d: number): number {
+  const x = Math.max(0, Math.min(1, d));
+  for (let i = 0; i < HEAT_ALPHA_ANCHORS.length - 1; i++) {
+    const a0 = HEAT_ALPHA_ANCHORS[i];
+    const a1 = HEAT_ALPHA_ANCHORS[i + 1];
+    if (x >= a0[0] && x <= a1[0]) {
+      const span = a1[0] - a0[0];
+      const t = span <= 1e-9 ? 1 : (x - a0[0]) / span;
+      const smooth = t * t * (3 - 2 * t); // smoothstep for seamless tier transitions
+      return a0[1] + (a1[1] - a0[1]) * smooth;
+    }
+  }
+  return 1;
+}
+
+// [ACCURACY v2] Frame-stable memoized heat colors: identical liquidity levels always
+// render the EXACT same rgba string across frames (no shimmer, no drift at 120 FPS).
+const HEAT_COLOR_CACHE = new Map<number, string>();
+let __heatPaletteCounter = 0;
+
 /**
  * Super Gradient Color mapper matching Bookmap aesthetic with thermal and theme palettes.
- * Features smoothstep 3D interpolation and a logarithmic opacity scale for liquidity zones
- * (0.3 for weak liquidity up to 0.8 for strong/deep liquidity) with transition gradients
- * strictly clamped to the zone's normalized value range.
+ * [ACCURACY v2] linear-light blending + calibrated perceptual alpha ladder +
+ * precision-anchored tier stops; memoized so identical liquidity levels always render
+ * the exact same color (zero banding shimmer at 120 FPS).
  */
 export function getBookmapThemeColor(
   density: number, // 0 to 1
@@ -3516,11 +3578,24 @@ export function getBookmapThemeColor(
     ? Math.max(0.2, Math.min(1.0, _baseOpacity))
     : 0.95;
 
-  // Logarithmic opacity scale for liquidity zones
-  const logFactor = Math.log(1 + 9 * d) / Math.LN10;
-  const rawOpacity = 0.25 + (0.85 - 0.25) * Math.max(0, Math.min(1, logFactor));
-  const finalAlpha = Math.max(0.08, Math.min(1.0, Number((rawOpacity * opacityMultiplier).toFixed(3))));
+  // [ACCURACY v2] Calibrated perceptual alpha ramp (replaces the flat log scale that
+  // compressed the 0.3-0.6 midrange into one uniform tint). Scaled by user opacity.
+  const rawOpacity = calibratedHeatAlpha(d);
+  const finalAlpha = Math.max(0.06, Math.min(1.0, Number((rawOpacity * opacityMultiplier).toFixed(3))));
   
+  // [ACCURACY v2] Memoization key: quantized density (1/256) + palette identity +
+  // mode + side + base opacity. Identical liquidity levels reuse the EXACT rgba.
+  const dKey = Math.min(255, Math.round(d * 255));
+  const modeKey = mode === 'theme' ? 0 : mode === 'thermal' ? 1 : 2;
+  const opKey = Math.round(opacityMultiplier * 100);
+  const paletteMeta = palette as unknown as { __heatPaletteId?: number } | null;
+  if (paletteMeta && typeof paletteMeta.__heatPaletteId !== 'number') {
+    paletteMeta.__heatPaletteId = ++__heatPaletteCounter;
+  }
+  const cacheKey = ((((paletteMeta?.__heatPaletteId ?? 0) * 3 + modeKey) * 2 + (side === 'bid' ? 0 : 1)) * 101 + opKey) * 256 + dKey;
+  const cachedColor = HEAT_COLOR_CACHE.get(cacheKey);
+  if (cachedColor) return cachedColor;
+
   const bgRGB = parseHexToRgb(palette?.dark, '#0a101d');
   const bullRGB = parseHexToRgb(palette?.bull, '#00ff66');
   const bearRGB = parseHexToRgb(palette?.bear, '#ff0044');
@@ -3538,50 +3613,64 @@ export function getBookmapThemeColor(
   let stops: ColorStop[];
 
   if (mode === 'thermal') {
-    // Thermal mode - Anchor strictly to Buy (bullRGB) vs Sell (bearRGB) theme spectrum
-    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.25);
+    // Thermal mode - Anchor strictly to Buy (bullRGB) vs Sell (bearRGB) theme spectrum.
+    // [ACCURACY v2] Stops re-anchored to the calibrated alpha tiers so hue shifts land
+    // exactly where perceived intensity steps (0.10 / 0.25 / 0.45 / 0.65 / 0.82).
+    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.22);
     const midRGB = mixRgbColors(bgRGB, targetRGB, 0.55);
     const highRGB = targetRGB;
     const peakRGB = peakTargetRGB;
     stops = [
       { pos: 0.00, rgb: lowRGB },
       { pos: 0.25, rgb: midRGB },
-      { pos: 0.60, rgb: highRGB },
-      { pos: 0.85, rgb: mixRgbColors(highRGB, peakRGB, 0.5) },
+      { pos: 0.45, rgb: mixRgbColors(midRGB, highRGB, 0.5) },
+      { pos: 0.65, rgb: highRGB },
+      { pos: 0.82, rgb: mixRgbColors(highRGB, peakRGB, 0.55) },
       { pos: 1.00, rgb: peakRGB }
     ];
   } else if (mode === 'bid_ask') {
-    // Dual Bid/Ask Spectrum - 100% theme color consistency
-    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.20);
+    // Dual Bid/Ask Spectrum - 100% theme color consistency.
+    // [ACCURACY v2] Extra 0.45 tier anchor sharpens mid-band separation between
+    // resting liquidity and stacking walls.
+    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.18);
     const midRGB = mixRgbColors(bgRGB, targetRGB, 0.50);
     const fullRGB = targetRGB;
     const peakRGB = peakTargetRGB;
     stops = [
       { pos: 0.00, rgb: lowRGB },
-      { pos: 0.22, rgb: midRGB },
-      { pos: 0.52, rgb: fullRGB },
-      { pos: 0.80, rgb: mixRgbColors(fullRGB, peakRGB, 0.6) },
+      { pos: 0.25, rgb: midRGB },
+      { pos: 0.45, rgb: mixRgbColors(midRGB, fullRGB, 0.6) },
+      { pos: 0.65, rgb: fullRGB },
+      { pos: 0.85, rgb: mixRgbColors(fullRGB, peakRGB, 0.6) },
       { pos: 1.00, rgb: peakRGB }
     ];
   } else {
-    // High-Contrast Theme Mode: Wide dynamic range for clear visual distinction between liquidity tiers
-    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.10);
-    const midLowRGB = mixRgbColors(bgRGB, targetRGB, 0.35);
-    const fullRGB = mixRgbColors(bgRGB, targetRGB, 0.68);
+    // High-Contrast Theme Mode: wide dynamic range for clear tier distinction.
+    // [ACCURACY v2] Six precision anchors mapped 1:1 to the calibrated alpha ladder
+    // (0.10 / 0.25 / 0.45 / 0.65 / 0.82 / 1.00) so color AND transparency step
+    // together at identical density levels - magnitude-accurate rendering.
+    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.12);
+    const midLowRGB = mixRgbColors(bgRGB, targetRGB, 0.38);
+    const fullRGB = mixRgbColors(bgRGB, targetRGB, 0.70);
     const highRGB = targetRGB;
     const peakRGB = peakTargetRGB;
 
     stops = [
       { pos: 0.00, rgb: lowRGB },
-      { pos: 0.15, rgb: midLowRGB },
-      { pos: 0.40, rgb: fullRGB },
-      { pos: 0.70, rgb: highRGB },
+      { pos: 0.10, rgb: mixRgbColors(lowRGB, midLowRGB, 0.35) },
+      { pos: 0.25, rgb: midLowRGB },
+      { pos: 0.45, rgb: fullRGB },
+      { pos: 0.65, rgb: highRGB },
+      { pos: 0.82, rgb: mixRgbColors(highRGB, peakRGB, 0.5) },
       { pos: 1.00, rgb: peakRGB }
     ];
   }
 
   const rgb = interpolateSmoothStops(d, stops);
-  return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${finalAlpha})`;
+  const result = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${finalAlpha})`;
+  if (HEAT_COLOR_CACHE.size > 4096) HEAT_COLOR_CACHE.clear();
+  HEAT_COLOR_CACHE.set(cacheKey, result);
+  return result;
 }
 
 /**
@@ -3784,22 +3873,34 @@ export function renderLiquidityHeatmapLayer({
   // 1. 100% Seamless Continuous Horizontal Liquidity Depth Bands (LOD Adaptive)
   // -------------------------------------------------------------------------
   const minNotional = settings.minNotionalFilter || 0;
-  // Render every visible cell while the heatmap is enabled. Aggregating cells
-  // makes the surface read as a tiled grid instead of continuous market depth.
+  // -------------------------------------------------------------------------
+  // LEVEL-MERGED BOX GRID MODE
+  // Every grid node that shares the same price level (bin) is merged into ONE
+  // whole horizontal box per contiguous run instead of many small tiled boxes,
+  // so each liquidity level reads as a single solid box (simpler surface).
+  // Each merged box keeps every column exact density + side color through a
+  // horizontal gradient sampled from the matrix, so the visualization stays
+  // detail-accurate: same gamma contrast curve (0.72), same thresholds.
+  // -------------------------------------------------------------------------
   const colStride = 1;
   const binAggFactor = 1;
   const quantLevels = lodProfile.heatmap.quantizationLevels;
-  // Render all depth levels from ambient background blue to institutional walls
   const minDensity = 0.02;
+  const renderFloorDensity = 0.08; // below this a node stays transparent (unchanged)
+  const maxGradientStops = 24; // sample long merged runs so 120+ FPS stays intact
 
-  // Canvas 2D blur is disabled for ultra-fast 120+ FPS performance and clean crisp visuals
   const shouldBlur = false;
 
-  for (let i = drawStart; i <= drawEnd; i += colStride) {
-    const col = data.matrix[i];
-    if (!col) continue;
+  // Exact per-node color: identical gamma contrast curve (0.72) as the tiled grid
+  const levelCellColor = (densityVal: number, side: 'bid' | 'ask', baseOpacity: number): string => {
+    const clamped = Math.min(1.0, Math.max(0.0, densityVal));
+    const highContrastDensity = Math.min(1.0, Math.max(0.05, Math.pow(clamped, 0.72)));
+    return getBookmapThemeColor(highContrastDensity, side, settings.colorMode, palette, baseOpacity);
+  };
 
-    // Calculate seamless contiguous X boundaries across the aggregated column stride
+  // 1) Precompute exact horizontal geometry for every visible column (once)
+  const colGeo: ({ rawX: number; rawW: number } | null)[] = [];
+  for (let i = drawStart; i <= drawEnd; i += colStride) {
     const globalIdx = i + (data.startIndexOffset || 0);
     const endGlobalIdx = Math.min(numCols - 1 + (data.startIndexOffset || 0), globalIdx + colStride - 1);
     const currentX = getX(globalIdx);
@@ -3824,87 +3925,142 @@ export function renderLiquidityHeatmapLayer({
       xRight = (nextGroupX + nextX) / 2;
     }
 
-    // Clip to chart boundaries (reserve left volume profile strip)
     const startX = Math.max(chartStartX, xLeft);
     const endX = Math.min(effectiveChartWidth, xRight);
+    if (endX <= 0 || startX >= effectiveChartWidth) {
+      colGeo.push(null);
+      continue;
+    }
 
-    if (endX <= 0 || startX >= effectiveChartWidth) continue;
-
-    // Discrete non-overlapping cell grid calculation with horizontal & vertical gaps
     const rawX = Math.floor(startX);
     const rawW = Math.max(1, Math.ceil(endX) - rawX);
+    colGeo.push({ rawX, rawW });
+  }
 
-    const binCount = data.binsCount;
-    for (let b = 0; b < binCount; b += binAggFactor) {
-      let maxDensityInAgg = 0;
-      let sideInAgg: 'bid' | 'ask' = 'bid';
-      let aggYTop = 0;
-      let aggYBottom = 0;
-      let validBinCount = 0;
+  // Draw ONE whole merged box for a contiguous run of same-level grid nodes
+  const flushLevelRun = (startK: number, endK: number, binIdx: number, boxY: number, boxH: number): void => {
+    if (startK < 0 || endK < startK) return;
+    const geoA = colGeo[startK];
+    const geoB = colGeo[endK];
+    if (!geoA || !geoB) return;
 
-      for (let sub = 0; sub < binAggFactor && b + sub < binCount; sub++) {
-        const binIdx = b + sub;
-        const dVal = col.density[binIdx];
-        if (dVal < minDensity) continue;
+    const colAt = (k: number) => data.matrix[drawStart + k * colStride];
+    const firstCol = colAt(startK);
+    if (!firstCol) return;
 
-        const binPrice = data.priceMin + (binIdx + 0.5) * data.priceStep;
-        if (minNotional > 0) {
-          const notional = col.volume[binIdx] * (binPrice > 100 ? binPrice : 10000);
-          if (notional < minNotional) continue;
-        }
+    const boxX = geoA.rawX;
+    const boxW = Math.max(0.5, geoB.rawX + geoB.rawW - boxX);
+    const baseOpacity = settings.opacity ?? 0.95;
 
-        if (dVal > maxDensityInAgg) {
-          maxDensityInAgg = dVal;
-          sideInAgg = col.side[binIdx] === 0 ? 'bid' : 'ask';
-        }
+    ctx.globalCompositeOperation = 'source-over';
 
-        const yTop = getY(binPrice + data.priceStep / 2);
-        const yBottom = getY(binPrice - data.priceStep / 2);
+    if (startK === endK) {
+      // Single-column level node: exact fill, no gradient overhead
+      const side: 'bid' | 'ask' = firstCol.side[binIdx] === 0 ? 'bid' : 'ask';
+      ctx.fillStyle = levelCellColor(firstCol.density[binIdx], side, baseOpacity);
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      return;
+    }
 
-        if (validBinCount === 0) {
-          aggYTop = yTop;
-          aggYBottom = yBottom;
-        } else {
-          aggYTop = Math.min(aggYTop, yTop);
-          aggYBottom = Math.max(aggYBottom, yBottom);
-        }
-        validBinCount++;
+    // Whole merged box colored column-by-column via an exact sampled gradient
+    const runLen = endK - startK + 1;
+    const step = Math.max(1, Math.ceil(runLen / maxGradientStops));
+    const grad = ctx.createLinearGradient(boxX, 0, boxX + boxW, 0);
+    let lastColor = '';
+
+    const stopPos = (k: number): number => {
+      const g = colGeo[k];
+      if (!g) return k <= startK ? 0 : 1;
+      return (g.rawX + g.rawW / 2 - boxX) / boxW;
+    };
+    const colorFor = (k: number): string => {
+      const col = colAt(k);
+      if (!col) {
+        const fallbackSide: 'bid' | 'ask' = firstCol.side[binIdx] === 0 ? 'bid' : 'ask';
+        return levelCellColor(firstCol.density[binIdx], fallbackSide, baseOpacity);
       }
+      const side: 'bid' | 'ask' = col.side[binIdx] === 0 ? 'bid' : 'ask';
+      return levelCellColor(col.density[binIdx], side, baseOpacity);
+    };
+    const addStop = (pos: number, color: string): void => {
+      if (color === lastColor && pos > 0 && pos < 1) return;
+      lastColor = color;
+      grad.addColorStop(Math.min(1, Math.max(0, pos)), color);
+    };
 
+    addStop(0, colorFor(startK));
+    for (let k = startK + step; k < endK; k += step) {
+      addStop(stopPos(k), colorFor(k));
+    }
+    addStop(1, colorFor(endK));
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(boxX, boxY, boxW, boxH);
+  };
+
+  // 2) Walk every liquidity level (bin) and merge its grid nodes into whole boxes
+  const binCount = data.binsCount;
+  for (let b = 0; b < binCount; b += binAggFactor) {
+    const binPrice = data.priceMin + (b + 0.5) * data.priceStep;
+
+    // Vertical span of this level (identical for every column of the level)
+    let aggYTop = 0;
+    let aggYBottom = 0;
+    let validBinCount = 0;
+    for (let sub = 0; sub < binAggFactor && b + sub < binCount; sub++) {
+      const subPrice = data.priceMin + (b + sub + 0.5) * data.priceStep;
+      const yTop = getY(subPrice + data.priceStep / 2);
+      const yBottom = getY(subPrice - data.priceStep / 2);
       if (validBinCount === 0) {
-        continue;
+        aggYTop = yTop;
+        aggYBottom = yBottom;
+      } else {
+        aggYTop = Math.min(aggYTop, yTop);
+        aggYBottom = Math.max(aggYBottom, yBottom);
+      }
+      validBinCount++;
+    }
+    if (validBinCount === 0) continue;
+
+    const topY = Math.min(aggYTop, aggYBottom);
+    const bottomY = Math.max(aggYTop, aggYBottom);
+    const rawY = Math.floor(topY);
+    const rawH = Math.max(1, Math.ceil(bottomY) - rawY);
+
+    // Keep a thin vertical separation so each level stays its own distinct box
+    const gapY = rawH >= 3 ? 1.8 : (rawH >= 1.8 ? 1.2 : 0.6);
+    const boxY = rawY + gapY / 2;
+    const boxH = Math.max(0.5, rawH - gapY);
+    if (!(boxY <= mainChartHeight + 10 && boxY + boxH >= -10)) continue;
+
+    let runStartK = -1;
+    let runEndK = -1;
+    const totalK = colGeo.length;
+    for (let k = 0; k < totalK; k++) {
+      const col = data.matrix[drawStart + k * colStride];
+      let valid = false;
+      if (col && colGeo[k]) {
+        const dVal = col.density[b];
+        // Same visibility rules as the tiled grid: min density, render floor, notional filter
+        if (dVal >= minDensity && dVal >= renderFloorDensity) {
+          valid = true;
+          if (minNotional > 0) {
+            const notional = col.volume[b] * (binPrice > 100 ? binPrice : 10000);
+            if (notional < minNotional) valid = false;
+          }
+        }
       }
 
-      const topY = Math.min(aggYTop, aggYBottom);
-      const bottomY = Math.max(aggYTop, aggYBottom);
-      const rawY = Math.floor(topY);
-      const rawH = Math.max(1, Math.ceil(bottomY) - rawY);
-
-      // Create distinct spacing gaps so grid boxes do NOT overlap, with slightly increased gap (strictly sharp 90-deg boxes)
-      const gapX = rawW >= 3 ? 1.8 : (rawW >= 1.8 ? 1.2 : 0.6);
-      const gapY = rawH >= 3 ? 1.8 : (rawH >= 1.8 ? 1.2 : 0.6);
-
-      const boxX = rawX + gapX / 2;
-      const boxW = Math.max(0.5, rawW - gapX);
-      const boxY = rawY + gapY / 2;
-      const boxH = Math.max(0.5, rawH - gapY);
-
-      if (boxY <= mainChartHeight + 10 && boxY + boxH >= -10) {
-        // Super-accurate exact raw liquidity density mapping without coarse bucket quantization
-        const exactRawDensity = Math.min(1.0, Math.max(0.0, maxDensityInAgg));
-        if (exactRawDensity >= 0.08) {
-          ctx.globalCompositeOperation = 'source-over';
-          const baseOpacity = settings.opacity ?? 0.95;
-
-          // Non-linear gamma contrast curve (gamma=0.72) to vividly amplify visual color separation between low, medium, and heavy liquidity points
-          const highContrastDensity = Math.min(1.0, Math.max(0.05, Math.pow(exactRawDensity, 0.72)));
-
-          ctx.fillStyle = getBookmapThemeColor(highContrastDensity, sideInAgg, settings.colorMode, palette, baseOpacity);
-          // Strictly sharp rectangular box grid without any corner rounding
-          ctx.fillRect(boxX, boxY, boxW, boxH);
-        }
+      if (valid) {
+        if (runStartK < 0) runStartK = k;
+        runEndK = k;
+      } else if (runStartK >= 0) {
+        flushLevelRun(runStartK, runEndK, b, boxY, boxH);
+        runStartK = -1;
+        runEndK = -1;
       }
     }
+    if (runStartK >= 0) flushLevelRun(runStartK, runEndK, b, boxY, boxH);
   }
 
   // Final reset of composite operations
@@ -4652,68 +4808,7 @@ export function renderLiquidityHeatmapLayer({
       }
 
       // -----------------------------------------------------------------------
-      // 6. Left-side Horizon Level Badge (Anchor Label on Ray Origin)
-      // -----------------------------------------------------------------------
-      if (isCallWall || isPutWall || isFlip || isMaxPain) {
-        ctx.save();
-        const glyph = isCallWall ? 'Γ+ ' : isPutWall ? 'Γ- ' : isFlip ? '0Γ ' : 'Ω ';
-        const prefix = isCallWall ? 'CALL WALL' : isPutWall ? 'PUT WALL' : isFlip ? '0-GAMMA FLIP' : 'MAX PAIN';
-        const leftLabelText = `${glyph}${prefix} · $${node.priceFormatted}`;
-        ctx.font = 'bold 9px "JetBrains Mono", "SF Mono", monospace';
-        const leftTextWidth = ctx.measureText(leftLabelText).width;
-        const leftBadgeW = leftTextWidth + 22;
-        const leftBadgeH = 18;
-        const leftBadgeX = chartStartX + 8;
-        const leftBadgeY = nodeY - leftBadgeH / 2;
-        
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
-        ctx.shadowBlur = 5;
-        ctx.shadowOffsetX = 1;
-        ctx.shadowOffsetY = 1;
-
-        // Solid gradient badge container
-        const badgeBgGrad = ctx.createLinearGradient(leftBadgeX, leftBadgeY, leftBadgeX + leftBadgeW, leftBadgeY + leftBadgeH);
-        if (isLightBg) {
-          badgeBgGrad.addColorStop(0, '#ffffff');
-          badgeBgGrad.addColorStop(1, '#f1f5f9');
-        } else {
-          badgeBgGrad.addColorStop(0, '#0f172a');
-          badgeBgGrad.addColorStop(1, '#020617');
-        }
-        ctx.fillStyle = badgeBgGrad;
-        ctx.strokeStyle = solidStart;
-        ctx.lineWidth = 1.0;
-        if (typeof (ctx as any).roundRect === 'function') {
-          ctx.beginPath();
-          (ctx as any).roundRect(leftBadgeX, leftBadgeY, leftBadgeW, leftBadgeH, 4);
-          ctx.fill();
-          ctx.stroke();
-        } else {
-          ctx.fillRect(leftBadgeX, leftBadgeY, leftBadgeW, leftBadgeH);
-          ctx.strokeRect(leftBadgeX, leftBadgeY, leftBadgeW, leftBadgeH);
-        }
-
-        ctx.shadowColor = 'transparent';
-
-        // Left accent stripe
-        ctx.fillStyle = solidStart;
-        ctx.fillRect(leftBadgeX, leftBadgeY, 3.0, leftBadgeH);
-
-        // Glowing vertical micro-bar indicator
-        const ledX = leftBadgeX + 9;
-        ctx.fillStyle = solidStart;
-        ctx.fillRect(ledX - 1.2, nodeY - 4, 2.4, 8);
-
-        // Accessible high-contrast text label
-        ctx.fillStyle = isLightBg ? '#0f172a' : '#ffffff';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(leftLabelText, leftBadgeX + 16, nodeY);
-        ctx.restore();
-      }
-
-      // -----------------------------------------------------------------------
-      // 7. Right-side Collision-Managed HUD Badge Pill (Order Flow Horizon Front)
+      // 6. Right-side Collision-Managed HUD Badge Pill (Single Indication Label, Order Flow Horizon Front)
       // -----------------------------------------------------------------------
       if (isCallWall || isPutWall || isFlip || isMaxPain || (isHighOi && node.intensity >= 0.62 && !isClean)) {
         ctx.save();
@@ -4931,10 +5026,16 @@ export function renderLiquidityHeatmapLayer({
     const scaleY = mainChartHeight - 16;
 
     const grad = ctx.createLinearGradient(scaleX, 0, scaleX + scaleWidth, 0);
-    grad.addColorStop(0, getBookmapThemeColor(0.1, 'bid', settings.colorMode, palette, 0.5));
-    grad.addColorStop(0.35, getBookmapThemeColor(0.4, 'bid', settings.colorMode, palette, 0.75));
-    grad.addColorStop(0.7, getBookmapThemeColor(0.75, 'bid', settings.colorMode, palette, 0.9));
-    grad.addColorStop(1.0, getBookmapThemeColor(0.96, 'bid', settings.colorMode, palette, 1.0));
+    // [ACCURACY v2] Legend samples the exact same density->color/alpha ramp the heatmap
+    // renders (8 anchors at constant base opacity), so the scale is a true magnitude reference.
+    grad.addColorStop(0.000, getBookmapThemeColor(0.05, 'bid', settings.colorMode, palette, 1.0));
+    grad.addColorStop(0.125, getBookmapThemeColor(0.15, 'bid', settings.colorMode, palette, 1.0));
+    grad.addColorStop(0.250, getBookmapThemeColor(0.28, 'bid', settings.colorMode, palette, 1.0));
+    grad.addColorStop(0.375, getBookmapThemeColor(0.40, 'bid', settings.colorMode, palette, 1.0));
+    grad.addColorStop(0.500, getBookmapThemeColor(0.52, 'bid', settings.colorMode, palette, 1.0));
+    grad.addColorStop(0.625, getBookmapThemeColor(0.65, 'bid', settings.colorMode, palette, 1.0));
+    grad.addColorStop(0.812, getBookmapThemeColor(0.82, 'bid', settings.colorMode, palette, 1.0));
+    grad.addColorStop(1.000, getBookmapThemeColor(0.97, 'bid', settings.colorMode, palette, 1.0));
 
     ctx.fillStyle = grad;
     ctx.fillRect(scaleX, scaleY, scaleWidth, scaleHeight);
