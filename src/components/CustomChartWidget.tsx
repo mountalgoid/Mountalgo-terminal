@@ -7099,6 +7099,27 @@ export default function CustomChartWidget({
             ctx.font = '7.5px monospace';
             ctx.fillStyle = '#94a3b8';
             ctx.fillText(`Leverage: ${closestCluster.leverageTier} | Dist: ${closestCluster.distanceTicks} Ticks`, tooltipX + 8, curY + 23);
+            // [HEATMAP v3] Precision line: pivot anchor, confidence & OCR buffer
+            ctx.font = '7px monospace';
+            ctx.fillStyle = '#64748b';
+            const pivSrc = closestCluster.pivotSource ? ` · ${closestCluster.pivotSource === 'short_term' ? 'ST' : closestCluster.pivotSource === 'medium_term' ? 'MT' : closestCluster.pivotSource === 'long_term' ? 'LT' : 'Sess'} pivot` : '';
+            ctx.fillText(
+              `conf ${closestCluster.confidence ?? '—'}%${pivSrc} · OCR ${closestCluster.liquidationBufferTicks ?? '—'}T · pool ${closestCluster.poolWidthTicks ?? '—'}T`,
+              tooltipX + 8,
+              curY + 33
+            );
+            // [HEATMAP v4 GRADED ZONES] Time-grade line: S/A/B/C + usia pool + recency.
+            // Grade memperhitungkan waktu terjadinya cluster (usia pivot anchor vs
+            // half-life decay per timeframe) -> trader tahu seberapa "hidup" pool ini.
+            const zGrade = closestCluster.visualGrade || 'C';
+            const zGradeColor = closestCluster.gradeColor || (zGrade === 'S' ? '#f0abfc' : zGrade === 'A' ? '#fbbf24' : zGrade === 'B' ? '#38bdf8' : '#64748b');
+            ctx.font = 'bold 7px monospace';
+            ctx.fillStyle = zGradeColor;
+            ctx.fillText(
+              `${zGrade} · ${closestCluster.gradeLabel || 'AKTIF'} · umur ${closestCluster.clusterAgeBars ?? '—'} bar · recency ${(closestCluster.recencyWeight ?? 1).toFixed(2)}`,
+              tooltipX + 8,
+              curY + 43
+            );
           }
 
           // Draw proximity glow ring around the cluster node

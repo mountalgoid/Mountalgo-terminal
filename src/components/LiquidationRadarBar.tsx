@@ -33,8 +33,24 @@ import {
   PreciseHeatmapData,
   LiquidationCascadeRadar,
   LiquidationCascadeCluster,
-  HeatmapTimeframeMode
+  HeatmapTimeframeMode,
+  ClusterVisualGrade,
+  CLUSTER_GRADE_COLORS,
+  gradeClusterZone
 } from '../utils/liquidityHeatmapEngine';
+
+// [HEATMAP v4 GRADED ZONES] Time-aware visual grade helper: re-derives the grade even
+// for legacy cluster payloads that do not carry the v4 grading fields yet.
+const gradeOf = (c: LiquidationCascadeCluster): ClusterVisualGrade => {
+  if (c.visualGrade) return c.visualGrade;
+  return gradeClusterZone(c.heatIntensity || 0.3, c.confidence || 60, c.recencyWeight || 0.7);
+};
+const GRADE_TIER_STYLE: Record<ClusterVisualGrade, string> = {
+  S: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-400/40',
+  A: 'bg-amber-500/15 text-amber-300 border-amber-400/40',
+  B: 'bg-sky-500/15 text-sky-300 border-sky-400/40',
+  C: 'bg-slate-500/15 text-slate-300 border-slate-400/40',
+};
 
 export type RadarDockPosition = 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right' | 'docked-bottom' | 'side-left' | 'side-right';
 export type RadarTabType = 'unified' | 'liquidation' | 'gravity' | 'hawkes' | 'execution';
@@ -836,10 +852,81 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
             className="p-2 rounded-sm border text-[8.5px] text-[var(--color-text-muted)] leading-relaxed"
           >
             <strong className="text-[var(--color-text)] flex items-center gap-1 mb-1"><Flame size={10} className="text-[var(--color-text-muted)]" /> Petunjuk: Klaster Likuidasi</strong>
-            Memetakan titik-titik jebakan (*Liquidation Clusters*) tempat stop-loss ritel bertumpuk berdasarkan estimasi *leverage* (10x - 100x). Harga memiliki tendensi magnetis untuk menyapu klaster-klaster dengan nilai *Notional USD* tinggi sebelum melakukan pembalikan tren (Stop-Hunt).
+            Memetakan titik-titik jebakan (*Liquidation Clusters*) tempat stop-loss ritel bertumpuk berdasarkan estimasi *leverage* (10x, 25x, 50x, 75x, 100x). Harga memiliki tendensi magnetis untuk menyapu klaster-klaster dengan nilai *Notional USD* tinggi sebelum melakukan pembalikan tren (Stop-Hunt).
           </div>
+
+          {/* [HEATMAP v3] Multi-Pivot & Weighting Precision Strip */}
+          {radar && (
+            <div style={getSubCardStyle()} className="p-2 rounded-sm border">
+              <div className="flex items-center justify-between text-[8px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-1.5">
+                <span className="flex items-center gap-1"><Target size={10} /> Precision Engine</span>
+                <span className="font-mono normal-case">RV {radar.relVolume?.toFixed(2)} · ATR {radar.atrPct?.toFixed(2)}%</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 text-[8.5px] font-mono">
+                <div className="rounded-sm bg-[var(--color-panel)]/70 border border-[var(--color-border)] px-1.5 py-1">
+                  <div className="text-[7.5px] text-[var(--color-text-muted)] uppercase">Base</div>
+                  <div className={radar.baseAccumulation?.trendBias === 'accumulation' ? 'text-emerald-400 font-bold' : radar.baseAccumulation?.trendBias === 'distribution' ? 'text-rose-400 font-bold' : 'text-[var(--color-text)] font-bold'}>
+                    {radar.baseAccumulation?.trendBias === 'accumulation' ? '▲ ACCUM' : radar.baseAccumulation?.trendBias === 'distribution' ? '▼ DISTR' : '■ NEUTRAL'}
+                  </div>
+                  <div className="text-[7.5px] text-[var(--color-text-muted)]">{radar.baseAccumulation?.bars ?? 0} bar · {((radar.baseAccumulation?.volume ?? 0) / 1e3).toFixed(0)}K vol</div>
+                </div>
+                <div className="rounded-sm bg-[var(--color-panel)]/70 border border-[var(--color-border)] px-1.5 py-1">
+                  <div className="text-[7.5px] text-[var(--color-text-muted)] uppercase">Pivot ST/MT</div>
+                  <div className="text-[var(--color-text)] font-bold">${formatPrice(radar.pivotsUsed?.shortTerm ?? 0)}</div>
+                  <div className="text-[7.5px] text-[var(--color-text-muted)]">MT ${formatPrice(radar.pivotsUsed?.mediumTerm ?? 0)}</div>
+                </div>
+                <div className="rounded-sm bg-[var(--color-panel)]/70 border border-[var(--color-border)] px-1.5 py-1">
+                  <div className="text-[7.5px] text-[var(--color-text-muted)] uppercase">OCR Edge</div>
+                  <div className="text-[var(--color-text)] font-bold">{radar.maxOcrTicks ?? 0}T</div>
+                  <div className="text-[7.5px] text-[var(--color-text-muted)]">tick {radar.tickSize?.toFixed(radar.tickSize < 0.01 ? 4 : 2)}</div>
+                </div>
+              </div>
+              {/* [HEATMAP v4 GRADED ZONES] Time-aware grade legend: how alive is each pool right now */}
+              {radar.gradeCounts && (
+                <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                  {(['S', 'A', 'B', 'C'] as ClusterVisualGrade[]).map((g) => {
+                    const count = radar.gradeCounts?.[g] ?? 0;
+                    const gColor = CLUSTER_GRADE_COLORS[g];
+                    return (
+                      <div
+                        key={g}
+                        title={g === 'S' ? 'Grade S — pool segar & sangat berat (best execution zone)' : g === 'A' ? 'Grade A — pool kuat & masih segar' : g === 'B' ? 'Grade B — pool mapan, mulai menua' : 'Grade C — pool lama/melemah, waspadai false signal'}
+                        style={{
+                          borderColor: count > 0 ? `${gColor}66` : 'var(--color-border)',
+                          backgroundColor: count > 0 ? `${gColor}14` : 'transparent',
+                        }}
+                        className={`flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[7.5px] font-mono ${count > 0 ? 'opacity-100' : 'opacity-40'}`}
+                      >
+                        <span className="font-black" style={{ color: gColor }}>{g}</span>
+                        <span className="text-[var(--color-text-muted)]">×{count}</span>
+                      </div>
+                    );
+                  })}
+                  <span className="ml-auto text-[7px] text-[var(--color-text-muted)] font-mono">
+                    {radar.gradeTimeframeLabel || '1T'} · HL {radar.gradingHalfLifeBars ?? '—'} bar
+                  </span>
+                </div>
+              )}
+
+              {/* Per-tier OI distribution bar (10x → 100x) */}
+              <div className="mt-1.5 flex items-center gap-0.5 h-2.5 rounded-full overflow-hidden border border-[var(--color-border)] bg-[var(--color-panel)]/80 p-0.5">
+                {(radar.leverageDistribution ?? []).map((d) => {
+                  const total = d.longLiqUsd + d.shortLiqUsd;
+                  const share = totalLiqUsd > 0 ? (total / totalLiqUsd) * 100 : 0;
+                  return (
+                    <div
+                      key={d.tier}
+                      title={`${d.tier}: Long ${formatM(d.longLiqUsd)} / Short ${formatM(d.shortLiqUsd)} (${d.count} pools)`}
+                      style={{ width: `${Math.max(share, 4)}%`, backgroundColor: d.tier === '100x' ? '#a855f7' : d.tier === '75x' ? '#8b5cf6' : d.tier === '50x' ? '#f59e0b' : d.tier === '25x' ? '#22d3ee' : '#fb7185' }}
+                      className="h-full rounded-full transition-all duration-500"
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between text-[9px] pb-1 border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
-            <span>Klaster Likuidasi Leverage (100x, 50x, 25x, 10x)</span>
+            <span>Klaster Likuidasi Leverage (100x, 75x, 50x, 25x, 10x)</span>
             <span>Jarak & Volume Notional</span>
           </div>
 
@@ -851,6 +938,8 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
                 const isImm = c.isImminent;
                 const maxVol = Math.max(...radar.clusters.map((x) => x.estimatedNotionalUsd), 1);
                 const volPct = Math.min(100, Math.max(10, (c.estimatedNotionalUsd / maxVol) * 100));
+                const vGrade = gradeOf(c);
+                const vGradeColor = c.gradeColor || CLUSTER_GRADE_COLORS[vGrade];
 
                 return (
                   <div 
@@ -874,6 +963,19 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
                         <span className="text-[8px] uppercase tracking-wider text-[var(--color-text-muted)]">
                           {isShort ? '💥 Short Squeeze' : '💥 Long Flush'}
                         </span>
+                        {c.pivotSource && (
+                          <span className="text-[7px] uppercase bg-[var(--color-panel)]/70 border border-[var(--color-border)] px-1 py-0.5 rounded-sm text-[var(--color-text-muted)]">
+                            {c.pivotSource === 'short_term' ? 'ST pivot' : c.pivotSource === 'medium_term' ? 'MT pivot' : c.pivotSource === 'long_term' ? 'LT pivot' : 'Session'}
+                          </span>
+                        )}
+                        {/* [HEATMAP v4] Time-grade badge: S/A/B/C = kekuatan pool yang sudah memperhitungkan usia cluster */}
+                        <span
+                          title={`Grade ${vGrade} · ${c.gradeLabel || 'AKTIF'} · age ${c.clusterAgeBars ?? '—'} bar · recency ${(c.recencyWeight ?? 1).toFixed(2)}`}
+                          style={{ borderColor: `${vGradeColor}66`, backgroundColor: `${vGradeColor}1c`, color: vGradeColor }}
+                          className={`px-1 py-0.5 rounded-sm font-black text-[8px] border ${GRADE_TIER_STYLE[vGrade]}`}
+                        >
+                          {vGrade}
+                        </span>
                       </div>
 
                       <div className="flex items-center gap-2 font-mono">
@@ -892,6 +994,33 @@ export const LiquidationRadarBar = React.memo(function LiquidationRadarBar({
                           </span>
                         )}
                       </div>
+                    </div>
+
+                    {/* [HEATMAP v3] Precision chips: confidence, OCR buffer, pool width, ATR/RV weights */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-[7px] font-mono px-1 py-0.5 rounded-sm border border-[var(--color-border)] bg-[var(--color-panel)]/60 text-[var(--color-text-muted)]">
+                        conf {typeof c.confidence === 'number' ? c.confidence : '—'}%
+                      </span>
+                      <span className="text-[7px] font-mono px-1 py-0.5 rounded-sm border border-[var(--color-border)] bg-[var(--color-panel)]/60 text-[var(--color-text-muted)]">
+                        OCR {c.liquidationBufferTicks ?? '—'}T
+                      </span>
+                      <span className="text-[7px] font-mono px-1 py-0.5 rounded-sm border border-[var(--color-border)] bg-[var(--color-panel)]/60 text-[var(--color-text-muted)]">
+                        pool {c.poolWidthTicks ?? '—'}T
+                      </span>
+                      <span className="text-[7px] font-mono px-1 py-0.5 rounded-sm border border-[var(--color-border)] bg-[var(--color-panel)]/60 text-[var(--color-text-muted)]">
+                        ATR×{c.atrWeight ?? '—'} · RV×{c.relVolumeWeight ?? '—'}
+                      </span>
+                      <span className="text-[7px] font-mono px-1 py-0.5 rounded-sm border border-[var(--color-border)] bg-[var(--color-panel)]/60 text-[var(--color-text-muted)]">
+                        base {c.baseAccumulationBars ?? 0}b
+                      </span>
+                      {/* [HEATMAP v4] Usia pool & fase waktu (SEGER → AKTIF → MENUA → STALE) */}
+                      <span
+                        style={{ borderColor: `${vGradeColor}44`, color: vGradeColor }}
+                        className="text-[7px] font-mono px-1 py-0.5 rounded-sm border bg-[var(--color-panel)]/60"
+                        title={`Recency weight ${(c.recencyWeight ?? 1).toFixed(2)} · intensitas efektif ${(c.effectiveIntensity ?? c.heatIntensity ?? 0).toFixed(2)}`}
+                      >
+                        umur {c.clusterAgeBars ?? 0}b · {c.gradeLabel || 'AKTIF'}
+                      </span>
                     </div>
 
                     {/* Proportional Volume Bar */}
