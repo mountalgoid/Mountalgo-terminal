@@ -298,8 +298,18 @@ export function LiquidityHeatmapGuideModal({ isOpen, onClose }: Props) {
                   <Zap size={16} /> 13. Real-Time Liquidation Cascade & Stop-Hunt Predictive Radar
                 </h4>
                 <p className="text-[var(--color-text-muted)]">
-                  Memetakan klaster likuidasi pasar derivatif (leverage 100x, 50x, 25x, 10x) yang terkonsentrasi di atas dan di bawah harga pasar. Level likuidasi ini bertindak sebagai bahan bakar (fuel) momentum instan saat tersentuh.
+                  Memetakan klaster likuidasi pasar derivatif (leverage 100x, 75x, 50x, 25x, 10x) yang terkonsentrasi di atas dan di bawah harga pasar. Level likuidasi ini bertindak sebagai bahan bakar (fuel) momentum instan saat tersentuh.
                 </p>
+                <div className="bg-[var(--color-panel-header)]/80 p-4 rounded-lg border border-[var(--color-border)]">
+                  <h5 className="font-bold text-[var(--color-text)] text-xs mb-2">🔥 Heatmap v4: Visual Grade Zona Berdasarkan Waktu (S / A / B / C)</h5>
+                  <ul className="list-disc pl-5 space-y-1 text-xs text-[var(--color-text-muted)]">
+                    <li><strong className="text-fuchsia-300">Grade S</strong> — pool segar & sangat berat (intensitas × kepercayaan × recency tinggi). Zona paling hangat dengan edge terang dan badge <code>S</code> di chart. Prioritas target eksekusi.</li>
+                    <li><strong className="text-amber-300">Grade A</strong> — pool kuat yang masih segar. Heat penuh, badge <code>A</code>. Cocok untuk antisipasi stop-hunt.</li>
+                    <li><strong className="text-sky-300">Grade B</strong> — pool mapan yang mulai menua; visualnya sedikit lebih tenang.</li>
+                    <li><strong className="text-slate-400">Grade C</strong> — pool lama/melemah (pivot anchor sudah tua). Tampil redup sebagai referensi sejarah likuidasi — waspadai false signal.</li>
+                    <li><strong>Fase waktu:</strong> SEGER (baru terbentuk) → AKTIF → MENUA → STALE. Usia dihitung dari bar pivot anchor dengan half-life decay per timeframe (1T/10T/50T/100T/Candle) — pool yang sama akan memudar otomatis seiring berjalannya waktu.</li>
+                  </ul>
+                </div>
                 <div className="bg-[var(--color-panel-header)]/80 p-4 rounded-lg border border-[var(--color-border)]">
                   <h5 className="font-bold text-[var(--color-text)] text-xs mb-2">🎯 Best Practice & Studi Kasus: Stop-Run Flush & Squeeze Entry</h5>
                   <ul className="list-disc pl-5 space-y-1 text-xs text-[var(--color-text-muted)]">

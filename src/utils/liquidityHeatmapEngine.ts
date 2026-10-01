@@ -1,4 +1,5 @@
 import { formatValueShorthand, formatPriceShorthand } from "./numberFormatters";
+// [HEATMAP v3] Upgraded liquidation radar: 10x/25x/50x/75x/100x tiers, multi-pivot lookbacks, relative volume & ATR weighting, base accumulation, cluster precision.
 // Liquidity Heatmap & High-Precision Order Book Depth Engine
 // Modeled 100% after Professional Real-Time Depth Heatmap (Bookmap™ Standard)
 // Features: 
@@ -63,6 +64,25 @@ const NOISE_LOOKUP = new Float32Array(512);
 for (let i = 0; i < 512; i++) {
   const s = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
   NOISE_LOOKUP[i] = s - Math.floor(s);
+}
+
+export type ClusterVisualGrade = 'S' | 'A' | 'B' | 'C';
+
+// [HEATMAP v4 GRADED ZONES] Shared grade palette: one source of truth for the canvas
+export type CLUSTER_GRADE_COLORS_K = ClusterVisualGrade;
+// renderer, the crosshair inspector and the LiquidationRadarBar chips/legend.
+export const CLUSTER_GRADE_COLORS: Record<CLUSTER_GRADE_COLORS_K, string> = {
+  S: '#f0abfc', // Prime pools: hot magenta-fuchsia
+  A: '#fbbf24', // Strong pools: amber
+  B: '#38bdf8', // Established pools: sky
+  C: '#64748b', // Aged/weakening pools: slate
+};
+
+// [HEATMAP v4 GRADED ZONES] Deterministic time-aware grade helper shared by the engine
+// and any UI that needs to re-derive the visual grade from raw factors.
+export function gradeClusterZone(heatIntensity: number, confidence: number, recencyWeight: number): ClusterVisualGrade {
+  const score = heatIntensity * (0.55 + 0.45 * (Math.max(35, Math.min(97, confidence)) - 35) / 62) * recencyWeight;
+  return score >= 0.24 ? 'S' : score >= 0.145 ? 'A' : score >= 0.085 ? 'B' : 'C';
 }
 
 export type HeatmapTimeframeMode = 'tick' | '10t' | '50t' | '100t' | 'candle';
@@ -625,10 +645,12 @@ export interface MicroPricePoint {
   direction?: 'up' | 'down' | 'neutral';
 }
 
+export type LeverageTier = '100x' | '75x' | '50x' | '25x' | '10x';
+
 export interface LiquidationCascadeCluster {
   price: number;
   formattedPrice: string;
-  leverageTier: '100x' | '50x' | '25x' | '10x';
+  leverageTier: LeverageTier;
   side: 'long_liq' | 'short_liq';
   estimatedNotionalUsd: number;
   estimatedUnits: number;
@@ -641,6 +663,34 @@ export interface LiquidationCascadeCluster {
   isImminent: boolean;
   color: string;
   description: string;
+
+  // [HEATMAP v3] Cluster Precision & Multi-Pivot Attribution
+  pivotSource: 'short_term' | 'medium_term' | 'long_term' | 'session'; // Which pivot lookback anchored this cluster
+  pivotPrice: number; // Exact swing high/low price used as the leverage base
+  baseOffsetPct: number; // Exact leverage offset applied to the pivot (e.g. 0.0085 for 100x)
+  leverageMultiplier: number; // Nominal leverage of the tier (100, 75, 50...)
+  liquidationOcr: number; // Over-collateralization ratio = 1 / leverage
+  liquidationBufferTicks: number; // LEO in whole ticks (distanceTicks / liquidationOcr)
+  atrWeight: number; // ATR(14)-based volatility weight (0.5 - 2.5) scaling notional estimate
+  relVolumeWeight: number; // Relative volume weight (bar volume / SMA volume) scaling notional estimate
+  baseAccumulationBars: number; // Bars of accumulation feeding this pool (momentum-scaled)
+  baseAccumulationVol: number; // Base accumulated volume behind the notional estimate
+  oiConcentrationWeight: number; // Open-interest concentration weight (0.35 - 1.8) from depth mass
+  confidence: number; // 0 to 100 estimate confidence (precision score)
+  poolWidthTicks: number; // Estimated pool thickness in ticks for heatmap injection
+  tickSize: number; // Exact tick size used for tick-distance precision
+  distanceMetersPrecision: number; // Precision ruler: distance expressed in pooled tick units (rounded to 1 decimal)
+  notionalPerTickUsd: number; // Notional USD per tick inside the pool
+  heatIntensity: number; // 0 to 1 normalized heat contribution for heatmap matrix blending
+
+  // [HEATMAP v4 GRADED ZONES] Time-aware visual grading (age-weighted cluster grading)
+  clusterAgeBars: number; // Bars elapsed since the anchor pivot was printed (0 = forming bar)
+  ageFraction: number; // clusterAgeBars / grading lookback horizon (0 = fresh, 1 = oldest graded)
+  recencyWeight: number; // Exponential recency decay (half-life per timeframe mode), 0.25 - 1.0
+  effectiveIntensity: number; // heatIntensity x recencyWeight x confidence factor -> time-true pool strength
+  visualGrade: ClusterVisualGrade; // S (prime, fresh & heavy) / A / B / C (aged or weak)
+  gradeColor: string; // Grade identity color for chart zone labels, borders and radar chips
+  gradeLabel: string; // Short Indonesian time-grade label shown in tooltips (e.g. "SEGER", "MENUA")
 }
 
 export interface LiquidationCascadeRadar {
@@ -655,6 +705,22 @@ export interface LiquidationCascadeRadar {
   cascadeHazardScore: number; // 0 to 100
   clusters: LiquidationCascadeCluster[];
   summary: string;
+
+  // [HEATMAP v3] Multi-Pivot & Volatility Attribution Diagnostics
+  tickSize: number; // Exact price tick used for all tick-distance math
+  atr14: number; // Current ATR(14) in price units
+  atrPct: number; // ATR as % of price
+  relVolume: number; // Relative volume ratio (last bar / SMA20 volume)
+  pivotsUsed: { shortTerm: number; mediumTerm: number; longTerm: number; sessionHigh: number; sessionLow: number }; // All pivot anchors used
+  baseAccumulation: { bars: number; volume: number; trendBias: 'accumulation' | 'distribution' | 'neutral' }; // Aggregate base accumulation state
+  maxOcrTicks: number; // Largest OCR window (10x) in ticks - outer edge of the liq map
+  leverageDistribution: { tier: LeverageTier; longLiqUsd: number; shortLiqUsd: number; count: number }[]; // Per-tier rollup
+
+  // [HEATMAP v4 GRADED ZONES] Time-aware cluster grading diagnostics
+  gradingHalfLifeBars: number; // Recency half-life applied per timeframe mode (bars)
+  gradingFreshBars: number; // Bars still counted as fully fresh (no decay)
+  gradeCounts: Record<ClusterVisualGrade, number>; // Population of each visual grade
+  gradeTimeframeLabel: string; // Human label of the grading timeframe (e.g. "1T", "10T", "CANDLE")
 }
 
 export interface PreciseHeatmapData {  startIndexOffset: number;
@@ -3250,6 +3316,10 @@ export function calculateCrossExchangeMatrix(
 
 /**
  * 19. Liquidation Cascade & Stop-Hunt Predictive Radar (Per-Tick Granularity Engine)
+ * [HEATMAP v3 SUPER-PRECISION] Multi-pivot lookbacks (ST / MT / LT / session), upgraded
+ * leverage tiers (10x / 25x / 50x / 75x / 100x) with per-tier open-interest distribution
+ * weights, relative volume & ATR(14) weighting, base accumulation momentum model, and
+ * full tick / OCR cluster precision for the liquidity heatmap injection.
  */
 export function calculateLiquidationCascadeRadar(
   currentPrice: number,
@@ -3259,33 +3329,126 @@ export function calculateLiquidationCascadeRadar(
   priceDecimals: number = 2,
   timeframeMode: HeatmapTimeframeMode = 'tick'
 ): LiquidationCascadeRadar {
-  // Determine effective price tick size
+  // ---------- [A] Exact tick-size & per-timeframe lookbacks ----------
   const tickSize = Math.max(Math.pow(10, -priceDecimals), priceStep * 0.05);
 
-  // In per-tick mode, use micro-swing pivots to detect high-frequency stop runs
   const isTickMode = timeframeMode !== 'candle';
   const lookbackBars = isTickMode
-    ? timeframeMode === 'tick' ? 15 : timeframeMode === '10t' ? 25 : timeframeMode === '50t' ? 40 : 50
-    : Math.min(60, candles.length);
+    ? timeframeMode === 'tick' ? 20 : timeframeMode === '10t' ? 32 : timeframeMode === '50t' ? 50 : 64
+    : Math.min(80, candles.length);
 
   const recent = candles.slice(-Math.min(lookbackBars, candles.length));
-
-  let highPivot = -Infinity;
-  let lowPivot = Infinity;
-  for (let k = 0; k < recent.length; k++) {
-    if (recent[k].high > highPivot) highPivot = recent[k].high;
-    if (recent[k].low < lowPivot) lowPivot = recent[k].low;
+  const len = recent.length;
+  if (len === 0 || currentPrice <= 0) {
+    return {
+      currentPrice,
+      timeframeMode,
+      totalTicksProcessed: 0,
+      tickFrequencyPerSec: 0,
+      totalLongLiquidationUsd: 0,
+      totalShortLiquidationUsd: 0,
+      imminentCluster: null,
+      overallCascadeHazard: 'LOW_STABLE' as const,
+      cascadeHazardScore: 0,
+      clusters: [],
+      summary: '⚡ Radar likuidasi menunggu data harga…',
+      tickSize,
+      atr14: 0,
+      atrPct: 0,
+      relVolume: 1,
+      pivotsUsed: { shortTerm: currentPrice, mediumTerm: currentPrice, longTerm: currentPrice, sessionHigh: currentPrice, sessionLow: currentPrice },
+      baseAccumulation: { bars: 0, volume: 0, trendBias: 'neutral' as const },
+      maxOcrTicks: 0,
+      leverageDistribution: [],
+      gradingHalfLifeBars: isTickMode ? (timeframeMode === 'tick' ? 6 : timeframeMode === '10t' ? 10 : timeframeMode === '50t' ? 18 : 26) : 18,
+      gradingFreshBars: isTickMode ? (timeframeMode === 'tick' ? 1 : timeframeMode === '10t' ? 2 : timeframeMode === '50t' ? 3 : 4) : 3,
+      gradeCounts: { S: 0, A: 0, B: 0, C: 0 },
+      gradeTimeframeLabel: isTickMode ? (timeframeMode === 'tick' ? '1T' : timeframeMode.toUpperCase()) : 'CANDLE',
+    };
   }
-  if (!isFinite(highPivot)) highPivot = currentPrice * 1.002;
-  if (!isFinite(lowPivot)) lowPivot = currentPrice * 0.998;
 
-  // Tiers: 100x (0.85% offset), 50x (1.85% offset), 25x (3.7% offset), 10x (9.2% offset)
-  const tiers: { tier: '100x' | '50x' | '25x' | '10x'; longOffset: number; shortOffset: number; mult: number; color?: string }[] = [
-    { tier: '100x', longOffset: 0.0085, shortOffset: 0.0085, mult: 3.2 }, // Neon Purple
-    { tier: '50x', longOffset: 0.0185, shortOffset: 0.0185, mult: 2.6 },  // Amber
-    { tier: '25x', longOffset: 0.037, shortOffset: 0.037, mult: 2.1 },   // Cyan
-    { tier: '10x', longOffset: 0.092, shortOffset: 0.092, mult: 1.5 },   // Rose/Red
+  // ---------- [B] ATR(14) true-range mean & relative volume weighting inputs ----------
+  const atrWindow = Math.min(14, len);
+  let atrSum = 0;
+  for (let k = len - atrWindow; k < len; k++) {
+    const c = recent[k];
+    const prevClose = k > 0 ? recent[k - 1].close : c.open;
+    atrSum += Math.max(c.high - c.low, Math.abs(c.high - prevClose), Math.abs(c.low - prevClose));
+  }
+  const atr14 = Math.max(tickSize, atrSum / Math.max(1, atrWindow));
+  const atrPct = (atr14 / currentPrice) * 100;
+
+  // Relative volume: last bar vs SMA-20 volume (normalized 0.4 - 2.5)
+  const rvWindow = Math.min(20, len - 1);
+  let rvSum = 0;
+  for (let k = len - 1 - rvWindow; k < len - 1; k++) rvSum += recent[k].volume;
+  const lastVol = recent[len - 1].volume || avgVol;
+  const smaVol = rvWindow > 0 ? rvSum / rvWindow : Math.max(1, avgVol);
+  const relVolume = Math.max(0.4, Math.min(2.5, lastVol / Math.max(1e-9, smaVol || avgVol || 1)));
+
+  // ---------- [C] Base accumulation momentum model (institutional position building) ----------
+  // A longer, greener base traps more retail positions per tier -> bigger liquidation fuel.
+  const baseAccWindow = Math.min(12, len);
+  let baseBars = 0;
+  let baseVol = 0;
+  let greenVol = 0;
+  for (let k = len - baseAccWindow; k < len; k++) {
+    const c = recent[k];
+    baseBars++;
+    baseVol += c.volume;
+    if (c.close >= c.open) greenVol += c.volume;
+  }
+  const baseAccumulationBars = baseBars;
+  const baseAccumulationVol = baseVol;
+  const greenRatio = baseVol > 0 ? greenVol / baseVol : 0.5;
+  // Momentum scaling: 0.55x (weak distribution base) -> 1.45x (strong accumulation base)
+  const baseMomentumMult = 0.55 + greenRatio * 0.9;
+  const baseTrendBias: 'accumulation' | 'distribution' | 'neutral' =
+    greenRatio >= 0.58 ? 'accumulation' : greenRatio <= 0.42 ? 'distribution' : 'neutral';
+
+  // ---------- [D] Multi-pivot lookbacks (ST / MT / LT / Session anchors) ----------
+  const stLen = Math.max(3, Math.min(len, Math.round(lookbackBars * 0.35)));
+  const mtLen = Math.max(5, Math.min(len, Math.round(lookbackBars * 0.65)));
+
+  let stH = -Infinity, stL = Infinity;
+  let mtH = -Infinity, mtL = Infinity;
+  let ltH = -Infinity, ltL = Infinity;
+  for (let k = 0; k < len; k++) {
+    const h = recent[k].high;
+    const l = recent[k].low;
+    if (k >= len - stLen) { if (h > stH) stH = h; if (l < stL) stL = l; }
+    if (k >= len - mtLen) { if (h > mtH) mtH = h; if (l < mtL) mtL = l; }
+    if (h > ltH) ltH = h;
+    if (l < ltL) ltL = l;
+  }
+  const normPivot = (v: number, fallback: number) => (isFinite(v) ? v : fallback);
+  const shortTermHigh = normPivot(stH, currentPrice * 1.001);
+  const shortTermLow = normPivot(stL, currentPrice * 0.999);
+  const mediumTermHigh = normPivot(mtH, Math.max(currentPrice * 1.0015, shortTermHigh));
+  const mediumTermLow = normPivot(mtL, Math.min(currentPrice * 0.9985, shortTermLow));
+  const longTermHigh = normPivot(ltH, Math.max(currentPrice * 1.002, mediumTermHigh));
+  const longTermLow = normPivot(ltL, Math.min(currentPrice * 0.998, mediumTermLow));
+  const pivotsUsed = {
+    shortTerm: shortTermHigh,
+    mediumTerm: mediumTermHigh,
+    longTerm: longTermHigh,
+    sessionHigh: longTermHigh,
+    sessionLow: longTermLow,
+  };
+
+  // ---------- [E] Upgraded leverage tiers (5) with per-tier OI distribution weights ----------
+  // Offsets ≈ 1/leverage minus maintenance-margin buffer. distWeight models the real
+  // retail leverage mix: 50x & 25x carry the largest open interest, 75x is a thin sliver.
+  const tiers: { tier: LeverageTier; leverage: number; longOffset: number; shortOffset: number; mult: number; distWeight: number }[] = [
+    { tier: '100x', leverage: 100, longOffset: 0.0075, shortOffset: 0.0075, mult: 3.2, distWeight: 0.24 }, // Neon Purple
+    { tier: '75x', leverage: 75, longOffset: 0.0108, shortOffset: 0.0108, mult: 2.9, distWeight: 0.14 },   // Violet sliver
+    { tier: '50x', leverage: 50, longOffset: 0.0162, shortOffset: 0.0162, mult: 2.6, distWeight: 0.28 },   // Amber
+    { tier: '25x', leverage: 25, longOffset: 0.0352, shortOffset: 0.0352, mult: 2.1, distWeight: 0.21 },   // Cyan
+    { tier: '10x', leverage: 10, longOffset: 0.0885, shortOffset: 0.0885, mult: 1.5, distWeight: 0.13 },   // Rose/Red
   ];
+
+  // Depth-mass concentration (OI proxy): volatility + activity pull concentration up
+  const oiConcentration = Math.max(0.35, Math.min(1.8, 0.85 + (atrPct / 2.2) * 0.5 + (relVolume - 1) * 0.35));
 
   const clusters: LiquidationCascadeCluster[] = [];
   let totalLongLiqUsd = 0;
@@ -3293,42 +3456,110 @@ export function calculateLiquidationCascadeRadar(
   let highestHazardScore = 0;
   let imminentCluster: LiquidationCascadeCluster | null = null;
 
-  // Compute Short Liquidations (Buy stops above current price/swing high)
-  tiers.forEach((t) => {
-    const baseRef = Math.max(currentPrice, highPivot * 0.995);
-    const liqPrice = Number((baseRef * (1 + t.shortOffset))?.toFixed(priceDecimals));
-    const distPct = Number((((liqPrice - currentPrice) / currentPrice) * 100)?.toFixed(2));
-    const distBps = Number((distPct * 100)?.toFixed(0));
+  // ---------- [F] Shared cluster builder (identical precision math for both sides) ----------
+  const buildCluster = (
+    side: 'long_liq' | 'short_liq',
+    t: (typeof tiers)[number],
+    pivotPrice: number,
+    pivotSource: LiquidationCascadeCluster['pivotSource']
+  ): LiquidationCascadeCluster => {
+    const isShort = side === 'short_liq';
+    const offset = isShort ? t.shortOffset : t.longOffset;
+
+    // ATR-scaled adaptive micro-offset: volatile tape widens the first pool off the pivot
+    const atrMicroOffset = isTickMode ? Math.min(atr14 * 0.12, currentPrice * 0.0025) : 0;
+    const baseRef = isShort ? Math.max(currentPrice, pivotPrice * 0.995) : Math.min(currentPrice, pivotPrice * 1.005);
+    const rawLiqPrice = isShort
+      ? baseRef * (1 + offset) + atrMicroOffset
+      : baseRef * (1 - offset) - atrMicroOffset;
+    const liqPrice = Number(rawLiqPrice.toFixed(priceDecimals));
+
+    // Distance in 3 rulers: %, bps, exact ticks (tick distance catches sub-tick precision)
+    const distPct = Number((Math.abs(liqPrice - currentPrice) / currentPrice * 100).toFixed(2));
+    const distBps = Number((distPct * 100).toFixed(0));
     const distanceTicks = Math.max(1, Math.round(Math.abs(liqPrice - currentPrice) / tickSize));
-    const notionalUsd = Math.round(avgVol * currentPrice * t.mult * 0.45);
-    const units = Number((notionalUsd / liqPrice)?.toFixed(2));
-    const slippagePct = Number((0.08 * t.mult)?.toFixed(2));
+    const liquidationOcr = 1 / t.leverage;
+    const liquidationBufferTicks = Math.max(1, Math.round(distanceTicks * liquidationOcr));
+
+    // Relative volume & ATR weighting (independent volatility / activity axes)
+    const atrWeight = Math.max(0.5, Math.min(2.5, 0.6 + atrPct / 1.8));
+    const relVolumeWeight = Math.max(0.45, Math.min(2.2, 0.55 + relVolume * 0.55));
+    const notionalUsd = Math.round(
+      avgVol * currentPrice * t.mult * t.distWeight * 1.85 * baseMomentumMult * atrWeight * relVolumeWeight * oiConcentration
+    );
+    const units = Number((notionalUsd / liqPrice).toFixed(2));
+    const slippagePct = Number((0.08 * t.mult * (0.85 + atrPct / 4)).toFixed(2));
+
+    // Pool geometry (heatmap injection): pools thicken with volatility
+    const poolWidthTicks = Math.max(2, Math.round((2 + t.leverage / 18) * (1 + atrPct / 3)));
+    const notionalPerTickUsd = notionalUsd / poolWidthTicks;
+    const heatIntensity = Math.max(0.05, Math.min(1, notionalPerTickUsd / Math.max(1, avgVol * currentPrice * 1.2)));
 
     // Tick Hazard scoring
-    let tickHazard: 'EXTREME' | 'HIGH' | 'MODERATE' | 'SAFE' = 'SAFE';
-    if (distanceTicks <= 28 || distPct <= 0.35) {
-      tickHazard = 'EXTREME';
-    } else if (distanceTicks <= 70 || distPct <= 0.85) {
-      tickHazard = 'HIGH';
-    } else if (distanceTicks <= 170 || distPct <= 2.0) {
-      tickHazard = 'MODERATE';
-    }
+    let tickHazard: LiquidationCascadeCluster['tickHazard'] = 'SAFE';
+    if (distanceTicks <= 28 || distPct <= 0.35) tickHazard = 'EXTREME';
+    else if (distanceTicks <= 70 || distPct <= 0.85) tickHazard = 'HIGH';
+    else if (distanceTicks <= 170 || distPct <= 2.0) tickHazard = 'MODERATE';
 
-    // Cascade hazard score (higher if closer to current price in ticks)
+    // Cascade hazard score (closer in ticks = higher; OI-heavy tiers scale up)
     const proximityWeight = isTickMode
       ? Math.max(0, 1 - distanceTicks / 200)
       : Math.max(0, 1 - distPct / 6);
-    const hazard = Math.min(99, Math.round(proximityWeight * 85 + (t.tier === '100x' ? 14 : 8)));
+    const tierBoost = t.leverage >= 75 ? 14 : t.leverage >= 50 ? 11 : 8;
+    const hazard = Math.min(99, Math.round(proximityWeight * 85 * (0.85 + t.distWeight) + tierBoost));
     const isImminent = isTickMode ? (distanceTicks <= 35 || distPct <= 0.45) : (distPct <= 1.2 && distPct > 0);
 
-    totalShortLiqUsd += notionalUsd;
-    if (hazard > highestHazardScore) highestHazardScore = hazard;
+    // Confidence: pivot quality + volume confirmation + volatility sanity + base bias
+    const pivotQuality = pivotSource === 'session' ? 0.92 : pivotSource === 'long_term' ? 0.88 : pivotSource === 'medium_term' ? 0.78 : 0.68;
+    const confidence = Math.round(Math.min(97, Math.max(35,
+      pivotQuality * 72 + Math.min(18, relVolume * 9) + (atrPct < 4 ? 8 : 2) + (baseTrendBias !== 'neutral' ? 6 : 0)
+    )));
 
-    const cluster: LiquidationCascadeCluster = {
+    const notionalM = notionalUsd / 1e6;
+    const notionalTxt = notionalM >= 1 ? `$${notionalM.toFixed(1)}M` : `$${Math.round(notionalUsd / 1e3)}K`;
+    const description = `💥 ${t.tier} ${isShort ? 'Short' : 'Long'} Liquidation Pool (${notionalTxt} Notional, ${distanceTicks} Ticks, ${pivotSource} pivot)`;
+
+    // [HEATMAP v4 GRADED ZONES] Time-aware recency & visual grading.
+    // The pool's resting order mass ages with the market: a fresh pivot anchor means
+    // untouched stops still stacked there, while an old anchor has likely been swept,
+    // retraced or consumed. We anchor the age to the bar index of the pivot print.
+    const anchorBarIndex = (() => {
+      const searchLen = recent.length;
+      for (let b = searchLen - 1; b >= 0; b--) {
+        if (isShort ? recent[b].high >= pivotPrice : recent[b].low <= pivotPrice) return b;
+      }
+      return searchLen - 1;
+    })();
+    const barsSinceAnchor = Math.max(0, (len - 1) - anchorBarIndex);
+
+    const gradeHalfLifeBars = isTickMode
+      ? (timeframeMode === 'tick' ? 6 : timeframeMode === '10t' ? 10 : timeframeMode === '50t' ? 18 : 26)
+      : 18;
+    const gradeFreshBars = isTickMode
+      ? (timeframeMode === 'tick' ? 1 : timeframeMode === '10t' ? 2 : timeframeMode === '50t' ? 3 : 4)
+      : 3;
+    const clusterAgeBars = barsSinceAnchor;
+    const ageFraction = Math.min(1, clusterAgeBars / Math.max(1, gradeHalfLifeBars * 3));
+    // Exponential recency decay (half-life per timeframe mode), floored at 0.25 so
+    // ancient pools fade visually but never fully vanish from the map.
+    const recencyWeight = Math.max(0.25, Math.pow(0.5, Math.max(0, clusterAgeBars - gradeFreshBars) / gradeHalfLifeBars));
+    const effectiveIntensity = Math.max(0.02, heatIntensity * recencyWeight * (0.55 + 0.45 * (confidence - 35) / 62));
+    const visualGrade = gradeClusterZone(heatIntensity, confidence, recencyWeight);
+    const gradeColor = CLUSTER_GRADE_COLORS[visualGrade];
+    const gradeLabel = clusterAgeBars <= gradeFreshBars ? 'SEGER' : ageFraction < 0.34 ? 'AKTIF' : ageFraction < 0.67 ? 'MENUA' : 'STALE';
+
+    return {
+      clusterAgeBars,
+      ageFraction: Number(ageFraction.toFixed(3)),
+      recencyWeight: Number(recencyWeight.toFixed(3)),
+      effectiveIntensity: Number(effectiveIntensity.toFixed(3)),
+      visualGrade,
+      gradeColor,
+      gradeLabel,
       price: liqPrice,
       formattedPrice: `$${liqPrice.toFixed(priceDecimals)}`,
       leverageTier: t.tier,
-      side: 'short_liq',
+      side,
       color: '',
       estimatedNotionalUsd: notionalUsd,
       estimatedUnits: units,
@@ -3339,68 +3570,89 @@ export function calculateLiquidationCascadeRadar(
       cascadeHazardScore: hazard,
       potentialSlippagePct: slippagePct,
       isImminent,
-      description: `💥 ${t.tier} Short Liquidation Pool ($${(notionalUsd / 1e6)?.toFixed(1)}M Notional, ${distanceTicks} Ticks)`,
+      description,
+      pivotSource,
+      pivotPrice: Number(pivotPrice.toFixed(priceDecimals)),
+      baseOffsetPct: offset,
+      leverageMultiplier: t.leverage,
+      liquidationOcr,
+      liquidationBufferTicks,
+      atrWeight: Number(atrWeight.toFixed(2)),
+      relVolumeWeight: Number(relVolumeWeight.toFixed(2)),
+      baseAccumulationBars,
+      baseAccumulationVol: Math.round(baseAccumulationVol),
+      oiConcentrationWeight: Number(oiConcentration.toFixed(2)),
+      confidence,
+      poolWidthTicks,
+      tickSize,
+      distanceMetersPrecision: Number((distanceTicks / poolWidthTicks).toFixed(1)),
+      notionalPerTickUsd: Math.round(notionalPerTickUsd),
+      heatIntensity: Number(heatIntensity.toFixed(3)),
     };
+  };
 
-    clusters.push(cluster);
-    if (isImminent && (!imminentCluster || distanceTicks < imminentCluster.distanceTicks)) {
-      imminentCluster = cluster;
+  // ---------- [G] Short liquidations: buy stops stacked above each pivot anchor ----------
+  const shortPivots: { price: number; source: LiquidationCascadeCluster['pivotSource'] }[] = [
+    { price: shortTermHigh, source: 'short_term' },
+    { price: mediumTermHigh, source: 'medium_term' },
+    { price: longTermHigh, source: Math.abs(longTermHigh - shortTermHigh) < tickSize * 4 ? 'session' : 'long_term' },
+  ];
+  for (const t of tiers) {
+    let emittedForTier = 0;
+    for (const pv of shortPivots) {
+      const probe = buildCluster('short_liq', t, pv.price, pv.source);
+      if (!isFinite(probe.price)) continue;
+      const dup = clusters.some((c) => c.leverageTier === t.tier && c.side === 'short_liq' && Math.abs(c.price - probe.price) < tickSize * 2);
+      if (dup) continue;
+      clusters.push(probe);
+      totalShortLiqUsd += probe.estimatedNotionalUsd;
+      if (probe.cascadeHazardScore > highestHazardScore) highestHazardScore = probe.cascadeHazardScore;
+      if (probe.isImminent && (!imminentCluster || probe.distanceTicks < imminentCluster.distanceTicks)) {
+        imminentCluster = probe;
+      }
+      emittedForTier++;
+      if (emittedForTier >= 2) break; // max 2 pools per tier per side keeps the map readable
     }
-  });
+  }
 
-  // Compute Long Liquidations (Sell stops below current price/swing low)
-  tiers.forEach((t) => {
-    const baseRef = Math.min(currentPrice, lowPivot * 1.005);
-    const liqPrice = Number((baseRef * (1 - t.longOffset))?.toFixed(priceDecimals));
-    const distPct = Number((((currentPrice - liqPrice) / currentPrice) * 100)?.toFixed(2));
-    const distBps = Number((distPct * 100)?.toFixed(0));
-    const distanceTicks = Math.max(1, Math.round(Math.abs(currentPrice - liqPrice) / tickSize));
-    const notionalUsd = Math.round(avgVol * currentPrice * t.mult * 0.48);
-    const units = Number((notionalUsd / liqPrice)?.toFixed(2));
-    const slippagePct = Number((0.09 * t.mult)?.toFixed(2));
-
-    // Tick Hazard scoring
-    let tickHazard: 'EXTREME' | 'HIGH' | 'MODERATE' | 'SAFE' = 'SAFE';
-    if (distanceTicks <= 28 || distPct <= 0.35) {
-      tickHazard = 'EXTREME';
-    } else if (distanceTicks <= 70 || distPct <= 0.85) {
-      tickHazard = 'HIGH';
-    } else if (distanceTicks <= 170 || distPct <= 2.0) {
-      tickHazard = 'MODERATE';
+  // ---------- [H] Long liquidations: sell stops stacked below each pivot anchor ----------
+  const longPivots: { price: number; source: LiquidationCascadeCluster['pivotSource'] }[] = [
+    { price: shortTermLow, source: 'short_term' },
+    { price: mediumTermLow, source: 'medium_term' },
+    { price: longTermLow, source: Math.abs(longTermLow - shortTermLow) < tickSize * 4 ? 'session' : 'long_term' },
+  ];
+  for (const t of tiers) {
+    let emittedForTier = 0;
+    for (const pv of longPivots) {
+      const probe = buildCluster('long_liq', t, pv.price, pv.source);
+      if (!isFinite(probe.price)) continue;
+      const dup = clusters.some((c) => c.leverageTier === t.tier && c.side === 'long_liq' && Math.abs(c.price - probe.price) < tickSize * 2);
+      if (dup) continue;
+      clusters.push(probe);
+      totalLongLiqUsd += probe.estimatedNotionalUsd;
+      if (probe.cascadeHazardScore > highestHazardScore) highestHazardScore = probe.cascadeHazardScore;
+      if (probe.isImminent && (!imminentCluster || probe.distanceTicks < imminentCluster.distanceTicks)) {
+        imminentCluster = probe;
+      }
+      emittedForTier++;
+      if (emittedForTier >= 2) break;
     }
+  }
 
-    const proximityWeight = isTickMode
-      ? Math.max(0, 1 - distanceTicks / 200)
-      : Math.max(0, 1 - distPct / 6);
-    const hazard = Math.min(99, Math.round(proximityWeight * 85 + (t.tier === '100x' ? 14 : 8)));
-    const isImminent = isTickMode ? (distanceTicks <= 35 || distPct <= 0.45) : (distPct <= 1.2 && distPct > 0);
-
-    totalLongLiqUsd += notionalUsd;
-    if (hazard > highestHazardScore) highestHazardScore = hazard;
-
-    const cluster: LiquidationCascadeCluster = {
-      price: liqPrice,
-      formattedPrice: `$${liqPrice.toFixed(priceDecimals)}`,
-      leverageTier: t.tier,
-      side: 'long_liq',
-      color: '',
-      estimatedNotionalUsd: notionalUsd,
-      estimatedUnits: units,
-      distancePct: distPct,
-      distanceBps: distBps,
-      distanceTicks,
-      tickHazard,
-      cascadeHazardScore: hazard,
-      potentialSlippagePct: slippagePct,
-      isImminent,
-      description: `💥 ${t.tier} Long Liquidation Pool ($${(notionalUsd / 1e6)?.toFixed(1)}M Notional, ${distanceTicks} Ticks)`,
-    };
-
-    clusters.push(cluster);
-    if (isImminent && (!imminentCluster || distanceTicks < imminentCluster.distanceTicks)) {
-      imminentCluster = cluster;
+  // Fallback: flat series (zero-range pivots) -> emit one static anchor per side per tier
+  if (clusters.length === 0) {
+    for (const t of tiers) {
+      const sc = buildCluster('short_liq', t, currentPrice * 1.002, 'session');
+      const lc = buildCluster('long_liq', t, currentPrice * 0.998, 'session');
+      clusters.push(sc, lc);
+      totalShortLiqUsd += sc.estimatedNotionalUsd;
+      totalLongLiqUsd += lc.estimatedNotionalUsd;
+      if (sc.cascadeHazardScore > highestHazardScore) highestHazardScore = sc.cascadeHazardScore;
+      if (lc.cascadeHazardScore > highestHazardScore) highestHazardScore = lc.cascadeHazardScore;
+      if (sc.isImminent && (!imminentCluster || sc.distanceTicks < imminentCluster.distanceTicks)) imminentCluster = sc;
+      if (lc.isImminent && (!imminentCluster || lc.distanceTicks < imminentCluster.distanceTicks)) imminentCluster = lc;
     }
-  });
+  }
 
   const overallCascadeHazard: LiquidationCascadeRadar['overallCascadeHazard'] =
     highestHazardScore >= 75 ? 'HIGH_CASCADE_IMMINENT' :
@@ -3410,10 +3662,21 @@ export function calculateLiquidationCascadeRadar(
   const totalTicksProcessed = isTickMode ? 500 : candles.length * 10;
   const tickFrequencyPerSec = Number((12.4 + (highestHazardScore / 100) * 8.2).toFixed(1));
 
+  // Per-tier rollup for the UI distribution strip
+  const leverageDistribution = tiers.map((t) => {
+    const tierClusters = clusters.filter((c) => c.leverageTier === t.tier);
+    return {
+      tier: t.tier,
+      longLiqUsd: tierClusters.filter((c) => c.side === 'long_liq').reduce((a, c) => a + c.estimatedNotionalUsd, 0),
+      shortLiqUsd: tierClusters.filter((c) => c.side === 'short_liq').reduce((a, c) => a + c.estimatedNotionalUsd, 0),
+      count: tierClusters.length,
+    };
+  });
+
   const tfLabel = timeframeMode === 'tick' ? '1T' : timeframeMode.toUpperCase();
   const summary = imminentCluster
     ? `⚡ [${tfLabel}] IMMINENT: ${imminentCluster.leverageTier} ${imminentCluster.side === 'short_liq' ? 'SHORT' : 'LONG'} LIQ @ ${imminentCluster.formattedPrice} (${imminentCluster.distanceTicks} Ticks / ${imminentCluster.distancePct}% / ${imminentCluster.distanceBps}bps)`
-    : `⚡ [${tfLabel}] STABLE: Long Liq $${(totalLongLiqUsd / 1e6)?.toFixed(1)}M | Short Liq $${(totalShortLiqUsd / 1e6)?.toFixed(1)}M`;
+    : `⚡ [${tfLabel}] STABLE: Long Liq $${(totalLongLiqUsd / 1e6).toFixed(1)}M | Short Liq $${(totalShortLiqUsd / 1e6).toFixed(1)}M`;
 
   return {
     currentPrice,
@@ -3427,6 +3690,28 @@ export function calculateLiquidationCascadeRadar(
     cascadeHazardScore: highestHazardScore,
     clusters,
     summary,
+    tickSize,
+    atr14: Number(atr14.toFixed(priceDecimals)),
+    atrPct: Number(atrPct.toFixed(2)),
+    relVolume: Number(relVolume.toFixed(2)),
+    pivotsUsed,
+    baseAccumulation: { bars: baseAccumulationBars, volume: Math.round(baseAccumulationVol), trendBias: baseTrendBias },
+    maxOcrTicks: Math.max(1, Math.round((currentPrice * tiers[tiers.length - 1].longOffset) / tickSize)),
+
+    // [HEATMAP v4 GRADED ZONES] Grade population rollup for legend / UI strip
+    gradingHalfLifeBars: isTickMode
+      ? (timeframeMode === 'tick' ? 6 : timeframeMode === '10t' ? 10 : timeframeMode === '50t' ? 18 : 26)
+      : 18,
+    gradingFreshBars: isTickMode
+      ? (timeframeMode === 'tick' ? 1 : timeframeMode === '10t' ? 2 : timeframeMode === '50t' ? 3 : 4)
+      : 3,
+    gradeCounts: clusters.reduce(
+      (acc, c) => { acc[c.visualGrade] = (acc[c.visualGrade] || 0) + 1; return acc; },
+      { S: 0, A: 0, B: 0, C: 0 } as Record<ClusterVisualGrade, number>
+    ),
+    gradeTimeframeLabel: tfLabel,
+
+    leverageDistribution,
   };
 }
 
@@ -3519,20 +3804,20 @@ function interpolateSmoothStops(d: number, stops: ColorStop[]): [number, number,
 }
 
 /*
- * [ACCURACY v2] Calibrated perceptual alpha ladder per liquidity tier.
- * A pure log curve over-compresses the midrange (levels 0.3-0.6 all read the same).
- * This piecewise smoothstep ramp anchors alpha to TRUE liquidity magnitude:
- * 0.0x density -> barely visible ghost band, mid tiers -> evenly stepped clarity,
- * 0.9+ (walls) -> fully opaque. Strictly monotonic by construction - zero flicker.
+ * [HEATMAP v4 GLOBAL-LOOK] Calibrated perceptual alpha ladder per liquidity tier.
+ * Alpha stays LOW across the vast majority of the field (like Bookmap/QuantData:
+ * thin liquidity is a faint whisper, never a solid box) and only ramps hard near
+ * walls. Piecewise smoothstep, strictly monotonic, zero flicker.
  */
 const HEAT_ALPHA_ANCHORS: [number, number][] = [
-  [0.00, 0.10],
-  [0.10, 0.20],
-  [0.25, 0.32],
-  [0.45, 0.50],
-  [0.65, 0.68],
-  [0.82, 0.84],
-  [0.92, 0.94],
+  [0.00, 0.05],
+  [0.12, 0.08],
+  [0.28, 0.13],
+  [0.45, 0.20],
+  [0.62, 0.34],
+  [0.78, 0.55],
+  [0.90, 0.78],
+  [0.97, 0.94],
   [1.00, 1.00],
 ];
 function calibratedHeatAlpha(d: number): number {
@@ -3566,7 +3851,9 @@ export function getBookmapThemeColor(
   side: 'bid' | 'ask',
   mode: 'theme' | 'thermal' | 'bid_ask' = 'theme',
   palette: ThemeColors,
-  _baseOpacity: number = 0.90
+  _baseOpacity: number = 0.90,
+  peakStyle: 'default' | 'pure' | 'poc' = 'default',
+  alphaRef?: number
 ): string {
   const rawD = Math.max(0, Math.min(1, density));
   if (rawD < 0.01) return 'rgba(0,0,0,0)';
@@ -3578,9 +3865,14 @@ export function getBookmapThemeColor(
     ? Math.max(0.2, Math.min(1.0, _baseOpacity))
     : 0.95;
 
-  // [ACCURACY v2] Calibrated perceptual alpha ramp (replaces the flat log scale that
-  // compressed the 0.3-0.6 midrange into one uniform tint). Scaled by user opacity.
-  const rawOpacity = calibratedHeatAlpha(d);
+  // [v7.2 MONOTONE ALPHA] Opacity SELALU dihitung dari level density asli sel
+  // (alphaRef bila diberikan), bukan dari nilai yang didorong untuk keperluan
+  // warna — makin rendah level liquidity => makin padam, makin tinggi level =>
+  // makin terang, berlaku seragam di semua baris & zona.
+  const alphaNorm = (typeof alphaRef === 'number' && !isNaN(alphaRef))
+    ? Math.max(0, Math.min(1.0, (Math.max(0, Math.min(1, alphaRef)) - 0.01) / 0.99))
+    : d;
+  const rawOpacity = calibratedHeatAlpha(alphaNorm);
   const finalAlpha = Math.max(0.06, Math.min(1.0, Number((rawOpacity * opacityMultiplier).toFixed(3))));
   
   // [ACCURACY v2] Memoization key: quantized density (1/256) + palette identity +
@@ -3592,7 +3884,12 @@ export function getBookmapThemeColor(
   if (paletteMeta && typeof paletteMeta.__heatPaletteId !== 'number') {
     paletteMeta.__heatPaletteId = ++__heatPaletteCounter;
   }
-  const cacheKey = ((((paletteMeta?.__heatPaletteId ?? 0) * 3 + modeKey) * 2 + (side === 'bid' ? 0 : 1)) * 101 + opKey) * 256 + dKey;
+  const styleKey = peakStyle === 'pure' ? 1 : peakStyle === 'poc' ? 2 : 0;
+  const aKey = (typeof alphaRef === 'number' && !isNaN(alphaRef))
+    ? Math.min(255, Math.round(Math.max(0, Math.min(1, alphaRef)) * 255)) + 1
+    : 0;
+  const baseKey = (((((paletteMeta?.__heatPaletteId ?? 0) * 3 + modeKey) * 2 + (side === 'bid' ? 0 : 1)) * 101 + opKey) * 3 + styleKey) * 256 + dKey;
+  const cacheKey = baseKey * 257 + aKey;
   const cachedColor = HEAT_COLOR_CACHE.get(cacheKey);
   if (cachedColor) return cachedColor;
 
@@ -3605,65 +3902,139 @@ export function getBookmapThemeColor(
 
   // Luminous peak variant within the SAME theme color family (brighter/saturated version of targetRGB)
   const peakTargetRGB: [number, number, number] = [
-    Math.min(255, Math.round(targetRGB[0] + (255 - targetRGB[0]) * 0.38)),
-    Math.min(255, Math.round(targetRGB[1] + (255 - targetRGB[1]) * 0.38)),
-    Math.min(255, Math.round(targetRGB[2] + (255 - targetRGB[2]) * 0.38))
+    Math.min(255, Math.round(targetRGB[0] + (255 - targetRGB[0]) * 0.52)),
+    Math.min(255, Math.round(targetRGB[1] + (255 - targetRGB[1]) * 0.52)),
+    Math.min(255, Math.round(targetRGB[2] + (255 - targetRGB[2]) * 0.52))
   ];
 
   let stops: ColorStop[];
 
   if (mode === 'thermal') {
-    // Thermal mode - Anchor strictly to Buy (bullRGB) vs Sell (bearRGB) theme spectrum.
-    // [ACCURACY v2] Stops re-anchored to the calibrated alpha tiers so hue shifts land
-    // exactly where perceived intensity steps (0.10 / 0.25 / 0.45 / 0.65 / 0.82).
-    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.22);
-    const midRGB = mixRgbColors(bgRGB, targetRGB, 0.55);
-    const highRGB = targetRGB;
+    // [HEATMAP v4 GLOBAL-LOOK] Inferno-style spectrum anchored to theme aggressor
+    // colors: near-transparent background wash -> deep base -> saturated core ->
+    // white-hot peak, exactly how global platforms graduate wall intensity.
+    const deepRGB = mixRgbColors(bgRGB, targetRGB, 0.30);
+    const coreRGB = mixRgbColors(targetRGB, peakTargetRGB, 0.30);
     const peakRGB = peakTargetRGB;
-    stops = [
-      { pos: 0.00, rgb: lowRGB },
-      { pos: 0.25, rgb: midRGB },
-      { pos: 0.45, rgb: mixRgbColors(midRGB, highRGB, 0.5) },
-      { pos: 0.65, rgb: highRGB },
-      { pos: 0.82, rgb: mixRgbColors(highRGB, peakRGB, 0.55) },
-      { pos: 1.00, rgb: peakRGB }
-    ];
+    if (peakStyle === 'pure') {
+      // [v7] Zona NON-puncak: berhenti di warna tema penuh — tanpa putih/POC.
+      stops = [
+        { pos: 0.00, rgb: mixRgbColors(bgRGB, deepRGB, 0.35) },
+        { pos: 0.18, rgb: deepRGB },
+        { pos: 0.45, rgb: targetRGB },
+        { pos: 1.00, rgb: targetRGB },
+      ];
+    } else if (peakStyle === 'poc') {
+      // [v7] Area tertinggi saja: gradasi peak -> warna POC (putih pada tema default).
+      const pocRGB = parseHexToRgb(palette?.poc, '#ffffff');
+      stops = [
+        { pos: 0.00, rgb: mixRgbColors(bgRGB, deepRGB, 0.35) },
+        { pos: 0.18, rgb: deepRGB },
+        { pos: 0.40, rgb: targetRGB },
+        { pos: 0.80, rgb: targetRGB },
+        { pos: 0.92, rgb: coreRGB },
+        { pos: 0.965, rgb: mixRgbColors(peakRGB, pocRGB, 0.60) },
+        { pos: 1.00, rgb: pocRGB },
+      ];
+    } else {
+      const whiteHotRGB: [number, number, number] = [
+        Math.min(255, Math.round(peakRGB[0] + (255 - peakRGB[0]) * 0.72)),
+        Math.min(255, Math.round(peakRGB[1] + (255 - peakRGB[1]) * 0.72)),
+        Math.min(255, Math.round(peakRGB[2] + (255 - peakRGB[2]) * 0.72)),
+      ];
+      stops = [
+        { pos: 0.00, rgb: mixRgbColors(bgRGB, deepRGB, 0.35) },
+        { pos: 0.18, rgb: deepRGB },
+        { pos: 0.40, rgb: targetRGB },
+        { pos: 0.62, rgb: coreRGB },
+        { pos: 0.82, rgb: peakRGB },
+        { pos: 1.00, rgb: whiteHotRGB },
+      ];
+    }
   } else if (mode === 'bid_ask') {
-    // Dual Bid/Ask Spectrum - 100% theme color consistency.
-    // [ACCURACY v2] Extra 0.45 tier anchor sharpens mid-band separation between
-    // resting liquidity and stacking walls.
-    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.18);
-    const midRGB = mixRgbColors(bgRGB, targetRGB, 0.50);
+    // Dual Bid/Ask Spectrum - 100% theme color consistency with v4 faint low-end.
+    const faintRGB = mixRgbColors(bgRGB, targetRGB, 0.14);
+    const midRGB = mixRgbColors(bgRGB, targetRGB, 0.45);
     const fullRGB = targetRGB;
     const peakRGB = peakTargetRGB;
-    stops = [
-      { pos: 0.00, rgb: lowRGB },
-      { pos: 0.25, rgb: midRGB },
-      { pos: 0.45, rgb: mixRgbColors(midRGB, fullRGB, 0.6) },
-      { pos: 0.65, rgb: fullRGB },
-      { pos: 0.85, rgb: mixRgbColors(fullRGB, peakRGB, 0.6) },
-      { pos: 1.00, rgb: peakRGB }
-    ];
+    if (peakStyle === 'pure') {
+      // [v7] Zona NON-puncak: gradasi warna tema murni per level — tanpa putih.
+      stops = [
+        { pos: 0.00, rgb: faintRGB },
+        { pos: 0.22, rgb: midRGB },
+        { pos: 0.45, rgb: mixRgbColors(midRGB, fullRGB, 0.6) },
+        { pos: 0.65, rgb: fullRGB },
+        { pos: 1.00, rgb: fullRGB },
+      ];
+    } else if (peakStyle === 'poc') {
+      // [v7] Area tertinggi saja: gradasi peak -> warna POC (putih pada tema default).
+      const pocRGB = parseHexToRgb(palette?.poc, '#ffffff');
+      stops = [
+        { pos: 0.00, rgb: faintRGB },
+        { pos: 0.22, rgb: midRGB },
+        { pos: 0.45, rgb: mixRgbColors(midRGB, fullRGB, 0.6) },
+        { pos: 0.65, rgb: fullRGB },
+        { pos: 0.82, rgb: fullRGB },
+        { pos: 0.93, rgb: mixRgbColors(fullRGB, peakRGB, 0.55) },
+        { pos: 0.965, rgb: mixRgbColors(peakRGB, pocRGB, 0.60) },
+        { pos: 1.00, rgb: pocRGB },
+      ];
+    } else {
+      stops = [
+        { pos: 0.00, rgb: faintRGB },
+        { pos: 0.22, rgb: midRGB },
+        { pos: 0.45, rgb: mixRgbColors(midRGB, fullRGB, 0.6) },
+        { pos: 0.65, rgb: fullRGB },
+        { pos: 0.85, rgb: mixRgbColors(fullRGB, peakRGB, 0.6) },
+        { pos: 1.00, rgb: peakRGB },
+      ];
+    }
   } else {
-    // High-Contrast Theme Mode: wide dynamic range for clear tier distinction.
-    // [ACCURACY v2] Six precision anchors mapped 1:1 to the calibrated alpha ladder
-    // (0.10 / 0.25 / 0.45 / 0.65 / 0.82 / 1.00) so color AND transparency step
-    // together at identical density levels - magnitude-accurate rendering.
-    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.12);
-    const midLowRGB = mixRgbColors(bgRGB, targetRGB, 0.38);
-    const fullRGB = mixRgbColors(bgRGB, targetRGB, 0.70);
-    const highRGB = targetRGB;
+    // [HEATMAP v4 GLOBAL-LOOK] Theme mode: starts almost invisible at the faint end
+    // and pushes into a luminous halo at wall densities, so thin bands no longer paint
+    // solid boxes over candles and the map reads like Bookmap/Coinglass depth fields.
+    const faintRGB = mixRgbColors(bgRGB, targetRGB, 0.10);
+    const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.24);
+    const midRGB = mixRgbColors(bgRGB, targetRGB, 0.52);
+    const fullRGB = targetRGB;
     const peakRGB = peakTargetRGB;
 
-    stops = [
-      { pos: 0.00, rgb: lowRGB },
-      { pos: 0.10, rgb: mixRgbColors(lowRGB, midLowRGB, 0.35) },
-      { pos: 0.25, rgb: midLowRGB },
-      { pos: 0.45, rgb: fullRGB },
-      { pos: 0.65, rgb: highRGB },
-      { pos: 0.82, rgb: mixRgbColors(highRGB, peakRGB, 0.5) },
-      { pos: 1.00, rgb: peakRGB }
-    ];
+    if (peakStyle === 'pure') {
+      // [v7 PURE NON-PEAK] Gradasi warna tema murni per level density — nol putih.
+      // Kontras antar level datang dari alpha ladder terkalibrasi (opacity per level).
+      stops = [
+        { pos: 0.00, rgb: faintRGB },
+        { pos: 0.16, rgb: lowRGB },
+        { pos: 0.35, rgb: midRGB },
+        { pos: 0.62, rgb: fullRGB },
+        { pos: 1.00, rgb: fullRGB },
+      ];
+    } else if (peakStyle === 'poc') {
+      // [v7.6 PEAK-ONLY] Region 0.55-0.82 = warna tema MURNI (tanpa putih)
+      // untuk semua sel non-tertinggi; gradasi putih/POC dipadatkan di
+      // 0.92-1.00 sehingga HANYA sel terkuat pada waktunya yang memutih.
+      const pocRGB = parseHexToRgb(palette?.poc, '#ffffff');
+      stops = [
+        { pos: 0.00, rgb: faintRGB },
+        { pos: 0.16, rgb: lowRGB },
+        { pos: 0.35, rgb: midRGB },
+        { pos: 0.55, rgb: fullRGB },
+        { pos: 0.82, rgb: fullRGB },
+        { pos: 0.92, rgb: mixRgbColors(fullRGB, peakRGB, 0.55) },
+        { pos: 0.965, rgb: mixRgbColors(peakRGB, pocRGB, 0.60) },
+        { pos: 1.00, rgb: pocRGB },
+      ];
+    } else {
+      stops = [
+        { pos: 0.00, rgb: faintRGB },
+        { pos: 0.16, rgb: lowRGB },
+        { pos: 0.35, rgb: midRGB },
+        { pos: 0.55, rgb: fullRGB },
+        { pos: 0.78, rgb: mixRgbColors(fullRGB, peakRGB, 0.62) },
+        { pos: 0.92, rgb: peakRGB },
+        { pos: 1.00, rgb: mixRgbColors(peakRGB, [255, 255, 255], 0.45) },
+      ];
+    }
   }
 
   const rgb = interpolateSmoothStops(d, stops);
@@ -3882,27 +4253,70 @@ export function renderLiquidityHeatmapLayer({
   // horizontal gradient sampled from the matrix, so the visualization stays
   // detail-accurate: same gamma contrast curve (0.72), same thresholds.
   // -------------------------------------------------------------------------
-  const colStride = 1;
-  const binAggFactor = 1;
-  const quantLevels = lodProfile.heatmap.quantizationLevels;
   const minDensity = 0.02;
-  const renderFloorDensity = 0.08; // below this a node stays transparent (unchanged)
-  const maxGradientStops = 24; // sample long merged runs so 120+ FPS stays intact
+  const renderFloorDensity = 0.06; // [v4] lower floor -> faint tails stay visible like global platforms
 
-  const shouldBlur = false;
+  // [HEATMAP v4 GLOBAL-LOOK] Wall boosts skip the gamma curve: a dense wall keeps its
+  // full color punch instead of being dimmed by the 0.72 contrast exponent.
+  const WALL_BOOST_DENSITY = 0.62;
 
-  // Exact per-node color: identical gamma contrast curve (0.72) as the tiled grid
-  const levelCellColor = (densityVal: number, side: 'bid' | 'ask', baseOpacity: number): string => {
+  // [v6.3 RELATIVE WALL TIER] Skala density absolut berbeda tiap simbol/timeframe
+  // (ladder avgVol*0.18..*4.2), sehingga threshold absolut 0.62 sering tak tersentuh
+  // dan zona TERPADAT tidak pernah tampil beda. Kita ukur puncak density frame yang
+  // terlihat, lalu wall tier = 72% dari puncak tersebut (floor 0.42) — dipastikan
+  // area likuiditas paling padat SELALU menerima warna hot + opacity penuh.
+  let framePeak = 0;
+  for (let i = drawStart; i <= drawEnd; i++) {
+    const col = data.matrix[i];
+    if (!col) continue;
+    for (let b = 0; b < data.binsCount; b++) {
+      if (col.density[b] > framePeak) framePeak = col.density[b];
+    }
+  }
+  const wallTierD = Math.min(0.85, Math.max(0.42, framePeak * 0.72));
+
+  // [v7.5 PER-TIME PEAK] "Area liquidity tertinggi" = puncak tiap kolom waktu
+  // (dihitung per-time di pre-pass) — hanya sel paling padat PADA WAKTU ITU
+  // yang boleh memakai gradasi putih/warna POC, dengan gradasi mengikuti
+  // volume+density sel tersebut relatif terhadap puncak kolomnya. Zona lain
+  // murni warna tema dengan opacity per level liquidity masing-masing.
+  const levelCellColor = (
+    densityVal: number,
+    side: 'bid' | 'ask',
+    baseOpacity: number,
+    accent?: { hi: number; top: boolean; volT: number }
+  ): string => {
     const clamped = Math.min(1.0, Math.max(0.0, densityVal));
+    if (accent && accent.top && clamped >= wallTierD * 0.94) {
+      // Area tertinggi DI WAKTU INI. Gate volume berjenjang (smoothstep
+      // 0.80 -> 1.00): hanya sel yang mendekati volume puncak kolomnya yang
+      // mulai naik ke arah putih. Density TIDAK cukup sendiri karena density
+      // di-clamp 1.0 pada semua dinding (>= ~3x avgVol) — tanpa gate ini
+      // SELURUH dinding memutih. Di bawah gate, push tetap berada di region
+      // flat 0.55-0.82 = warna tema murni (tanpa putih), sehingga non-top
+      // area di kolom manapun tidak pernah memutih.
+      const hi = Math.max(wallTierD * 0.94 + 1e-4, accent.hi);
+      const densityT = Math.min(1, Math.max(0, (clamped - wallTierD * 0.94) / (hi - wallTierD * 0.94)));
+      const volT = Math.min(1, Math.max(0, accent.volT));
+      const wt = Math.min(1, Math.max(0, (volT - 0.80) / 0.20));
+      const t = Math.min(1, Math.max(0, 0.45 * densityT + 0.55 * wt));
+      const push = 0.55 + 0.45 * t;
+      return getBookmapThemeColor(Math.min(1, push), side, settings.colorMode, palette, baseOpacity, 'poc', clamped);
+    }
+    if (clamped >= wallTierD) {
+      // Wall biasa (di luar area tertinggi): warna tema murni, sedikit terangkat,
+      // TANPA putih — kontras datang dari opacity per level, bukan dari putih.
+      return getBookmapThemeColor(Math.min(0.97, clamped * 1.10), side, settings.colorMode, palette, baseOpacity, 'pure', clamped);
+    }
     const highContrastDensity = Math.min(1.0, Math.max(0.05, Math.pow(clamped, 0.72)));
-    return getBookmapThemeColor(highContrastDensity, side, settings.colorMode, palette, baseOpacity);
+    return getBookmapThemeColor(highContrastDensity, side, settings.colorMode, palette, baseOpacity, 'pure', clamped);
   };
 
   // 1) Precompute exact horizontal geometry for every visible column (once)
   const colGeo: ({ rawX: number; rawW: number } | null)[] = [];
-  for (let i = drawStart; i <= drawEnd; i += colStride) {
+  for (let i = drawStart; i <= drawEnd; i++) {
     const globalIdx = i + (data.startIndexOffset || 0);
-    const endGlobalIdx = Math.min(numCols - 1 + (data.startIndexOffset || 0), globalIdx + colStride - 1);
+    const endGlobalIdx = globalIdx;
     const currentX = getX(globalIdx);
     const nextGroupX = getX(endGlobalIdx);
     let xLeft: number;
@@ -3913,7 +4327,7 @@ export function renderLiquidityHeatmapLayer({
       const barSpacing = Math.abs(nextX - currentX);
       xLeft = currentX - barSpacing / 2;
       xRight = nextGroupX + barSpacing / 2;
-    } else if (i + colStride >= numCols) {
+    } else if (i >= numCols - 1) {
       const prevX = getX(globalIdx - 1);
       const barSpacing = Math.abs(currentX - prevX);
       xLeft = currentX - barSpacing / 2;
@@ -3937,134 +4351,331 @@ export function renderLiquidityHeatmapLayer({
     colGeo.push({ rawX, rawW });
   }
 
-  // Draw ONE whole merged box for a contiguous run of same-level grid nodes
-  const flushLevelRun = (startK: number, endK: number, binIdx: number, boxY: number, boxH: number): void => {
-    if (startK < 0 || endK < startK) return;
-    const geoA = colGeo[startK];
-    const geoB = colGeo[endK];
-    if (!geoA || !geoB) return;
+  // -------------------------------------------------------------------------
+  // 1. [HEATMAP v6 RIBBON FIELD] Bentuk & logika penggambaran baru — TANPA blur,
+  // TANPA bitmap upscale, TANPA baris box. Setiap kolom waktu digambar sebagai
+  // SATU pita vertikal: linear gradient yang stop-nya adalah density eksak tiap
+  // bin harga kolom tersebut (atas chart -> bawah). Tetangga kiri/kanan diblend
+  // di level nilai (bukan piksel) sehingga panas mengalir mulus lintas sumbu
+  // waktu & harga, sementara setiap tepi gradient tetap pixel-crisp (zero filter).
+  // -------------------------------------------------------------------------
+  const ribbonCols = colGeo.length;
+  const ribbonRows = data.binsCount;
 
-    const colAt = (k: number) => data.matrix[drawStart + k * colStride];
-    const firstCol = colAt(startK);
-    if (!firstCol) return;
-
-    const boxX = geoA.rawX;
-    const boxW = Math.max(0.5, geoB.rawX + geoB.rawW - boxX);
+  if (ribbonCols > 0 && ribbonRows > 0) {
     const baseOpacity = settings.opacity ?? 0.95;
+    const ribbonAlpha = Math.max(0.08, Math.min(1, baseOpacity * 0.62));
 
-    ctx.globalCompositeOperation = 'source-over';
+    const yTopEdge = getY(data.priceMin + ribbonRows * data.priceStep);
+    const yBotEdge = getY(data.priceMin);
+    const fieldH = Math.max(1, yBotEdge - yTopEdge);
 
-    if (startK === endK) {
-      // Single-column level node: exact fill, no gradient overhead
-      const side: 'bid' | 'ask' = firstCol.side[binIdx] === 0 ? 'bid' : 'ask';
-      ctx.fillStyle = levelCellColor(firstCol.density[binIdx], side, baseOpacity);
-      ctx.fillRect(boxX, boxY, boxW, boxH);
-      return;
-    }
+    const withAlpha = (rgba: string, a: number): string => rgba.replace(/[\d.]+\)$/, `${a})`);
 
-    // Whole merged box colored column-by-column via an exact sampled gradient
-    const runLen = endK - startK + 1;
-    const step = Math.max(1, Math.ceil(runLen / maxGradientStops));
-    const grad = ctx.createLinearGradient(boxX, 0, boxX + boxW, 0);
-    let lastColor = '';
-
-    const stopPos = (k: number): number => {
-      const g = colGeo[k];
-      if (!g) return k <= startK ? 0 : 1;
-      return (g.rawX + g.rawW / 2 - boxX) / boxW;
-    };
-    const colorFor = (k: number): string => {
-      const col = colAt(k);
-      if (!col) {
-        const fallbackSide: 'bid' | 'ask' = firstCol.side[binIdx] === 0 ? 'bid' : 'ask';
-        return levelCellColor(firstCol.density[binIdx], fallbackSide, baseOpacity);
+    // [v7.5 PER-TIME PEAK] Pass-1: puncak density yang benar-benar dirender
+    // (setelah blend tetangga) untuk SETIAP kolom waktu, plus buffer nilai
+    // blend-nya. "Area liquidity tertinggi" ditentukan PER WAKTU (per kolom):
+    // pada setiap saat, area yang paling padat SAAT ITULAH yang mendapat
+    // gradasi putih/POC — sehingga pewarnaan mengikuti perubahan liquidity
+    // dari waktu ke waktu (bergeser/menghilang bersama liquidity-nya).
+    let renderPeak = 0;
+    const colPeakD = new Float32Array(ribbonCols);
+    const colTopVol = new Float64Array(ribbonCols);
+    const blendBuf = new Float32Array(ribbonRows);
+    for (let k = 0; k < ribbonCols; k++) {
+      const col = data.matrix[drawStart + k];
+      const geo = colGeo[k];
+      if (!col || !geo) continue;
+      const colL = k > 0 ? data.matrix[drawStart + k - 1] : null;
+      const colR = k < ribbonCols - 1 ? data.matrix[drawStart + k + 1] : null;
+      blendBuf.fill(0);
+      let colMax = 0;
+      for (let b = 0; b < ribbonRows; b++) {
+        const d0 = col.density[b];
+        const dl = colL ? colL.density[b] : d0;
+        const dr = colR ? colR.density[b] : d0;
+        const dVal = dl * 0.22 + d0 * 0.56 + dr * 0.22;
+        if (dVal < minDensity || dVal < renderFloorDensity) continue;
+        if (minNotional > 0) {
+          const binPrice = data.priceMin + (b + 0.5) * data.priceStep;
+          if (col.volume[b] * (binPrice > 100 ? binPrice : 10000) < minNotional) continue;
+        }
+        blendBuf[b] = dVal;
+        if (dVal > colMax) colMax = dVal;
+        if (dVal > renderPeak) renderPeak = dVal;
       }
-      const side: 'bid' | 'ask' = col.side[binIdx] === 0 ? 'bid' : 'ask';
-      return levelCellColor(col.density[binIdx], side, baseOpacity);
-    };
-    const addStop = (pos: number, color: string): void => {
-      if (color === lastColor && pos > 0 && pos < 1) return;
-      lastColor = color;
-      grad.addColorStop(Math.min(1, Math.max(0, pos)), color);
-    };
-
-    addStop(0, colorFor(startK));
-    for (let k = startK + step; k < endK; k += step) {
-      addStop(stopPos(k), colorFor(k));
-    }
-    addStop(1, colorFor(endK));
-
-    ctx.fillStyle = grad;
-    ctx.fillRect(boxX, boxY, boxW, boxH);
-  };
-
-  // 2) Walk every liquidity level (bin) and merge its grid nodes into whole boxes
-  const binCount = data.binsCount;
-  for (let b = 0; b < binCount; b += binAggFactor) {
-    const binPrice = data.priceMin + (b + 0.5) * data.priceStep;
-
-    // Vertical span of this level (identical for every column of the level)
-    let aggYTop = 0;
-    let aggYBottom = 0;
-    let validBinCount = 0;
-    for (let sub = 0; sub < binAggFactor && b + sub < binCount; sub++) {
-      const subPrice = data.priceMin + (b + sub + 0.5) * data.priceStep;
-      const yTop = getY(subPrice + data.priceStep / 2);
-      const yBottom = getY(subPrice - data.priceStep / 2);
-      if (validBinCount === 0) {
-        aggYTop = yTop;
-        aggYBottom = yBottom;
-      } else {
-        aggYTop = Math.min(aggYTop, yTop);
-        aggYBottom = Math.max(aggYBottom, yBottom);
+      colPeakD[k] = colMax;
+      // Volume maksimum di antara sel PALING PADAT kolom ini (kandidat putih)
+      // — dinormalisasi per kolom sehingga gradasi putih/POC selalu bisa
+      // tercapai oleh sel terkuat pada waktunya, tanpa outlier frame meredupkannya.
+      let topVol = 0;
+      if (colMax > 0) {
+        const hiBlend = colMax * 0.94;
+        for (let b = 0; b < ribbonRows; b++) {
+          if (blendBuf[b] >= hiBlend && col.volume[b] > topVol) topVol = col.volume[b];
+        }
       }
-      validBinCount++;
+      colTopVol[k] = topVol;
     }
-    if (validBinCount === 0) continue;
 
-    const topY = Math.min(aggYTop, aggYBottom);
-    const bottomY = Math.max(aggYTop, aggYBottom);
-    const rawY = Math.floor(topY);
-    const rawH = Math.max(1, Math.ceil(bottomY) - rawY);
 
-    // Keep a thin vertical separation so each level stays its own distinct box
-    const gapY = rawH >= 3 ? 1.8 : (rawH >= 1.8 ? 1.2 : 0.6);
-    const boxY = rawY + gapY / 2;
-    const boxH = Math.max(0.5, rawH - gapY);
-    if (!(boxY <= mainChartHeight + 10 && boxY + boxH >= -10)) continue;
+    for (let k = 0; k < ribbonCols; k++) {
+      const col = data.matrix[drawStart + k];
+      const geo = colGeo[k];
+      if (!col || !geo) continue;
 
-    let runStartK = -1;
-    let runEndK = -1;
-    const totalK = colGeo.length;
-    for (let k = 0; k < totalK; k++) {
-      const col = data.matrix[drawStart + k * colStride];
-      let valid = false;
-      if (col && colGeo[k]) {
-        const dVal = col.density[b];
-        // Same visibility rules as the tiled grid: min density, render floor, notional filter
-        if (dVal >= minDensity && dVal >= renderFloorDensity) {
-          valid = true;
-          if (minNotional > 0) {
-            const notional = col.volume[b] * (binPrice > 100 ? binPrice : 10000);
-            if (notional < minNotional) valid = false;
+      // [v6] Cross-time continuity: nilai tetangga diblend di level DATA
+      // (kernel [1,2,1]/4) — menghasilkan transisi antar kolom yang halus tanpa
+      // filter canvas, tanpa blur, tanpa kehilangan ketajaman tepi pita.
+      const colL = k > 0 ? data.matrix[drawStart + k - 1] : null;
+      const colR = k < ribbonCols - 1 ? data.matrix[drawStart + k + 1] : null;
+      const mixD = (b: number): number => {
+        const d0 = col.density[b];
+        const dl = colL ? colL.density[b] : d0;
+        const dr = colR ? colR.density[b] : d0;
+        // Kernel tajam: tetangga hanya 22% (sebelumnya 25% dengan pusat 50%) agar
+        // aliran lintas waktu tetap ada tapi tepi kolom tetap tegas (anti-blur).
+        return dl * 0.22 + d0 * 0.56 + dr * 0.22;
+      };
+      const mixSide = (b: number): 'bid' | 'ask' => {
+        if (col.density[b] >= minDensity) return col.side[b] === 0 ? 'bid' : 'ask';
+        if (colL && colL.density[b] >= minDensity) return colL.side[b] === 0 ? 'bid' : 'ask';
+        if (colR && colR.density[b] >= minDensity) return colR.side[b] === 0 ? 'bid' : 'ask';
+        return col.side[b] === 0 ? 'bid' : 'ask';
+      };
+
+      // Bangun gradient vertikal kolom: 2 stop per bin aktif (tepi masuk & keluar),
+      // posisi stop dipetakan persis ke rentang harga bin (atas = bin tertinggi).
+      const grad = ctx.createLinearGradient(0, yTopEdge, 0, yBotEdge);
+      let last = '';
+      let stopCount = 0;
+      for (let b = 0; b < ribbonRows; b++) {
+        const dVal = mixD(b);
+        if (dVal < minDensity || dVal < renderFloorDensity) continue;
+        if (minNotional > 0) {
+          const binPrice = data.priceMin + (b + 0.5) * data.priceStep;
+          if (col.volume[b] * (binPrice > 100 ? binPrice : 10000) < minNotional) continue;
+        }
+        const side = mixSide(b);
+        // [v7 PER-LEVEL] Warna FLAT per level (tanpa efek), tetapi opacity
+        // merangkak mulus dari ribbonAlpha (level tipis) ke opacity penuh
+        // (puncak frame) sehingga SETIAP level liquidity punya gradasi opacity
+        // masing-masing. Putih/POC hanya untuk sel di area tertinggi (tier
+        // dihitung dari renderPeak); semua zona lain warna tema murni.
+        // [v7.4 SNAPSHOT-PER-TIME] Setiap kolom waktu = KONDISI LIQUIDITY SAAT
+        // ITU, dirender apa adanya tanpa pelunakan berdasarkan umur: liquidity
+        // berubah setiap waktu, sehingga warna & opacity murni mengikuti level
+        // density kolom tersebut pada waktunya (naik-turunnya liquidity tiap
+        // waktu langsung terlihat sebagai perubahan warna antar kolom).
+        const levelT = renderPeak > minDensity
+          ? Math.min(1, Math.max(0, (dVal - minDensity) / Math.max(1e-6, renderPeak - minDensity)))
+          : 0;
+        const levelAlpha = ribbonAlpha + (Math.min(1, baseOpacity) - ribbonAlpha) * Math.pow(levelT, 1.15);
+        // [v7.5 PER-TIME PEAK] Putih/POC HANYA untuk area paling padat pada
+        // waktu ini (>= 94% puncak kolom, dan kolom memiliki dinding nyata).
+        // Ketika liquidity berubah/menghilang di satu waktu, gradasi putih
+        // ikut berpindah/hilang pada waktu itu juga; volume dinormalisasi per
+        // kolom agar sel terkuat selalu menjangkau putih penuh.
+        const colPeak = colPeakD[k];
+        const accent = colPeak >= wallTierD && dVal >= colPeak * 0.94 && colTopVol[k] > 0
+          ? { hi: colPeak, top: true, volT: col.volume[b] / colTopVol[k] }
+          : undefined;
+        const rgba = levelCellColor(dVal, side, levelAlpha, accent);
+        for (let s = 0; s < 2; s++) {
+          const frac = s === 0 ? 0.02 : 0.98;             // tepi band bin
+          const pos = 1 - (b + frac) / ribbonRows;        // top -> bin tertinggi
+          if (rgba !== last) {
+            grad.addColorStop(Math.min(1, Math.max(0, pos)), rgba);
+            last = rgba;
+            stopCount++;
           }
         }
       }
+      if (stopCount === 0) continue;
 
-      if (valid) {
-        if (runStartK < 0) runStartK = k;
-        runEndK = k;
-      } else if (runStartK >= 0) {
-        flushLevelRun(runStartK, runEndK, b, boxY, boxH);
-        runStartK = -1;
-        runEndK = -1;
+      ctx.fillStyle = grad;
+      ctx.fillRect(geo.rawX, yTopEdge, geo.rawW, fieldH);
+    }
+
+  }
+
+  // -------------------------------------------------------------------------
+  // 1B. [HEATMAP v4] Liquidation Tier Heat Zones (10x/25x/50x/75x/100x)
+  // Soft full-width heat ridges injected at every leveraged liquidation pool,
+  // exactly how Hyblock/Coinglass paint liq maps: gaussian-like vertical falloff,
+  // intensity from pool notional (heatIntensity), thickness from poolWidthTicks.
+  // -------------------------------------------------------------------------
+  if (!isClean && settings.showLiquidationRadar !== false && data.liquidationRadar && data.liquidationRadar.clusters.length > 0) {
+    const userIntensity = Math.max(0.3, Math.min(3, settings.intensity || 1.35));
+    const pxPerTick = Math.max(0.8, smoothedBinPx * (data.liquidationRadar.tickSize / Math.max(1e-9, data.priceStep)));
+    const baseOpacity = settings.opacity ?? 0.95;
+
+    // [HEATMAP v4 GRADED ZONES] Sort so S-grade pools paint last (stay on top) and
+    // old/weak zones render first underneath. Every visual axis below is derived from
+    // the cluster's time-aware grade: fresh & heavy zones blaze with crisp edges and
+    // filament cores, aged zones fade into ghost memory of where liquidity once sat.
+    const GRADE_PASS_ORDER: Record<string, number> = { C: 0, B: 1, A: 2, S: 3 };
+    const GRADE_ALPHA_MULT: Record<string, number> = { S: 1.0, A: 0.84, B: 0.66, C: 0.5 };
+    const GRADE_WIDTH_MULT: Record<string, number> = { S: 1.16, A: 1.0, B: 0.86, C: 0.74 };
+    const GRADE_EDGE_ALPHA: Record<string, number> = { S: 0.5, A: 0.3, B: 0.16, C: 0.1 };
+    const gradeStats: Record<string, { count: number; heatSum: number }> = {
+      S: { count: 0, heatSum: 0 }, A: { count: 0, heatSum: 0 },
+      B: { count: 0, heatSum: 0 }, C: { count: 0, heatSum: 0 },
+    };
+
+    const sortedZones = [...data.liquidationRadar.clusters].sort((a, b) => {
+      const pa = GRADE_PASS_ORDER[a.visualGrade || 'C'] ?? 1;
+      const pb = GRADE_PASS_ORDER[b.visualGrade || 'C'] ?? 1;
+      return pa - pb;
+    });
+
+    // [v7.1] Hanya zona LIQUIDITY PALING panas (>= 95% max heat frame) yang
+    // berhak memakai gradasi putih/POC; semua zona lain murni warna tema.
+    const zoneHeatOf = (zone: (typeof sortedZones)[number]): number => {
+      const rw = Math.max(0.25, Math.min(1, zone.recencyWeight || 0.5));
+      return Math.max(0.08, Math.min(1, (zone.effectiveIntensity || zone.heatIntensity || 0.3) * 1.6 * (userIntensity / 1.35) * (zone.isImminent ? 1.25 : 1) * (0.9 + 0.1 * rw)));
+    };
+    let maxZoneHeat = 0;
+    for (const z of sortedZones) {
+      const h = zoneHeatOf(z);
+      if (h > maxZoneHeat) maxZoneHeat = h;
+    }
+
+    for (const zone of sortedZones) {
+      const zy = getY(zone.price);
+      if (zy < -30 || zy > mainChartHeight + 30) continue;
+
+      const grade = zone.visualGrade || 'C';
+      const gradeColor = zone.gradeColor || CLUSTER_GRADE_COLORS[grade];
+      const recencyW = Math.max(0.25, Math.min(1, zone.recencyWeight || 0.5));
+      const ageFrac = Math.max(0, Math.min(1, zone.ageFraction || 0));
+
+      const poolPx = Math.max(3, Math.min(smoothedBinPx * 6, (zone.poolWidthTicks || 4) * pxPerTick)) * (GRADE_WIDTH_MULT[grade] ?? 1);
+      // Time-true heat: raw notional density fused with recency decay + imminent boost.
+      // A stale 50x pool must never outshine a fresh 50x pool at the same notional.
+      const zoneHeat = zoneHeatOf(zone);
+
+      const side: 'bid' | 'ask' = zone.side === 'long_liq' ? 'bid' : 'ask';
+      const gAlpha = Math.max(0.05, Math.min(1, baseOpacity * (GRADE_ALPHA_MULT[grade] ?? 0.7)));
+      const zoneAccent = maxZoneHeat > 0 && zoneHeat >= maxZoneHeat * 0.95
+        ? { hi: zoneHeat, top: true, volT: zoneHeat / maxZoneHeat }
+        : undefined;
+
+      // Vertical gaussian-like falloff: 5 sampled density stops across the ridge
+      const grad = ctx.createLinearGradient(0, zy - poolPx, 0, zy + poolPx);
+      const profile = [0.28, 0.62, 1.0, 0.62, 0.28];
+      for (let s = 0; s < profile.length; s++) {
+        const d = zoneHeat * profile[s];
+        grad.addColorStop(s / (profile.length - 1), levelCellColor(d, side, gAlpha, zoneAccent));
+      }
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, zy - poolPx, effectiveChartWidth, poolPx * 2);
+
+      // Grade edge guide rails: crisp for fresh S/A pools, faint rails for aging ones
+      if (zoneHeat >= 0.14) {
+        const edgeAlpha = GRADE_EDGE_ALPHA[grade] ?? 0.12;
+        ctx.fillStyle = hexToRgbAlpha(gradeColor, Math.min(0.85, edgeAlpha * (0.85 + 0.15 * recencyW)));
+        ctx.fillRect(0, zy - poolPx, effectiveChartWidth, 1);
+        ctx.fillRect(0, zy + poolPx - 1, effectiveChartWidth, 1);
+      }
+
+      // Hot core filament for imminent pools (cascade about to trigger)
+      if (zone.isImminent && zoneHeat >= 0.35) {
+        const coreH = Math.max(1.5, poolPx * 0.28);
+        const coreGrad = ctx.createLinearGradient(0, zy - coreH, 0, zy + coreH);
+        const coreCol = getBookmapThemeColor(Math.min(1, zoneHeat * 1.35), side, settings.colorMode, palette, baseOpacity, zoneAccent ? 'poc' : 'pure', zoneHeat);
+        coreGrad.addColorStop(0, 'rgba(0,0,0,0)');
+        coreGrad.addColorStop(0.5, coreCol);
+        coreGrad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = coreGrad;
+        ctx.fillRect(0, zy - coreH, effectiveChartWidth, coreH * 2);
+      }
+
+      // Per-grade on-chart time badge (S/A/B/C + age phase). Kept for alive pools so
+      // stale grade-C ghosts do not clutter the price action.
+      if (!isClean && zoneHeat >= 0.2 && ageFrac < 0.92) {
+        const ageLabel = zone.gradeLabel || (ageFrac < 0.34 ? 'AKTIF' : 'MENUA');
+        drawGradeBadge(effectiveChartWidth - 4, zy - poolPx, grade, ageLabel, baseOpacity);
+      }
+
+      const st = gradeStats[grade];
+      if (st) { st.count++; st.heatSum += zoneHeat; }
+    }
+
+    // Grade legend strip (top-right, under the last price): counts + avg heat per grade
+    if (!isClean && gradeStats.S.count + gradeStats.A.count + gradeStats.B.count + gradeStats.C.count > 0) {
+      const legendItems: ('S' | 'A' | 'B' | 'C')[] = ['S', 'A', 'B', 'C'];
+      ctx.font = 'bold 7.5px monospace';
+      const chipH = 12;
+      let legendY = 22;
+      for (const g of legendItems) {
+        const st = gradeStats[g];
+        if (!st || st.count === 0) continue;
+        const avgHeat = st.count > 0 ? st.heatSum / st.count : 0;
+        const label = `${g}×${st.count}`;
+        const heatTxt = `${Math.round(avgHeat * 100)}%`;
+        const chipW = 14 + ctx.measureText(label).width + 20;
+        const cx = effectiveChartWidth - chipW - 6;
+        ctx.fillStyle = 'rgba(6, 9, 19, 0.72)';
+        ctx.beginPath();
+        if (typeof (ctx as any).roundRect === 'function') (ctx as any).roundRect(cx, legendY, chipW, chipH, 3);
+        else ctx.rect(cx, legendY, chipW, chipH);
+        ctx.fill();
+        ctx.strokeStyle = hexToRgbAlpha(CLUSTER_GRADE_COLORS[g], 0.75);
+        ctx.lineWidth = 0.9;
+        ctx.stroke();
+        ctx.fillStyle = CLUSTER_GRADE_COLORS[g];
+        ctx.textAlign = 'left';
+        ctx.fillText(label, cx + 4, legendY + 9);
+        ctx.fillStyle = 'rgba(226, 232, 240, 0.85)';
+        ctx.fillText(heatTxt, cx + chipW - 18, legendY + 9);
+        legendY += chipH + 3;
       }
     }
-    if (runStartK >= 0) flushLevelRun(runStartK, runEndK, b, boxY, boxH);
   }
 
   // Final reset of composite operations
   ctx.globalCompositeOperation = 'source-over';
+
+  // -------------------------------------------------------------------------
+  // 1C. [HEATMAP v4 GRADED ZONES] Time-Grade Badge (S/A/B/C by cluster age & heat)
+  // Labels the grade directly on the chart next to each zone so the trader can
+  // read "how alive" the pool is right now, matching the radar chip grading.
+  // -------------------------------------------------------------------------
+  function drawGradeBadge(
+    x: number,
+    y: number,
+    grade: 'S' | 'A' | 'B' | 'C',
+    ageLabel: string | null,
+    labelAlpha: number
+  ): void {
+    const gColor = CLUSTER_GRADE_COLORS[grade];
+    const text = grade;
+    ctx.font = 'bold 7.5px monospace';
+    const ageW = ageLabel ? ctx.measureText(ageLabel).width : 0;
+    const gradeW = ctx.measureText(text).width;
+    const badgeW = gradeW + 6 + (ageLabel ? ageW + 8 : 0);
+    const badgeH = 11;
+    const bx = Math.max(2, Math.min(effectiveChartWidth - badgeW - 2, x));
+    const by = Math.max(2, y - badgeH - 1);
+    ctx.globalAlpha = Math.max(0.3, Math.min(1, labelAlpha));
+    ctx.fillStyle = 'rgba(6, 9, 19, 0.78)';
+    ctx.beginPath();
+    if (typeof (ctx as any).roundRect === 'function') (ctx as any).roundRect(bx, by, badgeW, badgeH, 2.5);
+    else ctx.rect(bx, by, badgeW, badgeH);
+    ctx.fill();
+    ctx.strokeStyle = gColor;
+    ctx.lineWidth = 0.9;
+    ctx.stroke();
+    ctx.fillStyle = gColor;
+    ctx.fillText(text, bx + 3, by + 8);
+    if (ageLabel) {
+      ctx.font = '6.5px monospace';
+      ctx.fillStyle = 'rgba(226, 232, 240, 0.82)';
+      ctx.fillText(ageLabel, bx + gradeW + 6, by + 8);
+    }
+    ctx.globalAlpha = 1;
+  }
 
   // -------------------------------------------------------------------------
   // 2. Continuous Resting Limit Order Wall Rays (Bypassed - Box Grid Mode Active)
