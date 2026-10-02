@@ -1570,18 +1570,29 @@ export function calculateLiquidityHeatmap(
   let historyMin = Infinity;
   let historyMax = -Infinity;
   let totalVol = 0;
+  // [v8 STABLE NORMALIZATION] Volume bar LIVE (2 terakhir) TIDAK ikut di
+  // rata-rata referensi: volumenya berubah setiap tick sehingga minDepth /
+  // maxDepth ikut bergeser dan SELURUH warna history ikut berubahalthough
+  // datanya tidak. Yang dihitung hanya bar yang sudah tutup.
+  let closedVol = 0;
 
   for (let i = startIndex; i < candles.length; i++) {
     const c = candles[i];
     if (c.low < historyMin) historyMin = c.low;
     if (c.high > historyMax) historyMax = c.high;
     totalVol += c.volume;
+    if (i < candles.length - 2) closedVol += c.volume;
   }
 
   if (!Number.isFinite(historyMin) || historyMin <= 0) historyMin = currentPrice * 0.95;
   if (!Number.isFinite(historyMax) || historyMax <= 0) historyMax = currentPrice * 1.05;
 
-  const avgVol = totalVol / Math.max(1, candles.length - startIndex) || 1000;
+  // [v8] Referensi volume dibekukan: hanya bar tertutup, lalu di-quantize ke 4
+  // digit signifikan supaya referensinya tidak merambat sedikit demi sedikit.
+  const refCount = Math.max(1, candles.length - 2 - startIndex);
+  const rawAvgVol = (closedVol > 0 ? closedVol : totalVol) / refCount || 1000;
+  const refMag = Math.pow(10, Math.max(0, Math.floor(Math.log10(Math.max(1e-9, rawAvgVol))) - 3));
+  const avgVol = Math.max(1e-9, Math.round(rawAvgVol / refMag) * refMag);
 
   // Non-repainting stable price grid: anchor boundaries to history span with a safety margin
   const fullPriceSpan = Math.max(currentPrice * 0.04, historyMax - historyMin);
@@ -1605,9 +1616,48 @@ export function calculateLiquidityHeatmap(
 
   const priceStep = Math.max(Math.pow(10, -priceDecimals), snappedStep);
 
+  // [v8 STICKY PRICE GRID] Jaring harga tidak lagi digeser ulang dari history
+  // setiap tick. Grid yang sedang dipakai DIPERTAHANKAN selama harga masih di
+  // dalamnya dan hanya diperluas satu langkah saat harga keluar. Tanpa ini,
+  // setiap candle yang membuat high/low baru menggeser seluruh bin sehingga
+  // semua zona history berubah warna meski pergeserannya cuma satu langkah.
+  const gridAnchorTime = candles[0]?.time ?? 0;
+  let sticky = __heatGrid;
+  if (!sticky || sticky.step !== priceStep || sticky.anchorTime !== gridAnchorTime) {
+    const freshMin = Math.floor(rawPriceMin / priceStep) * priceStep;
+    sticky = {
+      anchorTime: gridAnchorTime,
+      step: priceStep,
+      min: freshMin,
+      count: Math.max(24, Math.ceil((rawPriceMax - freshMin) / priceStep) + 2),
+    };
+    __heatGrid = sticky;
+  } else {
+    const stickyMax = sticky.min + sticky.count * priceStep;
+    const needSpan = Math.max(rawPriceMax - sticky.min, sticky.min - rawPriceMin);
+    const stickySpan = sticky.count * priceStep;
+    if (needSpan > stickySpan * 3 + priceStep * 4) {
+      // Jaring lama tidak relevan untuk rentang data ini -> bangun ulang.
+      const freshMin = Math.floor(rawPriceMin / priceStep) * priceStep;
+      sticky.min = freshMin;
+      sticky.count = Math.max(24, Math.ceil((rawPriceMax - freshMin) / priceStep) + 2);
+    } else {
+      if (rawPriceMin < sticky.min) {
+        const grow = Math.ceil((sticky.min - rawPriceMin) / priceStep);
+        sticky.min -= grow * priceStep;
+        sticky.count += grow;
+      }
+      if (rawPriceMax > stickyMax) {
+        sticky.count = Math.ceil((rawPriceMax - sticky.min) / priceStep) + 2;
+      }
+    }
+    if (sticky.count > HEAT_GRID_MAX_BINS) sticky.count = HEAT_GRID_MAX_BINS;
+    if (sticky.count < 24) sticky.count = 24;
+  }
+
   // Snap priceMin to an exact multiple of priceStep so the heatmap grid NEVER shifts sub-tick
-  const priceMin = Math.floor(rawPriceMin / priceStep) * priceStep;
-  const binsCount = Math.ceil((rawPriceMax - priceMin) / priceStep) + 2;
+  const priceMin = sticky.min;
+  const binsCount = sticky.count;
   const priceMax = priceMin + binsCount * priceStep;
 
   // Calculate Liquidation Radar HUD metrics (with active timeframe mode)
@@ -2099,12 +2149,59 @@ export function calculateLiquidityHeatmap(
   const minDepth = avgVol * 0.18;
   const maxDepth = avgVol * 4.2;
 
+  // [v8 FROZEN HISTORY] Bar historis mengambil ulang snapshot volume/density/
+  // side miliknya sendiri, jadi matriks yang dirender untuk bar lama identik
+  // selamanya. Bar fingerprint invalidated hanya bila grid harga, referensi
+  // volume, atau setting yang memengaruhi matriks berubah.
+  const barSnapshotSig = [
+    binsCount,
+    priceMin.toFixed(Math.min(8, priceDecimals + 2)),
+    priceStep,
+    avgVol,
+    settings.intensity,
+    settings.depthBins,
+    settings.showSpoofingAndIceberg ? 1 : 0,
+    gridAnchorTime,
+  ].join('|');
+  const liveFrom = Math.max(0, candles.length - 2);
+
   for (let i = 0; i < matrix.length; i++) {
     const col = matrix[i];
+    const barIdx = startIndex + i;
+    const isLiveBar = barIdx >= liveFrom;
+    const barCandle = candles[barIdx];
+    const barTime = barCandle ? barCandle.time : -1;
+
+    if (!isLiveBar && barTime >= 0) {
+      const snap = HEAT_BAR_SNAPSHOT_CACHE.get(barTime);
+      if (snap && snap.sig === barSnapshotSig) {
+        col.volume.set(snap.volume);
+        col.density.set(snap.density);
+        col.side.set(snap.side);
+        continue;
+      }
+    }
+
     for (let b = 0; b < binsCount; b++) {
       const v = col.volume[b];
       const norm = Math.max(0, Math.min(1.0, (v - minDepth) / (maxDepth - minDepth)));
       col.density[b] = Math.min(1.0, Math.pow(norm, 0.88) * settings.intensity);
+    }
+
+    if (!isLiveBar && barTime >= 0) {
+      if (HEAT_BAR_SNAPSHOT_CACHE.size >= HEAT_BAR_SNAPSHOT_MAX) {
+        let toDrop = HEAT_BAR_SNAPSHOT_CACHE.size - Math.floor(HEAT_BAR_SNAPSHOT_MAX * 0.8);
+        for (const key of HEAT_BAR_SNAPSHOT_CACHE.keys()) {
+          HEAT_BAR_SNAPSHOT_CACHE.delete(key);
+          if (--toDrop <= 0) break;
+        }
+      }
+      HEAT_BAR_SNAPSHOT_CACHE.set(barTime, {
+        sig: barSnapshotSig,
+        density: col.density.slice(),
+        volume: col.volume.slice(),
+        side: col.side.slice(),
+      });
     }
   }
 
@@ -3367,32 +3464,43 @@ export function calculateLiquidationCascadeRadar(
     };
   }
 
+  // ---------- [v8 STABLE HEAT REFERENCE] -------------------------------------
+  // Semua besaran yang menentukan WARNA zona (ATR%, relative volume, momentum
+  // base, umur pool) dihitung dari bar yang sudah TUTUP serta dari harga acuan
+  // beku. Bar live & currentPrice tetap dipakai untuk POSISI pool saja.
+  // Sebelumnya umur pool memakai (len - 1) yang bertambah tiap tick sehingga
+  // recencyWeight -> effectiveIntensity -> warna zona memudar terus-menerus
+  // saat harga bergerak, walau pool-nya tidak berubah sama sekali.
+  const closedLen = Math.max(1, len - 1);
+  const refCandle = recent[closedLen - 1];
+  const priceRef = refCandle && refCandle.close > 0 ? refCandle.close : currentPrice;
+
   // ---------- [B] ATR(14) true-range mean & relative volume weighting inputs ----------
-  const atrWindow = Math.min(14, len);
+  const atrWindow = Math.min(14, closedLen);
   let atrSum = 0;
-  for (let k = len - atrWindow; k < len; k++) {
+  for (let k = closedLen - atrWindow; k < closedLen; k++) {
     const c = recent[k];
     const prevClose = k > 0 ? recent[k - 1].close : c.open;
     atrSum += Math.max(c.high - c.low, Math.abs(c.high - prevClose), Math.abs(c.low - prevClose));
   }
   const atr14 = Math.max(tickSize, atrSum / Math.max(1, atrWindow));
-  const atrPct = (atr14 / currentPrice) * 100;
+  const atrPct = (atr14 / priceRef) * 100;
 
-  // Relative volume: last bar vs SMA-20 volume (normalized 0.4 - 2.5)
-  const rvWindow = Math.min(20, len - 1);
+  // Relative volume: last CLOSED bar vs SMA-20 volume (normalized 0.4 - 2.5)
+  const rvWindow = Math.min(20, closedLen - 1);
   let rvSum = 0;
-  for (let k = len - 1 - rvWindow; k < len - 1; k++) rvSum += recent[k].volume;
-  const lastVol = recent[len - 1].volume || avgVol;
+  for (let k = closedLen - 1 - rvWindow; k < closedLen - 1; k++) rvSum += recent[k].volume;
+  const lastVol = (refCandle && refCandle.volume) || avgVol;
   const smaVol = rvWindow > 0 ? rvSum / rvWindow : Math.max(1, avgVol);
   const relVolume = Math.max(0.4, Math.min(2.5, lastVol / Math.max(1e-9, smaVol || avgVol || 1)));
 
   // ---------- [C] Base accumulation momentum model (institutional position building) ----------
   // A longer, greener base traps more retail positions per tier -> bigger liquidation fuel.
-  const baseAccWindow = Math.min(12, len);
+  const baseAccWindow = Math.min(12, closedLen);
   let baseBars = 0;
   let baseVol = 0;
   let greenVol = 0;
-  for (let k = len - baseAccWindow; k < len; k++) {
+  for (let k = closedLen - baseAccWindow; k < closedLen; k++) {
     const c = recent[k];
     baseBars++;
     baseVol += c.volume;
@@ -3407,17 +3515,20 @@ export function calculateLiquidationCascadeRadar(
     greenRatio >= 0.58 ? 'accumulation' : greenRatio <= 0.42 ? 'distribution' : 'neutral';
 
   // ---------- [D] Multi-pivot lookbacks (ST / MT / LT / Session anchors) ----------
-  const stLen = Math.max(3, Math.min(len, Math.round(lookbackBars * 0.35)));
-  const mtLen = Math.max(5, Math.min(len, Math.round(lookbackBars * 0.65)));
+  // [v8] Jangkar struktural dihitung dari bar TERAKHIR YANG SUDAH TUTUP. Pivot
+  // yang ikut bergerak bersama bar live membuat grade & confidence (dan berarti
+  // warna zona) ikut berubah-ubah setiap kali harga bergerak.
+  const stLen = Math.max(3, Math.min(closedLen, Math.round(lookbackBars * 0.35)));
+  const mtLen = Math.max(5, Math.min(closedLen, Math.round(lookbackBars * 0.65)));
 
   let stH = -Infinity, stL = Infinity;
   let mtH = -Infinity, mtL = Infinity;
   let ltH = -Infinity, ltL = Infinity;
-  for (let k = 0; k < len; k++) {
+  for (let k = 0; k < closedLen; k++) {
     const h = recent[k].high;
     const l = recent[k].low;
-    if (k >= len - stLen) { if (h > stH) stH = h; if (l < stL) stL = l; }
-    if (k >= len - mtLen) { if (h > mtH) mtH = h; if (l < mtL) mtL = l; }
+    if (k >= closedLen - stLen) { if (h > stH) stH = h; if (l < stL) stL = l; }
+    if (k >= closedLen - mtLen) { if (h > mtH) mtH = h; if (l < mtL) mtL = l; }
     if (h > ltH) ltH = h;
     if (l < ltL) ltL = l;
   }
@@ -3523,14 +3634,16 @@ export function calculateLiquidationCascadeRadar(
     // The pool's resting order mass ages with the market: a fresh pivot anchor means
     // untouched stops still stacked there, while an old anchor has likely been swept,
     // retraced or consumed. We anchor the age to the bar index of the pivot print.
+    // [v8] Jangkar umur diukur terhadap bar TERAKHIR YANG SUDAH TUTUP. Dengan
+    // begitu umur pool tidak bertambah pada setiap tick dan grading S/A/B/C-nya
+    // benar-benar beku di antara pembukaan bar baru.
     const anchorBarIndex = (() => {
-      const searchLen = recent.length;
-      for (let b = searchLen - 1; b >= 0; b--) {
+      for (let b = closedLen - 1; b >= 0; b--) {
         if (isShort ? recent[b].high >= pivotPrice : recent[b].low <= pivotPrice) return b;
       }
-      return searchLen - 1;
+      return closedLen - 1;
     })();
-    const barsSinceAnchor = Math.max(0, (len - 1) - anchorBarIndex);
+    const barsSinceAnchor = Math.max(0, (closedLen - 1) - anchorBarIndex);
 
     const gradeHalfLifeBars = isTickMode
       ? (timeframeMode === 'tick' ? 6 : timeframeMode === '10t' ? 10 : timeframeMode === '50t' ? 18 : 26)
@@ -4111,6 +4224,109 @@ export class LabelCollisionManager {
 /**
  * 100% Seamless Canvas Renderer for Liquidity Heatmap, HUD & Order Flow Matrix
  */
+/* ===========================================================================
+ * [v8 RENDER EFFICIENCY] Device-local scratch buffers + per-column bitmap cache
+ * ---------------------------------------------------------------------------
+ * Dua masalah yang diselesaikan di sini:
+ *
+ * 1) WARNA HISTORY BERUBAH-UBAH. Sebelumnya skala warna (wall tier + level
+ *    normalisasi opacity) dihitung dari PUNCAK FRAME GLOBAL. Setiap kali bar
+ *    live tumbuh, seluruh kolom yang terlihat dihitung ulang dengan peak yang
+ *    berbeda sehingga pita pada bar lama ikut bergeser warna. Sekarang skala
+ *    warna dihitung PER KOLOM dari data kolom itu sendiri -> beku.
+ *
+ * 2) RENDER MAHAL. Setiap kolom hanya perlu dihitung SEKALI. Hasil kolom yang
+ *    sudah jadi disimpan sebagai strip offscreen kecil (lebar <10px x tinggi
+ *    chart). Frame berikutnya cukup `drawImage` 1:1 - tanpa gradient, tanpa
+ *    addColorStop, tanpa lookup warna, tanpa alokasi per frame.
+ * =========================================================================== */
+
+interface HeatStripEntry {
+  canvas: HTMLCanvasElement;
+  sctx: CanvasRenderingContext2D;
+  w: number;
+  h: number;
+  sig: number;
+}
+
+const HEAT_STRIP_CACHE = new Map<number, HeatStripEntry>();
+const HEAT_STRIP_CACHE_MAX = 640;
+
+interface HeatGeoBuffers {
+  xs: Float32Array;
+  x: Float32Array;
+  w: Float32Array;
+  ok: Uint8Array;
+}
+
+let __heatGeo: HeatGeoBuffers | null = null;
+function ensureHeatGeoBuffers(n: number): HeatGeoBuffers {
+  if (!__heatGeo || __heatGeo.xs.length < n) {
+    const size = Math.max(64, n, __heatGeo ? __heatGeo.xs.length * 2 : 0);
+    __heatGeo = {
+      xs: new Float32Array(size),
+      x: new Float32Array(size),
+      w: new Float32Array(size),
+      ok: new Uint8Array(size),
+    };
+  }
+  return __heatGeo;
+}
+
+let __heatColPeak = new Float32Array(0);
+let __heatColTopVol = new Float64Array(0);
+let __heatBlend = new Float32Array(0);
+
+function ensureHeatScratch(cols: number, rows: number): void {
+  if (__heatColPeak.length < cols) {
+    const size = Math.max(64, cols, __heatColPeak.length * 2);
+    __heatColPeak = new Float32Array(size);
+    __heatColTopVol = new Float64Array(size);
+  }
+  if (__heatBlend.length < rows) {
+    const size = Math.max(64, rows, __heatBlend.length * 2);
+    __heatBlend = new Float32Array(size);
+  }
+}
+
+function evictHeatStripCache(): void {
+  let toDrop = HEAT_STRIP_CACHE.size - Math.floor(HEAT_STRIP_CACHE_MAX * 0.7);
+  if (toDrop <= 0) return;
+  for (const key of HEAT_STRIP_CACHE.keys()) {
+    HEAT_STRIP_CACHE.delete(key);
+    if (--toDrop <= 0) break;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// [v8 STICKY PRICE GRID] Jaring harga tidak lagi dibangun ulang dari history
+// setiap tick. Grid aktif dipertahankan selama harga masih di dalamnya.
+// ---------------------------------------------------------------------------
+let __heatGrid: { anchorTime: number; step: number; min: number; count: number } | null = null;
+const HEAT_GRID_MAX_BINS = 512;
+
+// ---------------------------------------------------------------------------
+// [v8 FROZEN BAR SNAPSHOT] Volume/density/side milik setiap bar historis
+// disimpan apa adanya. Ketika matriks dibangun ulang (tiap tick), bar lama
+// mengambil ulang snapshot-nya sehingga SELURUH history benar-benar tidak
+// pernah dihitung ulang - hanya 2 bar terakhir (live) yang berubah.
+// ---------------------------------------------------------------------------
+interface HeatBarSnapshot {
+  sig: string;
+  density: Float32Array;
+  volume: Float32Array;
+  side: Uint8Array;
+}
+const HEAT_BAR_SNAPSHOT_CACHE = new Map<number, HeatBarSnapshot>();
+const HEAT_BAR_SNAPSHOT_MAX = 3400;
+
+let __sharedLabelMgr: LabelCollisionManager | null = null;
+function borrowLabelCollisionManager(): LabelCollisionManager {
+  if (!__sharedLabelMgr) __sharedLabelMgr = new LabelCollisionManager();
+  else __sharedLabelMgr.clear();
+  return __sharedLabelMgr;
+}
+
 export function renderLiquidityHeatmapLayer({
   ctx,
   data,
@@ -4212,8 +4428,9 @@ export function renderLiquidityHeatmapLayer({
   ctx.rect(0, 0, chartWidth, mainChartHeight);
   ctx.clip();
 
-  // Initialize Spatial Label Collision Manager to guarantee zero overlap across indicators
-  const labelManager = new LabelCollisionManager();
+  // Spatial Label Collision Manager - instance di-pin & di-reset tiap frame
+  // (bukan dialokasikan ulang) untuk mengurangi garbage collector pressure.
+  const labelManager = borrowLabelCollisionManager();
 
   // Evaluate Dynamic Level of Detail (LOD) Profile based on zoom, device tier & frame timings
   const visibleCandleCount = Math.max(1, endIndex - startIndex);
@@ -4260,20 +4477,14 @@ export function renderLiquidityHeatmapLayer({
   // full color punch instead of being dimmed by the 0.72 contrast exponent.
   const WALL_BOOST_DENSITY = 0.62;
 
-  // [v6.3 RELATIVE WALL TIER] Skala density absolut berbeda tiap simbol/timeframe
-  // (ladder avgVol*0.18..*4.2), sehingga threshold absolut 0.62 sering tak tersentuh
-  // dan zona TERPADAT tidak pernah tampil beda. Kita ukur puncak density frame yang
-  // terlihat, lalu wall tier = 72% dari puncak tersebut (floor 0.42) — dipastikan
-  // area likuiditas paling padat SELALU menerima warna hot + opacity penuh.
-  let framePeak = 0;
-  for (let i = drawStart; i <= drawEnd; i++) {
-    const col = data.matrix[i];
-    if (!col) continue;
-    for (let b = 0; b < data.binsCount; b++) {
-      if (col.density[b] > framePeak) framePeak = col.density[b];
-    }
-  }
-  const wallTierD = Math.min(0.85, Math.max(0.42, framePeak * 0.72));
+  // [v8 RELATIVE WALL TIER - PER COLUMN] Skala density absolut berbeda tiap
+  // simbol/timeframe, sehingga wall tier TIDAK lagi diambil dari puncak frame
+  // GLOBAL: dulu, begitu bar live tumbuh, seluruh bar history ikut dihitung
+  // ulang dengan peak berbeda sehingga warnanya ikut berubah-ubah.
+  // Sekarang setiap kolom waktu memakai tier sendiri = 72% dari puncak kolom
+  // tersebut (dibatasi 0.42..0.85). Konsekuensi:
+  //   - kolom history deterministik: warnanya tidak pernah berubah lagi,
+  //   - satu pass penuh di atas seluruh matriks per frame HILANG.
 
   // [v7.5 PER-TIME PEAK] "Area liquidity tertinggi" = puncak tiap kolom waktu
   // (dihitung per-time di pre-pass) — hanya sel paling padat PADA WAKTU ITU
@@ -4284,10 +4495,12 @@ export function renderLiquidityHeatmapLayer({
     densityVal: number,
     side: 'bid' | 'ask',
     baseOpacity: number,
+    wallTier: number,
     accent?: { hi: number; top: boolean; volT: number }
   ): string => {
     const clamped = Math.min(1.0, Math.max(0.0, densityVal));
-    if (accent && accent.top && clamped >= wallTierD * 0.94) {
+    const wallGate = wallTier * 0.94;
+    if (accent && accent.top && clamped >= wallGate) {
       // Area tertinggi DI WAKTU INI. Gate volume berjenjang (smoothstep
       // 0.80 -> 1.00): hanya sel yang mendekati volume puncak kolomnya yang
       // mulai naik ke arah putih. Density TIDAK cukup sendiri karena density
@@ -4295,15 +4508,15 @@ export function renderLiquidityHeatmapLayer({
       // SELURUH dinding memutih. Di bawah gate, push tetap berada di region
       // flat 0.55-0.82 = warna tema murni (tanpa putih), sehingga non-top
       // area di kolom manapun tidak pernah memutih.
-      const hi = Math.max(wallTierD * 0.94 + 1e-4, accent.hi);
-      const densityT = Math.min(1, Math.max(0, (clamped - wallTierD * 0.94) / (hi - wallTierD * 0.94)));
+      const hi = Math.max(wallGate + 1e-4, accent.hi);
+      const densityT = Math.min(1, Math.max(0, (clamped - wallGate) / (hi - wallGate)));
       const volT = Math.min(1, Math.max(0, accent.volT));
       const wt = Math.min(1, Math.max(0, (volT - 0.80) / 0.20));
       const t = Math.min(1, Math.max(0, 0.45 * densityT + 0.55 * wt));
       const push = 0.55 + 0.45 * t;
       return getBookmapThemeColor(Math.min(1, push), side, settings.colorMode, palette, baseOpacity, 'poc', clamped);
     }
-    if (clamped >= wallTierD) {
+    if (clamped >= wallTier) {
       // Wall biasa (di luar area tertinggi): warna tema murni, sedikit terangkat,
       // TANPA putih — kontras datang dari opacity per level, bukan dari putih.
       return getBookmapThemeColor(Math.min(0.97, clamped * 1.10), side, settings.colorMode, palette, baseOpacity, 'pure', clamped);
@@ -4312,43 +4525,45 @@ export function renderLiquidityHeatmapLayer({
     return getBookmapThemeColor(highContrastDensity, side, settings.colorMode, palette, baseOpacity, 'pure', clamped);
   };
 
-  // 1) Precompute exact horizontal geometry for every visible column (once)
-  const colGeo: ({ rawX: number; rawW: number } | null)[] = [];
+  // 1) Precompute exact horizontal geometry for every visible column (once).
+  // [v8 PERF] getX dipanggil SEKALI per kolom (hasilnya dipakai ulang untuk tepi
+  // kiri & kanan) dan disimpan di buffer reusable -> tidak ada objek baru per
+  // kolom per frame, dan getX tidak lagi dipanggil 2-3x per kolom.
+  const ribbonCols = Math.max(0, drawEnd - drawStart + 1);
+  const geoBuf = ensureHeatGeoBuffers(ribbonCols);
   for (let i = drawStart; i <= drawEnd; i++) {
-    const globalIdx = i + (data.startIndexOffset || 0);
-    const endGlobalIdx = globalIdx;
-    const currentX = getX(globalIdx);
-    const nextGroupX = getX(endGlobalIdx);
+    geoBuf.xs[i - drawStart] = getX(i + (data.startIndexOffset || 0));
+  }
+  for (let i = drawStart; i <= drawEnd; i++) {
+    const k = i - drawStart;
+    const currentX = geoBuf.xs[k];
     let xLeft: number;
     let xRight: number;
 
     if (i === 0) {
-      const nextX = numCols > 1 ? getX(globalIdx + 1) : currentX + candleWidth;
-      const barSpacing = Math.abs(nextX - currentX);
+      const barSpacing = numCols > 1 ? Math.abs(geoBuf.xs[k + 1] - currentX) : candleWidth;
       xLeft = currentX - barSpacing / 2;
-      xRight = nextGroupX + barSpacing / 2;
+      xRight = currentX + barSpacing / 2;
     } else if (i >= numCols - 1) {
-      const prevX = getX(globalIdx - 1);
-      const barSpacing = Math.abs(currentX - prevX);
+      const barSpacing = Math.abs(currentX - geoBuf.xs[k - 1]);
       xLeft = currentX - barSpacing / 2;
-      xRight = nextGroupX + barSpacing / 2;
+      xRight = currentX + barSpacing / 2;
     } else {
-      const prevX = getX(globalIdx - 1);
-      const nextX = getX(endGlobalIdx + 1);
-      xLeft = (prevX + currentX) / 2;
-      xRight = (nextGroupX + nextX) / 2;
+      xLeft = (geoBuf.xs[k - 1] + currentX) / 2;
+      xRight = (currentX + geoBuf.xs[k + 1]) / 2;
     }
 
     const startX = Math.max(chartStartX, xLeft);
     const endX = Math.min(effectiveChartWidth, xRight);
     if (endX <= 0 || startX >= effectiveChartWidth) {
-      colGeo.push(null);
+      geoBuf.ok[k] = 0;
       continue;
     }
 
     const rawX = Math.floor(startX);
-    const rawW = Math.max(1, Math.ceil(endX) - rawX);
-    colGeo.push({ rawX, rawW });
+    geoBuf.x[k] = rawX;
+    geoBuf.w[k] = Math.max(1, Math.ceil(endX) - rawX);
+    geoBuf.ok[k] = 1;
   }
 
   // -------------------------------------------------------------------------
@@ -4359,7 +4574,6 @@ export function renderLiquidityHeatmapLayer({
   // di level nilai (bukan piksel) sehingga panas mengalir mulus lintas sumbu
   // waktu & harga, sementara setiap tepi gradient tetap pixel-crisp (zero filter).
   // -------------------------------------------------------------------------
-  const ribbonCols = colGeo.length;
   const ribbonRows = data.binsCount;
 
   if (ribbonCols > 0 && ribbonRows > 0) {
@@ -4370,117 +4584,194 @@ export function renderLiquidityHeatmapLayer({
     const yBotEdge = getY(data.priceMin);
     const fieldH = Math.max(1, yBotEdge - yTopEdge);
 
-    const withAlpha = (rgba: string, a: number): string => rgba.replace(/[\d.]+\)$/, `${a})`);
+    // [v8] Strip offscreen dirender pada tinggi BUCKET, bukan tinggi piksel
+    // viewport yang presisi. Tinggi viewport bergeser sedikit setiap harga
+    // bergerak; kalau ikut jadi signature, seluruh cache strip ter-invalidasi
+    // tiap tick dan tidak ada gunanya. Karena posisi stop gradient memakai
+    // fraksi 0..1, rescale vertikal saat blit adalah identik secara visual.
+    const bucketH = Math.max(32, Math.ceil(fieldH / 32) * 32);
 
-    // [v7.5 PER-TIME PEAK] Pass-1: puncak density yang benar-benar dirender
-    // (setelah blend tetangga) untuk SETIAP kolom waktu, plus buffer nilai
-    // blend-nya. "Area liquidity tertinggi" ditentukan PER WAKTU (per kolom):
-    // pada setiap saat, area yang paling padat SAAT ITULAH yang mendapat
-    // gradasi putih/POC — sehingga pewarnaan mengikuti perubahan liquidity
-    // dari waktu ke waktu (bergeser/menghilang bersama liquidity-nya).
-    let renderPeak = 0;
-    const colPeakD = new Float32Array(ribbonCols);
-    const colTopVol = new Float64Array(ribbonCols);
-    const blendBuf = new Float32Array(ribbonRows);
+    ensureHeatScratch(ribbonCols, ribbonRows);
+    const colPeakD = __heatColPeak;
+    const colTopVol = __heatColTopVol;
+    const blendBuf = __heatBlend;
+
+    // Device-pixel ratio aktif pada context tujuan (canvas di-setTransform(dpr))
+    // supaya strip offscreen di-blit 1:1 - tidak blur dan tidak resize tiap frame.
+    let hmScale = 1;
+    try {
+      const m = typeof ctx.getTransform === 'function' ? ctx.getTransform() : null;
+      if (m && typeof m.a === 'number' && m.a > 0.05 && m.a < 8) hmScale = m.a;
+    } catch { hmScale = 1; }
+
+    // --- Signature field: apa pun yang mengubah tampilan invalidate cache ---
+    let fieldSig = 2166136261 >>> 0;
+    const mixSig = (v: number): void => {
+      fieldSig = Math.imul(fieldSig ^ (Math.round(v) | 0), 16777619) >>> 0;
+    };
+    mixSig(ribbonRows);
+    mixSig(data.priceStep * 1e7);
+    mixSig(data.priceMin * 1e7);
+    mixSig(bucketH);
+    mixSig(hmScale * 1000);
+    mixSig(baseOpacity * 1000);
+    mixSig(minNotional);
+    mixSig((settings.intensity || 0) * 1000);
+    mixSig(settings.colorMode === 'thermal' ? 1 : settings.colorMode === 'bid_ask' ? 2 : 3);
+    const palMeta = palette as unknown as { __heatPaletteId?: number } | null;
+    if (palMeta && typeof palMeta.__heatPaletteId !== 'number') palMeta.__heatPaletteId = ++__heatPaletteCounter;
+    mixSig(palMeta?.__heatPaletteId ?? 0);
+    // Identitas data: mencegah bar dengan index sama dari simbol/timeframe lain
+    // memakai strip cache milik data lain.
+    mixSig(numCols);
+    mixSig(data.startIndexOffset || 0);
+    for (let s = 0; s < numCols; s += 7) {
+      const sc = data.matrix[s];
+      if (!sc || !sc.density || sc.density.length === 0) continue;
+      mixSig(sc.density[(s * 13) % ribbonRows] * 65535);
+    }
+
+    // Saat drag / ecoMode geometri berubah setiap frame sehingga strip cache hanya
+    // menambah overhead - gambar langsung ke canvas utama.
+    const useStripCache = !isDragging && !settings.ecoMode && typeof document !== 'undefined';
+
+    // [v8] Puncak mentah satu kolom - dipakai untuk signature kolom (didefinisikan
+    // SEKALI di luar loop kolom, bukan dialokasikan ulang tiap kolom tiap frame).
+    const peakOf = (arr: Float32Array): number => {
+      let m = 0;
+      for (let b = 0; b < ribbonRows; b++) { const v = arr[b]; if (v > m) m = v; }
+      return m;
+    };
+
     for (let k = 0; k < ribbonCols; k++) {
+      if (!geoBuf.ok[k]) continue;
       const col = data.matrix[drawStart + k];
-      const geo = colGeo[k];
-      if (!col || !geo) continue;
+      if (!col) continue;
+
+      const rawX = geoBuf.x[k];
+      const rawW = geoBuf.w[k];
       const colL = k > 0 ? data.matrix[drawStart + k - 1] : null;
       const colR = k < ribbonCols - 1 ? data.matrix[drawStart + k + 1] : null;
+
+      // Dua kolom terakhir = masa kini (bar live + bar yang baru tertutup):
+      // isinya memang berubah tiap tick, jadi SELALU digambar ulang.
+      const isLiveCol = k >= ribbonCols - 2;
+      const globalColIdx = (drawStart + k) + (data.startIndexOffset || 0);
+
+      let cached: HeatStripEntry | undefined;
+      let entry: HeatStripEntry | undefined;
+      let colSig = 0;
+
+      if (useStripCache && !isLiveCol) {
+        // Signature kolom: puncak mentah kolom + tetangganya (blend lintas waktu).
+        // Bar history punya nilai konstan -> signature konstan -> warna beku.
+        colSig = fieldSig;
+        colSig = Math.imul(colSig ^ Math.round(peakOf(col.density) * 65535), 16777619) >>> 0;
+        if (colL) colSig = Math.imul(colSig ^ Math.round(peakOf(colL.density) * 65535), 16777619) >>> 0;
+        if (colR) colSig = Math.imul(colSig ^ Math.round(peakOf(colR.density) * 65535), 16777619) >>> 0;
+        colSig = Math.imul(colSig ^ rawW, 16777619) >>> 0;
+
+        cached = HEAT_STRIP_CACHE.get(globalColIdx);
+        if (cached && cached.sig === colSig) {
+          // [v8 FAST PATH] Kolom history: satu blit, nol perhitungan warna,
+          // nol gradient, nol alokasi.
+          ctx.drawImage(cached.canvas, 0, 0, cached.w, cached.h, rawX, yTopEdge, rawW, fieldH);
+          continue;
+        }
+      }
+
+      // Target render: strip offscreen (ikut di-cache) atau langsung ke ctx utama.
+      let target: CanvasRenderingContext2D = ctx;
+      let stripCanvas: HTMLCanvasElement | null = null;
+      let drawX = rawX;
+      let drawY = yTopEdge;
+      if (useStripCache && !isLiveCol) {
+        const sw = Math.max(1, Math.ceil(rawW * hmScale));
+        const sh = Math.max(1, Math.ceil(bucketH * hmScale));
+        if (cached && cached.w === sw && cached.h === sh) {
+          entry = cached;
+        } else {
+          const cv = document.createElement('canvas');
+          cv.width = sw;
+          cv.height = sh;
+          const sctx = cv.getContext('2d');
+          if (sctx) entry = { canvas: cv, sctx, w: sw, h: sh, sig: 0 };
+        }
+        if (entry) {
+          target = entry.sctx;
+          stripCanvas = entry.canvas;
+          drawX = 0;
+          drawY = 0;
+          target.setTransform(hmScale, 0, 0, hmScale, 0, 0);
+          target.clearRect(0, 0, rawW, bucketH);
+        }
+      }
+
+      // ---- [v8] Pass-1 (HANYA kolom dirty): blend lintas waktu + puncak kolom ----
+      // Nilai tetangga diblend di level DATA (kernel [1,2,1] antisim) sehingga
+      // panas mengalir mulus lintas sumbu waktu tanpa filter/blur canvas.
+      const dens = col.density;
+      const densL = colL ? colL.density : null;
+      const densR = colR ? colR.density : null;
+      const volArr = col.volume;
+      const sideArr = col.side;
       blendBuf.fill(0);
       let colMax = 0;
       for (let b = 0; b < ribbonRows; b++) {
-        const d0 = col.density[b];
-        const dl = colL ? colL.density[b] : d0;
-        const dr = colR ? colR.density[b] : d0;
-        const dVal = dl * 0.22 + d0 * 0.56 + dr * 0.22;
-        if (dVal < minDensity || dVal < renderFloorDensity) continue;
+        const d0 = dens[b];
+        const dVal = densL ? densL[b] * 0.22 + d0 * 0.56 + (densR ? densR[b] : d0) * 0.22 : d0;
+        if (dVal < renderFloorDensity) continue;
         if (minNotional > 0) {
           const binPrice = data.priceMin + (b + 0.5) * data.priceStep;
-          if (col.volume[b] * (binPrice > 100 ? binPrice : 10000) < minNotional) continue;
+          if (volArr[b] * (binPrice > 100 ? binPrice : 10000) < minNotional) continue;
         }
         blendBuf[b] = dVal;
         if (dVal > colMax) colMax = dVal;
-        if (dVal > renderPeak) renderPeak = dVal;
       }
       colPeakD[k] = colMax;
-      // Volume maksimum di antara sel PALING PADAT kolom ini (kandidat putih)
-      // — dinormalisasi per kolom sehingga gradasi putih/POC selalu bisa
-      // tercapai oleh sel terkuat pada waktunya, tanpa outlier frame meredupkannya.
+
+      // Volume maksimum di antara sel PALING PADAT kolom ini (kandidat putih) -
+      // dinormalisasi per kolom sehingga gradasi putih/POC selalu bisa tercapai
+      // oleh sel terkuat pada waktunya, tanpa outlier frame meredupkannya.
       let topVol = 0;
       if (colMax > 0) {
         const hiBlend = colMax * 0.94;
         for (let b = 0; b < ribbonRows; b++) {
-          if (blendBuf[b] >= hiBlend && col.volume[b] > topVol) topVol = col.volume[b];
+          if (blendBuf[b] >= hiBlend && volArr[b] > topVol) topVol = volArr[b];
         }
       }
       colTopVol[k] = topVol;
-    }
 
+      // [v8 FROZEN SCALE] Tier + level dinormalisasi PER KOLOM, bukan per frame.
+      // Kolom ini hanya bergantung pada data kolomnya sendiri, jadi tidak pernah
+      // ikut berubah warna karena bar live bergerak.
+      const wallTier = Math.min(0.85, Math.max(0.42, colMax * 0.72));
+      const levelSpan = 1 / Math.max(1e-6, colMax - minDensity);
 
-    for (let k = 0; k < ribbonCols; k++) {
-      const col = data.matrix[drawStart + k];
-      const geo = colGeo[k];
-      if (!col || !geo) continue;
-
-      // [v6] Cross-time continuity: nilai tetangga diblend di level DATA
-      // (kernel [1,2,1]/4) — menghasilkan transisi antar kolom yang halus tanpa
-      // filter canvas, tanpa blur, tanpa kehilangan ketajaman tepi pita.
-      const colL = k > 0 ? data.matrix[drawStart + k - 1] : null;
-      const colR = k < ribbonCols - 1 ? data.matrix[drawStart + k + 1] : null;
-      const mixD = (b: number): number => {
-        const d0 = col.density[b];
-        const dl = colL ? colL.density[b] : d0;
-        const dr = colR ? colR.density[b] : d0;
-        // Kernel tajam: tetangga hanya 22% (sebelumnya 25% dengan pusat 50%) agar
-        // aliran lintas waktu tetap ada tapi tepi kolom tetap tegas (anti-blur).
-        return dl * 0.22 + d0 * 0.56 + dr * 0.22;
-      };
-      const mixSide = (b: number): 'bid' | 'ask' => {
-        if (col.density[b] >= minDensity) return col.side[b] === 0 ? 'bid' : 'ask';
-        if (colL && colL.density[b] >= minDensity) return colL.side[b] === 0 ? 'bid' : 'ask';
-        if (colR && colR.density[b] >= minDensity) return colR.side[b] === 0 ? 'bid' : 'ask';
-        return col.side[b] === 0 ? 'bid' : 'ask';
-      };
-
-      // Bangun gradient vertikal kolom: 2 stop per bin aktif (tepi masuk & keluar),
-      // posisi stop dipetakan persis ke rentang harga bin (atas = bin tertinggi).
-      const grad = ctx.createLinearGradient(0, yTopEdge, 0, yBotEdge);
+      const grad = target.createLinearGradient(0, drawY, 0, drawY + bucketH);
       let last = '';
       let stopCount = 0;
       for (let b = 0; b < ribbonRows; b++) {
-        const dVal = mixD(b);
-        if (dVal < minDensity || dVal < renderFloorDensity) continue;
-        if (minNotional > 0) {
-          const binPrice = data.priceMin + (b + 0.5) * data.priceStep;
-          if (col.volume[b] * (binPrice > 100 ? binPrice : 10000) < minNotional) continue;
-        }
-        const side = mixSide(b);
-        // [v7 PER-LEVEL] Warna FLAT per level (tanpa efek), tetapi opacity
-        // merangkak mulus dari ribbonAlpha (level tipis) ke opacity penuh
-        // (puncak frame) sehingga SETIAP level liquidity punya gradasi opacity
-        // masing-masing. Putih/POC hanya untuk sel di area tertinggi (tier
-        // dihitung dari renderPeak); semua zona lain warna tema murni.
-        // [v7.4 SNAPSHOT-PER-TIME] Setiap kolom waktu = KONDISI LIQUIDITY SAAT
-        // ITU, dirender apa adanya tanpa pelunakan berdasarkan umur: liquidity
-        // berubah setiap waktu, sehingga warna & opacity murni mengikuti level
-        // density kolom tersebut pada waktunya (naik-turunnya liquidity tiap
-        // waktu langsung terlihat sebagai perubahan warna antar kolom).
-        const levelT = renderPeak > minDensity
-          ? Math.min(1, Math.max(0, (dVal - minDensity) / Math.max(1e-6, renderPeak - minDensity)))
-          : 0;
+        const dVal = blendBuf[b];
+        // 0 = sentinel "tidak lolos gate" (nilai yang lolos selalu >= renderFloorDensity)
+        if (dVal === 0) continue;
+
+        let side: 'bid' | 'ask';
+        const d0 = dens[b];
+        if (d0 >= minDensity) side = sideArr[b] === 0 ? 'bid' : 'ask';
+        else if (colL && colL.density[b] >= minDensity) side = colL.side[b] === 0 ? 'bid' : 'ask';
+        else if (colR && colR.density[b] >= minDensity) side = colR.side[b] === 0 ? 'bid' : 'ask';
+        else side = sideArr[b] === 0 ? 'bid' : 'ask';
+
+        // [v7 PER-LEVEL] Warna FLAT per level, opacity merangkak dari ribbonAlpha
+        // (level tipis) ke opacity penuh (puncak kolom ini). Putih/POC hanya untuk
+        // sel di area tertinggi pada waktunya.
+        const levelT = colMax > minDensity ? Math.min(1, Math.max(0, (dVal - minDensity) * levelSpan)) : 0;
         const levelAlpha = ribbonAlpha + (Math.min(1, baseOpacity) - ribbonAlpha) * Math.pow(levelT, 1.15);
-        // [v7.5 PER-TIME PEAK] Putih/POC HANYA untuk area paling padat pada
-        // waktu ini (>= 94% puncak kolom, dan kolom memiliki dinding nyata).
-        // Ketika liquidity berubah/menghilang di satu waktu, gradasi putih
-        // ikut berpindah/hilang pada waktu itu juga; volume dinormalisasi per
-        // kolom agar sel terkuat selalu menjangkau putih penuh.
-        const colPeak = colPeakD[k];
-        const accent = colPeak >= wallTierD && dVal >= colPeak * 0.94 && colTopVol[k] > 0
-          ? { hi: colPeak, top: true, volT: col.volume[b] / colTopVol[k] }
+        const accent = colMax >= wallTier && dVal >= colMax * 0.94 && topVol > 0
+          ? { hi: colMax, top: true, volT: volArr[b] / topVol }
           : undefined;
-        const rgba = levelCellColor(dVal, side, levelAlpha, accent);
+        const rgba = levelCellColor(dVal, side, levelAlpha, wallTier, accent);
         for (let s = 0; s < 2; s++) {
           const frac = s === 0 ? 0.02 : 0.98;             // tepi band bin
           const pos = 1 - (b + frac) / ribbonRows;        // top -> bin tertinggi
@@ -4491,12 +4782,24 @@ export function renderLiquidityHeatmapLayer({
           }
         }
       }
-      if (stopCount === 0) continue;
 
-      ctx.fillStyle = grad;
-      ctx.fillRect(geo.rawX, yTopEdge, geo.rawW, fieldH);
+      if (stopCount === 0) {
+        if (stripCanvas) HEAT_STRIP_CACHE.delete(globalColIdx);
+        continue;
+      }
+
+      target.fillStyle = grad;
+      target.fillRect(drawX, drawY, rawW, bucketH);
+
+      if (entry && stripCanvas) {
+        entry.sig = colSig;
+        HEAT_STRIP_CACHE.delete(globalColIdx);
+        HEAT_STRIP_CACHE.set(globalColIdx, entry);
+        ctx.drawImage(stripCanvas, 0, 0, entry.w, entry.h, rawX, yTopEdge, rawW, fieldH);
+      }
     }
 
+    evictHeatStripCache();
   }
 
   // -------------------------------------------------------------------------
@@ -4540,6 +4843,10 @@ export function renderLiquidityHeatmapLayer({
       const h = zoneHeatOf(z);
       if (h > maxZoneHeat) maxZoneHeat = h;
     }
+    // [v8] Wall tier zona sekarang diturunkan dari skala heat zona itu sendiri
+    // (72% dari zona terpanas, dibatasi 0.42..0.85) - tidak lagi bergantung pada
+    // puncak matriks ribbon, sehingga pita zona ikut beku.
+    const zoneWallTier = Math.min(0.85, Math.max(0.42, maxZoneHeat * 0.72));
 
     for (const zone of sortedZones) {
       const zy = getY(zone.price);
@@ -4566,7 +4873,7 @@ export function renderLiquidityHeatmapLayer({
       const profile = [0.28, 0.62, 1.0, 0.62, 0.28];
       for (let s = 0; s < profile.length; s++) {
         const d = zoneHeat * profile[s];
-        grad.addColorStop(s / (profile.length - 1), levelCellColor(d, side, gAlpha, zoneAccent));
+        grad.addColorStop(s / (profile.length - 1), levelCellColor(d, side, gAlpha, zoneWallTier, zoneAccent));
       }
       ctx.fillStyle = grad;
       ctx.fillRect(0, zy - poolPx, effectiveChartWidth, poolPx * 2);
