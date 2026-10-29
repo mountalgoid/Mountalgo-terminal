@@ -104,33 +104,59 @@ export const DEFAULT_FIB_EXTENSION_LEVELS: FibLevelConfig[] = [
 
 export const FIBONACCI_LEVELS = DEFAULT_FIB_LEVELS;
 
-export const DRAWING_TOOLS: { id: DrawingToolType; label: string; shortcut?: string; category: string }[] = [
-  { id: 'cursor', label: 'Kursor Standar', shortcut: 'Esc', category: 'Kursor' },
-  { id: 'trendline', label: 'Trend Line', shortcut: 'Alt+T', category: 'Garis Tren' },
-  { id: 'ray', label: 'Ray (Sinar)', shortcut: 'Alt+R', category: 'Garis Tren' },
-  { id: 'extended_line', label: 'Extended Line', category: 'Garis Tren' },
-  { id: 'arrow', label: 'Arrow (Panah)', category: 'Garis Tren' },
-  { id: 'horizontal', label: 'Horizontal Line', shortcut: 'Alt+H', category: 'Garis Tren' },
-  { id: 'horizontal_ray', label: 'Horizontal Ray', category: 'Garis Tren' },
-  { id: 'vertical', label: 'Vertical Line', shortcut: 'Alt+V', category: 'Garis Tren' },
-  { id: 'cross_line', label: 'Cross Line', category: 'Garis Tren' },
-  { id: 'parallel_channel', label: 'Parallel Channel', category: 'Garis Tren' },
-  { id: 'pitchfork', label: "Andrews' Pitchfork", category: 'Garis Tren' },
-  { id: 'fibonacci', label: 'Fibonacci Retracement', shortcut: 'Alt+F', category: 'Fibonacci' },
-  { id: 'fib_fan', label: 'Fibonacci Fan', category: 'Fibonacci' },
-  { id: 'fib_extension', label: 'Trend-Based Fib Extension', category: 'Fibonacci' },
-  { id: 'rectangle', label: 'Rectangle / Order Block', category: 'Bentuk & Pola' },
-  { id: 'ellipse', label: 'Ellipse (Lingkaran)', category: 'Bentuk & Pola' },
-  { id: 'triangle', label: 'Triangle (Segitiga)', category: 'Bentuk & Pola' },
-  { id: 'brush', label: 'Brush (Kuas)', category: 'Bentuk & Pola' },
-  { id: 'highlighter', label: 'Highlighter (Stabilo)', category: 'Bentuk & Pola' },
-  { id: 'polyline', label: 'Polyline (Path)', category: 'Bentuk & Pola' },
-  { id: 'head_and_shoulders', label: 'Head and Shoulders (H&S)', category: 'Pola Chart' },
-  { id: 'elliott_wave', label: 'Elliott Wave (1-2-3-4-5)', category: 'Pola Chart' },
-  { id: 'ruler', label: 'Ruler (Penggaris Multi-Metrik)', category: 'Pengukuran' },
-  { id: 'position_long', label: 'Posisi Long (Buy R:R)', category: 'Manajemen Risiko' },
-  { id: 'position_short', label: 'Posisi Short (Sell R:R)', category: 'Manajemen Risiko' },
-  { id: 'text', label: 'Text Note', category: 'Anotasi' },
-  { id: 'callout', label: 'Callout Bubble', category: 'Anotasi' },
-  { id: 'price_label', label: 'Price Label Badge', category: 'Anotasi' },
+export interface DrawingToolMetadata {
+  id: DrawingToolType;
+  label: string;
+  shortcut?: string;
+  category: string;
+  requiredPoints: number; // 1, 2, 3, 5, 6, or -1 (variable/freehand)
+  steps: string[];
+}
+
+export const DRAWING_TOOLS: DrawingToolMetadata[] = [
+  { id: 'cursor', label: 'Kursor Standar', shortcut: 'Esc', category: 'Kursor', requiredPoints: 0, steps: [] },
+  { id: 'trendline', label: 'Trend Line', shortcut: 'Alt+T', category: 'Garis Tren', requiredPoints: 2, steps: ['Sentuh / klik titik awal garis', 'Sentuh / klik titik akhir garis'] },
+  { id: 'ray', label: 'Ray (Sinar)', shortcut: 'Alt+R', category: 'Garis Tren', requiredPoints: 2, steps: ['Sentuh titik pangkal sinar', 'Sentuh arah pancaran sinar'] },
+  { id: 'extended_line', label: 'Extended Line', category: 'Garis Tren', requiredPoints: 2, steps: ['Sentuh titik awal garis tak terhingga', 'Sentuh titik kedua untuk menentukan sudut'] },
+  { id: 'arrow', label: 'Arrow (Panah)', category: 'Garis Tren', requiredPoints: 2, steps: ['Sentuh pangkal panah', 'Sentuh ujung kepala panah'] },
+  { id: 'horizontal', label: 'Horizontal Line', shortcut: 'Alt+H', category: 'Garis Tren', requiredPoints: 1, steps: ['Sentuh level harga horizontal'] },
+  { id: 'horizontal_ray', label: 'Horizontal Ray', category: 'Garis Tren', requiredPoints: 1, steps: ['Sentuh level harga horizontal ray ke kanan'] },
+  { id: 'vertical', label: 'Vertical Line', shortcut: 'Alt+V', category: 'Garis Tren', requiredPoints: 1, steps: ['Sentuh waktu / bar vertikal'] },
+  { id: 'cross_line', label: 'Cross Line', category: 'Garis Tren', requiredPoints: 1, steps: ['Sentuh titik persilangan horizontal & vertikal'] },
+  { id: 'parallel_channel', label: 'Parallel Channel', category: 'Garis Tren', requiredPoints: 3, steps: ['Sentuh titik awal garis dasar', 'Sentuh titik akhir garis dasar', 'Sentuh jarak lebar kanal paralel'] },
+  { id: 'pitchfork', label: "Andrews' Pitchfork", category: 'Garis Tren', requiredPoints: 3, steps: ['Sentuh titik pivot tengah (Median)', 'Sentuh titik puncak swing 1', 'Sentuh titik lembah swing 2'] },
+  { id: 'fibonacci', label: 'Fibonacci Retracement', shortcut: 'Alt+F', category: 'Fibonacci', requiredPoints: 2, steps: ['Sentuh titik awal swing (0% / 100%)', 'Sentuh titik akhir swing'] },
+  { id: 'fib_fan', label: 'Fibonacci Fan', category: 'Fibonacci', requiredPoints: 2, steps: ['Sentuh titik awal sudut kipas Fib', 'Sentuh titik akhir kipas'] },
+  { id: 'fib_extension', label: 'Trend-Based Fib Extension', category: 'Fibonacci', requiredPoints: 3, steps: ['Sentuh awal swing asal (0%)', 'Sentuh puncak swing (100%)', 'Sentuh titik pullback retracement'] },
+  { id: 'rectangle', label: 'Rectangle / Order Block', category: 'Bentuk & Pola', requiredPoints: 2, steps: ['Sentuh sudut pertama zona/box', 'Sentuh sudut diagonal berlawanan'] },
+  { id: 'ellipse', label: 'Ellipse (Lingkaran)', category: 'Bentuk & Pola', requiredPoints: 2, steps: ['Sentuh titik pusat/tepi pertama', 'Sentuh tepi diagonal lingkaran'] },
+  { id: 'triangle', label: 'Triangle (Segitiga)', category: 'Bentuk & Pola', requiredPoints: 3, steps: ['Sentuh sudut segitiga 1', 'Sentuh sudut segitiga 2', 'Sentuh sudut segitiga 3'] },
+  { id: 'brush', label: 'Brush (Kuas)', category: 'Bentuk & Pola', requiredPoints: -1, steps: ['Usap/seret jari atau mouse untuk menggambar bebas'] },
+  { id: 'highlighter', label: 'Highlighter (Stabilo)', category: 'Bentuk & Pola', requiredPoints: -1, steps: ['Usap/seret untuk menandai area stabilo'] },
+  { id: 'polyline', label: 'Polyline (Path)', category: 'Bentuk & Pola', requiredPoints: -1, steps: ['Sentuh titik-titik berurutan. Klik Selesai saat selesai.'] },
+  { id: 'head_and_shoulders', label: 'Head and Shoulders (H&S)', category: 'Pola Chart', requiredPoints: 5, steps: ['1. Bahu Kiri (Left Shoulder)', '2. Neckline Kiri', '3. Kepala (Head Peak)', '4. Neckline Kanan', '5. Bahu Kanan (Right Shoulder)'] },
+  { id: 'elliott_wave', label: 'Elliott Wave (1-2-3-4-5)', category: 'Pola Chart', requiredPoints: 6, steps: ['Titik Asal Wave', 'Puncak Wave 1', 'Dasar Wave 2', 'Puncak Wave 3', 'Dasar Wave 4', 'Puncak Wave 5'] },
+  { id: 'ruler', label: 'Ruler (Penggaris Multi-Metrik)', category: 'Pengukuran', requiredPoints: 2, steps: ['Sentuh titik awal pengukuran', 'Sentuh titik akhir pengukuran'] },
+  { id: 'position_long', label: 'Posisi Long (Buy R:R)', category: 'Manajemen Risiko', requiredPoints: 1, steps: ['Sentuh harga entry posisi Long'] },
+  { id: 'position_short', label: 'Posisi Short (Sell R:R)', category: 'Manajemen Risiko', requiredPoints: 1, steps: ['Sentuh harga entry posisi Short'] },
+  { id: 'text', label: 'Text Note', category: 'Anotasi', requiredPoints: 1, steps: ['Sentuh posisi untuk menempel catatan teks'] },
+  { id: 'callout', label: 'Callout Bubble', category: 'Anotasi', requiredPoints: 1, steps: ['Sentuh posisi untuk menempel bubble callout'] },
+  { id: 'price_label', label: 'Price Label Badge', category: 'Anotasi', requiredPoints: 1, steps: ['Sentuh posisi untuk menempel badge harga'] },
 ];
+
+export function getToolRequiredPoints(tool: DrawingToolType): number {
+  const def = DRAWING_TOOLS.find((t) => t.id === tool);
+  return def ? def.requiredPoints : 2;
+}
+
+export function getToolInstruction(tool: DrawingToolType, currentPointsCount: number): string {
+  const def = DRAWING_TOOLS.find((t) => t.id === tool);
+  if (!def || def.steps.length === 0) return '';
+  const idx = Math.min(currentPointsCount, def.steps.length - 1);
+  return def.steps[idx] || '';
+}
+
+export const DRAWING_TOOLS_METADATA: Record<string, DrawingToolMetadata> = Object.fromEntries(
+  DRAWING_TOOLS.map((t) => [t.id, t])
+);
+

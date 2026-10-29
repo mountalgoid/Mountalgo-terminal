@@ -12,10 +12,16 @@ export function getDrawingHitTest(
   mouseY: number,
   drawings: DrawingItem[],
   utils: CoordinateUtils,
-  hideDrawings?: boolean
+  hideDrawings?: boolean,
+  isTouch: boolean = false
 ): DrawingHitResult | null {
   if (!utils || hideDrawings) return null;
   const { getY, getXFromTime, chartWidth, fullHeight } = utils;
+
+  // Touch vs Mouse responsive hit tolerances for effortless finger selection on mobile & tablet
+  const handleR = isTouch ? 26 : 16;
+  const handleRSmall = isTouch ? 22 : 14;
+  const lineR = isTouch ? 20 : 12;
 
   const distToSegment = (px: number, py: number, x1: number, y1: number, x2: number, y2: number) => {
     const l2 = (x2 - x1) ** 2 + (y2 - y1) ** 2;
@@ -44,39 +50,39 @@ export function getDrawingHitTest(
       const p1 = item.points[0];
       const y = getY(p1.price);
       const x1 = getXFromTime(p1.time);
-      if (Math.hypot(mouseX - x1, mouseY - y) <= 16 || Math.hypot(mouseX - chartWidth / 2, mouseY - y) <= 16) {
+      if (Math.hypot(mouseX - x1, mouseY - y) <= handleR || Math.hypot(mouseX - chartWidth / 2, mouseY - y) <= handleR) {
         return { id: item.id, part: 'point0', drawing: item };
       }
-      if (Math.abs(mouseY - y) <= 12 && mouseX <= chartWidth + 60) {
+      if (Math.abs(mouseY - y) <= lineR && mouseX <= chartWidth + 60) {
         return { id: item.id, part: 'body', drawing: item };
       }
     } else if (item.type === 'horizontal_ray') {
       const p1 = item.points[0];
       const y = getY(p1.price);
       const x1 = getXFromTime(p1.time);
-      if (Math.hypot(mouseX - x1, mouseY - y) <= 16) {
+      if (Math.hypot(mouseX - x1, mouseY - y) <= handleR) {
         return { id: item.id, part: 'point0', drawing: item };
       }
-      if (Math.abs(mouseY - y) <= 12 && mouseX >= x1 - 10 && mouseX <= chartWidth + 60) {
+      if (Math.abs(mouseY - y) <= lineR && mouseX >= x1 - 10 && mouseX <= chartWidth + 60) {
         return { id: item.id, part: 'body', drawing: item };
       }
     } else if (item.type === 'vertical') {
       const p1 = item.points[0];
       const x = getXFromTime(p1.time);
-      if (Math.hypot(mouseX - x, mouseY - fullHeight / 2) <= 16) {
+      if (Math.hypot(mouseX - x, mouseY - fullHeight / 2) <= handleR) {
         return { id: item.id, part: 'point0', drawing: item };
       }
-      if (Math.abs(mouseX - x) <= 12 && mouseY <= fullHeight) {
+      if (Math.abs(mouseX - x) <= lineR && mouseY <= fullHeight) {
         return { id: item.id, part: 'body', drawing: item };
       }
     } else if (item.type === 'cross_line') {
       const p1 = item.points[0];
       const x = getXFromTime(p1.time);
       const y = getY(p1.price);
-      if (Math.hypot(mouseX - x, mouseY - y) <= 16) {
+      if (Math.hypot(mouseX - x, mouseY - y) <= handleR) {
         return { id: item.id, part: 'point0', drawing: item };
       }
-      if (Math.abs(mouseY - y) <= 12 || Math.abs(mouseX - x) <= 12) {
+      if (Math.abs(mouseY - y) <= lineR || Math.abs(mouseX - x) <= lineR) {
         return { id: item.id, part: 'body', drawing: item };
       }
     } else if (
@@ -92,13 +98,13 @@ export function getDrawingHitTest(
         const y1 = getY(p1.price);
         const y2 = getY(p2.price);
 
-        if (Math.hypot(mouseX - x1, mouseY - y1) <= 16) {
+        if (Math.hypot(mouseX - x1, mouseY - y1) <= handleR) {
           return { id: item.id, part: 'point0', drawing: item };
         }
-        if (Math.hypot(mouseX - x2, mouseY - y2) <= 16) {
+        if (Math.hypot(mouseX - x2, mouseY - y2) <= handleR) {
           return { id: item.id, part: 'point1', drawing: item };
         }
-        if (Math.hypot(mouseX - (x1 + x2) / 2, mouseY - (y1 + y2) / 2) <= 14) {
+        if (Math.hypot(mouseX - (x1 + x2) / 2, mouseY - (y1 + y2) / 2) <= handleRSmall) {
           return { id: item.id, part: 'body', drawing: item };
         }
 
@@ -106,18 +112,18 @@ export function getDrawingHitTest(
           const slope = (y2 - y1) / ((x2 - x1) || 0.0001);
           const targetX = chartWidth + 50;
           const targetY = y1 + slope * (targetX - x1);
-          if (distToSegment(mouseX, mouseY, x1, y1, targetX, targetY) <= 12) {
+          if (distToSegment(mouseX, mouseY, x1, y1, targetX, targetY) <= lineR) {
             return { id: item.id, part: 'body', drawing: item };
           }
         } else if (item.type === 'extended_line') {
           const slope = (y2 - y1) / ((x2 - x1) || 0.0001);
           const yStart = y1 - slope * x1;
           const yEnd = y1 + slope * (chartWidth - x1);
-          if (distToSegment(mouseX, mouseY, 0, yStart, chartWidth, yEnd) <= 12) {
+          if (distToSegment(mouseX, mouseY, 0, yStart, chartWidth, yEnd) <= lineR) {
             return { id: item.id, part: 'body', drawing: item };
           }
         } else {
-          if (distToSegment(mouseX, mouseY, x1, y1, x2, y2) <= 12) {
+          if (distToSegment(mouseX, mouseY, x1, y1, x2, y2) <= lineR) {
             return { id: item.id, part: 'body', drawing: item };
           }
         }
@@ -134,15 +140,15 @@ export function getDrawingHitTest(
         const y3 = getY(p3.price);
         const offset = y3 - y1;
 
-        if (Math.hypot(mouseX - x1, mouseY - y1) <= 16) {
+        if (Math.hypot(mouseX - x1, mouseY - y1) <= handleR) {
           return { id: item.id, part: 'point0', drawing: item };
         }
-        if (Math.hypot(mouseX - x2, mouseY - y2) <= 16) {
+        if (Math.hypot(mouseX - x2, mouseY - y2) <= handleR) {
           return { id: item.id, part: 'point1', drawing: item };
         }
         if (
-          Math.hypot(mouseX - x1, mouseY - (y1 + offset)) <= 16 ||
-          Math.hypot(mouseX - (x1 + x2) / 2, mouseY - ((y1 + y2) / 2 + offset)) <= 16
+          Math.hypot(mouseX - x1, mouseY - (y1 + offset)) <= handleR ||
+          Math.hypot(mouseX - (x1 + x2) / 2, mouseY - ((y1 + y2) / 2 + offset)) <= handleR
         ) {
           return { id: item.id, part: 'point2', drawing: item };
         }
@@ -155,8 +161,8 @@ export function getDrawingHitTest(
         ];
 
         if (
-          distToSegment(mouseX, mouseY, x1, y1, x2, y2) <= 12 ||
-          distToSegment(mouseX, mouseY, x1, y1 + offset, x2, y2 + offset) <= 12 ||
+          distToSegment(mouseX, mouseY, x1, y1, x2, y2) <= lineR ||
+          distToSegment(mouseX, mouseY, x1, y1 + offset, x2, y2 + offset) <= lineR ||
           isPointInPoly(mouseX, mouseY, poly)
         ) {
           return { id: item.id, part: 'body', drawing: item };
@@ -170,20 +176,21 @@ export function getDrawingHitTest(
         const y1 = getY(p1.price);
         const y2 = getY(p2.price);
 
-        if (Math.hypot(mouseX - x1, mouseY - y1) <= 16) {
+        if (Math.hypot(mouseX - x1, mouseY - y1) <= handleR) {
           return { id: item.id, part: 'point0', drawing: item };
         }
-        if (Math.hypot(mouseX - x2, mouseY - y2) <= 16) {
+        if (Math.hypot(mouseX - x2, mouseY - y2) <= handleR) {
           return { id: item.id, part: 'point1', drawing: item };
         }
-        if (Math.hypot(mouseX - x1, mouseY - y2) <= 14 || Math.hypot(mouseX - x2, mouseY - y1) <= 14) {
+        if (Math.hypot(mouseX - x1, mouseY - y2) <= handleRSmall || Math.hypot(mouseX - x2, mouseY - y1) <= handleRSmall) {
           return { id: item.id, part: 'point1', drawing: item };
         }
 
-        const minX = Math.min(x1, x2) - 8;
-        const maxX = Math.max(x1, x2) + 8;
-        const minY = Math.min(y1, y2) - 8;
-        const maxY = Math.max(y1, y2) + 8;
+        const pad = isTouch ? 14 : 8;
+        const minX = Math.min(x1, x2) - pad;
+        const maxX = Math.max(x1, x2) + pad;
+        const minY = Math.min(y1, y2) - pad;
+        const maxY = Math.max(y1, y2) + pad;
         if (mouseX >= minX && mouseX <= maxX && mouseY >= minY && mouseY <= maxY) {
           return { id: item.id, part: 'body', drawing: item };
         }
@@ -200,15 +207,15 @@ export function getDrawingHitTest(
         const rx = Math.max(8, Math.abs(x2 - x1) / 2);
         const ry = Math.max(8, Math.abs(y2 - y1) / 2);
 
-        if (Math.hypot(mouseX - x1, mouseY - y1) <= 16) {
+        if (Math.hypot(mouseX - x1, mouseY - y1) <= handleR) {
           return { id: item.id, part: 'point0', drawing: item };
         }
-        if (Math.hypot(mouseX - x2, mouseY - y2) <= 16) {
+        if (Math.hypot(mouseX - x2, mouseY - y2) <= handleR) {
           return { id: item.id, part: 'point1', drawing: item };
         }
 
         const normalizedDist = ((mouseX - cx) / rx) ** 2 + ((mouseY - cy) / ry) ** 2;
-        if (normalizedDist <= 1.25) {
+        if (normalizedDist <= (isTouch ? 1.4 : 1.25)) {
           return { id: item.id, part: 'body', drawing: item };
         }
       }
@@ -223,21 +230,21 @@ export function getDrawingHitTest(
         const x3 = getXFromTime(p3.time);
         const y3 = getY(p3.price);
 
-        if (Math.hypot(mouseX - x1, mouseY - y1) <= 16) {
+        if (Math.hypot(mouseX - x1, mouseY - y1) <= handleR) {
           return { id: item.id, part: 'point0', drawing: item };
         }
-        if (Math.hypot(mouseX - x2, mouseY - y2) <= 16) {
+        if (Math.hypot(mouseX - x2, mouseY - y2) <= handleR) {
           return { id: item.id, part: 'point1', drawing: item };
         }
-        if (Math.hypot(mouseX - x3, mouseY - y3) <= 16) {
+        if (Math.hypot(mouseX - x3, mouseY - y3) <= handleR) {
           return { id: item.id, part: 'point2', drawing: item };
         }
 
         const tri = [{ x: x1, y: y1 }, { x: x2, y: y2 }, { x: x3, y: y3 }];
         if (
-          distToSegment(mouseX, mouseY, x1, y1, x2, y2) <= 12 ||
-          distToSegment(mouseX, mouseY, x2, y2, x3, y3) <= 12 ||
-          distToSegment(mouseX, mouseY, x3, y3, x1, y1) <= 12 ||
+          distToSegment(mouseX, mouseY, x1, y1, x2, y2) <= lineR ||
+          distToSegment(mouseX, mouseY, x2, y2, x3, y3) <= lineR ||
+          distToSegment(mouseX, mouseY, x3, y3, x1, y1) <= lineR ||
           isPointInPoly(mouseX, mouseY, tri)
         ) {
           return { id: item.id, part: 'body', drawing: item };
@@ -253,7 +260,7 @@ export function getDrawingHitTest(
         const pt = item.points[k];
         const hx = getXFromTime(pt.time);
         const hy = getY(pt.price);
-        if (Math.hypot(mouseX - hx, mouseY - hy) <= 16) {
+        if (Math.hypot(mouseX - hx, mouseY - hy) <= handleR) {
           const partName = (`point${k}` as any) || 'point0';
           return { id: item.id, part: partName, drawing: item };
         }
@@ -262,14 +269,14 @@ export function getDrawingHitTest(
       for (let k = 0; k < item.points.length - 1; k++) {
         const pA = item.points[k];
         const pB = item.points[k + 1];
-        if (distToSegment(mouseX, mouseY, getXFromTime(pA.time), getY(pA.price), getXFromTime(pB.time), getY(pB.price)) <= 12) {
+        if (distToSegment(mouseX, mouseY, getXFromTime(pA.time), getY(pA.price), getXFromTime(pB.time), getY(pB.price)) <= lineR) {
           return { id: item.id, part: 'body', drawing: item };
         }
       }
     } else if (item.type === 'brush' || item.type === 'highlighter') {
       if (item.points.length === 1) {
         const pA = item.points[0];
-        if (Math.hypot(mouseX - getXFromTime(pA.time), mouseY - getY(pA.price)) <= 16) {
+        if (Math.hypot(mouseX - getXFromTime(pA.time), mouseY - getY(pA.price)) <= handleR) {
           return { id: item.id, part: 'body', drawing: item };
         }
       } else {
@@ -277,7 +284,7 @@ export function getDrawingHitTest(
           const pA = item.points[k];
           const pB = item.points[k + 1];
           const dist = distToSegment(mouseX, mouseY, getXFromTime(pA.time), getY(pA.price), getXFromTime(pB.time), getY(pB.price));
-          if (dist <= 16) {
+          if (dist <= handleR) {
             return { id: item.id, part: 'body', drawing: item };
           }
         }
@@ -290,16 +297,17 @@ export function getDrawingHitTest(
         const y1 = getY(p1.price);
         const y2 = getY(p2.price);
 
-        if (Math.hypot(mouseX - x1, mouseY - y1) <= 16) {
+        if (Math.hypot(mouseX - x1, mouseY - y1) <= handleR) {
           return { id: item.id, part: 'point0', drawing: item };
         }
-        if (Math.hypot(mouseX - x2, mouseY - y2) <= 16) {
+        if (Math.hypot(mouseX - x2, mouseY - y2) <= handleR) {
           return { id: item.id, part: 'point1', drawing: item };
         }
 
-        const minX = Math.min(x1, x2) - 10;
-        const minY = Math.min(y1, y2) - 10;
-        const maxY = Math.max(y1, y2) + 10;
+        const pad = isTouch ? 18 : 10;
+        const minX = Math.min(x1, x2) - pad;
+        const minY = Math.min(y1, y2) - pad;
+        const maxY = Math.max(y1, y2) + pad;
         if (mouseX >= minX && mouseX <= chartWidth && mouseY >= minY && mouseY <= maxY) {
           return { id: item.id, part: 'body', drawing: item };
         }
@@ -329,37 +337,43 @@ export function getDrawingHitTest(
       const minY = Math.min(tpY, slY, entryY);
       const maxY = Math.max(tpY, slY, entryY);
 
-      // 1. Check TP handle (circular touch node at top center)
-      if (Math.hypot(mouseX - handleX, mouseY - tpY) <= 26) {
+      // TP and SL handles with touch-friendly hitbox
+      const tpSlR = isTouch ? 32 : 26;
+      const sideR = isTouch ? 28 : 22;
+      const entryCenterR = isTouch ? 24 : 20;
+
+      // 1. Check TP handle
+      if (Math.hypot(mouseX - handleX, mouseY - tpY) <= tpSlR) {
         return { id: item.id, part: 'tp', drawing: item };
       }
 
-      // 2. Check SL handle (circular touch node at bottom center)
-      if (Math.hypot(mouseX - handleX, mouseY - slY) <= 26) {
+      // 2. Check SL handle
+      if (Math.hypot(mouseX - handleX, mouseY - slY) <= tpSlR) {
         return { id: item.id, part: 'sl', drawing: item };
       }
 
-      // 3. Check Left handle (circular touch node at left entry edge)
-      if (Math.hypot(mouseX - x1, mouseY - entryY) <= 22) {
+      // 3. Check Left handle
+      if (Math.hypot(mouseX - x1, mouseY - entryY) <= sideR) {
         return { id: item.id, part: 'left', drawing: item };
       }
 
-      // 4. Check Right handle (circular touch node at right entry edge)
-      if (Math.hypot(mouseX - x2, mouseY - entryY) <= 22) {
+      // 4. Check Right handle
+      if (Math.hypot(mouseX - x2, mouseY - entryY) <= sideR) {
         return { id: item.id, part: 'right', drawing: item };
       }
 
-      // 5. Check Center Entry handle (circular touch node at center entry dot)
-      if (Math.hypot(mouseX - handleX, mouseY - entryY) <= 20) {
+      // 5. Check Center Entry handle
+      if (Math.hypot(mouseX - handleX, mouseY - entryY) <= entryCenterR) {
         return { id: item.id, part: 'point0', drawing: item };
       }
 
-      // 6. Body Zone (Entire green/red box interior & margins for effortless 1:1 finger tracking)
+      // 6. Body Zone
+      const boxPad = isTouch ? 16 : 10;
       if (
-        mouseX >= Math.min(x1, x2) - 10 &&
-        mouseX <= Math.max(x1, x2) + 10 &&
-        mouseY >= minY - 10 &&
-        mouseY <= maxY + 10
+        mouseX >= Math.min(x1, x2) - boxPad &&
+        mouseX <= Math.max(x1, x2) + boxPad &&
+        mouseY >= minY - boxPad &&
+        mouseY <= maxY + boxPad
       ) {
         return { id: item.id, part: 'body', drawing: item };
       }
@@ -367,30 +381,30 @@ export function getDrawingHitTest(
       const p1 = item.points[0];
       const x = getXFromTime(p1.time);
       const y = getY(p1.price);
-      if (Math.hypot(mouseX - x, mouseY - y) <= 24) {
+      if (Math.hypot(mouseX - x, mouseY - y) <= (isTouch ? 30 : 24)) {
         return { id: item.id, part: 'point0', drawing: item };
       }
-      if (Math.abs(mouseX - x) <= 70 && Math.abs(mouseY - y) <= 24) {
+      if (Math.abs(mouseX - x) <= 75 && Math.abs(mouseY - y) <= (isTouch ? 30 : 24)) {
         return { id: item.id, part: 'body', drawing: item };
       }
     } else if (item.type === 'price_label') {
       const p1 = item.points[0];
       const x = getXFromTime(p1.time);
       const y = getY(p1.price);
-      if (Math.hypot(mouseX - x, mouseY - y) <= 20) {
+      if (Math.hypot(mouseX - x, mouseY - y) <= (isTouch ? 26 : 20)) {
         return { id: item.id, part: 'point0', drawing: item };
       }
-      if (Math.abs(mouseX - x) <= 50 && Math.abs(mouseY - y) <= 18) {
+      if (Math.abs(mouseX - x) <= 55 && Math.abs(mouseY - y) <= (isTouch ? 24 : 18)) {
         return { id: item.id, part: 'body', drawing: item };
       }
     } else if (item.type === 'alert') {
       const p1 = item.points[0];
       const x = getXFromTime(p1.time);
       const y = getY(p1.price);
-      if (Math.hypot(mouseX - x, mouseY - y) <= 20) {
+      if (Math.hypot(mouseX - x, mouseY - y) <= (isTouch ? 26 : 20)) {
         return { id: item.id, part: 'point0', drawing: item };
       }
-      if (Math.abs(mouseX - x) <= 60 && Math.abs(mouseY - y) <= 20) {
+      if (Math.abs(mouseX - x) <= 65 && Math.abs(mouseY - y) <= (isTouch ? 26 : 20)) {
         return { id: item.id, part: 'body', drawing: item };
       }
     }

@@ -690,7 +690,10 @@ export interface LiquidationCascadeCluster {
   effectiveIntensity: number; // heatIntensity x recencyWeight x confidence factor -> time-true pool strength
   visualGrade: ClusterVisualGrade; // S (prime, fresh & heavy) / A / B / C (aged or weak)
   gradeColor: string; // Grade identity color for chart zone labels, borders and radar chips
-  gradeLabel: string; // Short Indonesian time-grade label shown in tooltips (e.g. "SEGER", "MENUA")
+  gradeLabel: string; // Short Indonesian time-grade label shown in tooltips (e.g. "SEGER", "MENUA", "SWEPT")
+  isMitigated?: boolean; // True if subsequent price action has swept / consumed this pool
+  mitigatedBarIndex?: number | null; // Bar index where this liquidation pool was swept
+  mitigatedRatio?: number; // 0 to 1 proportion of pool swept by market price
 }
 
 export interface LiquidationCascadeRadar {
@@ -1560,8 +1563,8 @@ export function calculateLiquidityHeatmap(
     return cachedHeatmapResult;
   }
 
-  // EXPANDED ULTRA-DEEP HEATMAP HISTORY RANGE (Up to 3000 candles for deep historical liquidity depth)
-  const MAX_PROCESSED_CANDLES = 3000;
+  // BALANCED HIGH-PERFORMANCE HEATMAP HISTORY RANGE (1200 candles ensures deep multi-session order book depth without frame drops)
+  const MAX_PROCESSED_CANDLES = 1200;
   const startIndex = Math.max(0, candles.length - MAX_PROCESSED_CANDLES);
 
   // Focus bounds solidly across full history to prevent any repainting or boundary shifts
@@ -1590,7 +1593,8 @@ export function calculateLiquidityHeatmap(
   const rawPriceSpan = rawPriceMax - rawPriceMin;
 
   const targetBinsCount = Math.max(48, Math.min(128, settings.depthBins * 2));
-  const priceDecimals = currentPrice > 1000 ? 2 : currentPrice > 10 ? 2 : 4;
+  // Smart multi-tier price decimal precision (Crypto / Forex / Micro-caps)
+  const priceDecimals = currentPrice < 0.0001 ? 8 : currentPrice < 0.01 ? 6 : currentPrice < 1 ? 4 : currentPrice < 100 ? 3 : 2;
   const rawStep = rawPriceSpan / targetBinsCount;
   
   // Snap priceStep to standard round numbers (1, 2, 2.5, 5 multipliers) to keep bands stable
@@ -3436,15 +3440,15 @@ export function calculateLiquidationCascadeRadar(
     sessionLow: longTermLow,
   };
 
-  // ---------- [E] Upgraded leverage tiers (5) with per-tier OI distribution weights ----------
-  // Offsets ≈ 1/leverage minus maintenance-margin buffer. distWeight models the real
-  // retail leverage mix: 50x & 25x carry the largest open interest, 75x is a thin sliver.
+  // ---------- [E] Upgraded leverage tiers (5) with real-world MMR schedules ----------
+  // Binance & Bybit MMR: 100x (0.4% MMR -> 0.6% offset), 75x (0.5% MMR -> 0.83% offset),
+  // 50x (1.0% MMR -> 1.0% offset), 25x (1.5% MMR -> 2.5% offset), 10x (2.5% MMR -> 7.5% offset)
   const tiers: { tier: LeverageTier; leverage: number; longOffset: number; shortOffset: number; mult: number; distWeight: number }[] = [
-    { tier: '100x', leverage: 100, longOffset: 0.0075, shortOffset: 0.0075, mult: 3.2, distWeight: 0.24 }, // Neon Purple
-    { tier: '75x', leverage: 75, longOffset: 0.0108, shortOffset: 0.0108, mult: 2.9, distWeight: 0.14 },   // Violet sliver
-    { tier: '50x', leverage: 50, longOffset: 0.0162, shortOffset: 0.0162, mult: 2.6, distWeight: 0.28 },   // Amber
-    { tier: '25x', leverage: 25, longOffset: 0.0352, shortOffset: 0.0352, mult: 2.1, distWeight: 0.21 },   // Cyan
-    { tier: '10x', leverage: 10, longOffset: 0.0885, shortOffset: 0.0885, mult: 1.5, distWeight: 0.13 },   // Rose/Red
+    { tier: '100x', leverage: 100, longOffset: 0.0060, shortOffset: 0.0060, mult: 3.2, distWeight: 0.24 }, // Neon Purple
+    { tier: '75x', leverage: 75, longOffset: 0.0083, shortOffset: 0.0083, mult: 2.9, distWeight: 0.14 },   // Violet sliver
+    { tier: '50x', leverage: 50, longOffset: 0.0100, shortOffset: 0.0100, mult: 2.6, distWeight: 0.28 },   // Amber
+    { tier: '25x', leverage: 25, longOffset: 0.0250, shortOffset: 0.0250, mult: 2.1, distWeight: 0.21 },   // Cyan
+    { tier: '10x', leverage: 10, longOffset: 0.0750, shortOffset: 0.0750, mult: 1.5, distWeight: 0.13 },   // Rose/Red
   ];
 
   // Depth-mass concentration (OI proxy): volatility + activity pull concentration up
@@ -3467,11 +3471,11 @@ export function calculateLiquidationCascadeRadar(
     const offset = isShort ? t.shortOffset : t.longOffset;
 
     // ATR-scaled adaptive micro-offset: volatile tape widens the first pool off the pivot
-    const atrMicroOffset = isTickMode ? Math.min(atr14 * 0.12, currentPrice * 0.0025) : 0;
-    const baseRef = isShort ? Math.max(currentPrice, pivotPrice * 0.995) : Math.min(currentPrice, pivotPrice * 1.005);
+    const atrMicroOffset = isTickMode ? Math.min(atr14 * 0.08, currentPrice * 0.0015) : 0;
+    // Strict non-repainting anchor math: positions open at pivot high/low; stops trigger past pivot by offset
     const rawLiqPrice = isShort
-      ? baseRef * (1 + offset) + atrMicroOffset
-      : baseRef * (1 - offset) - atrMicroOffset;
+      ? pivotPrice * (1 + offset) + atrMicroOffset
+      : pivotPrice * (1 - offset) - atrMicroOffset;
     const liqPrice = Number(rawLiqPrice.toFixed(priceDecimals));
 
     // Distance in 3 rulers: %, bps, exact ticks (tick distance catches sub-tick precision)
@@ -3481,12 +3485,47 @@ export function calculateLiquidationCascadeRadar(
     const liquidationOcr = 1 / t.leverage;
     const liquidationBufferTicks = Math.max(1, Math.round(distanceTicks * liquidationOcr));
 
+    // [HEATMAP v4 GRADED ZONES] Time-aware recency & anchor bar tracking
+    const anchorBarIndex = (() => {
+      const searchLen = recent.length;
+      for (let b = searchLen - 1; b >= 0; b--) {
+        if (isShort ? recent[b].high >= pivotPrice : recent[b].low <= pivotPrice) return b;
+      }
+      return searchLen - 1;
+    })();
+    const barsSinceAnchor = Math.max(0, (len - 1) - anchorBarIndex);
+
+    // [ACCURACY UPGRADE] Zone Mitigation / Swept Pool Detection
+    // Checks if market price has already traded through and triggered these stops
+    let isMitigated = false;
+    let mitigatedBarIndex: number | null = null;
+    let mitigatedRatio = 0;
+    for (let b = anchorBarIndex; b < len; b++) {
+      const c = recent[b];
+      if (isShort) {
+        if (c.high >= liqPrice) {
+          isMitigated = true;
+          mitigatedBarIndex = b;
+          mitigatedRatio = Math.min(1.0, (c.high - liqPrice) / Math.max(tickSize * 2, liqPrice * 0.004) + 0.5);
+          break;
+        }
+      } else {
+        if (c.low <= liqPrice) {
+          isMitigated = true;
+          mitigatedBarIndex = b;
+          mitigatedRatio = Math.min(1.0, (liqPrice - c.low) / Math.max(tickSize * 2, liqPrice * 0.004) + 0.5);
+          break;
+        }
+      }
+    }
+
     // Relative volume & ATR weighting (independent volatility / activity axes)
     const atrWeight = Math.max(0.5, Math.min(2.5, 0.6 + atrPct / 1.8));
     const relVolumeWeight = Math.max(0.45, Math.min(2.2, 0.55 + relVolume * 0.55));
-    const notionalUsd = Math.round(
+    const rawNotionalUsd = Math.round(
       avgVol * currentPrice * t.mult * t.distWeight * 1.85 * baseMomentumMult * atrWeight * relVolumeWeight * oiConcentration
     );
+    const notionalUsd = isMitigated ? Math.round(rawNotionalUsd * 0.2) : rawNotionalUsd;
     const units = Number((notionalUsd / liqPrice).toFixed(2));
     const slippagePct = Number((0.08 * t.mult * (0.85 + atrPct / 4)).toFixed(2));
 
@@ -3497,17 +3536,23 @@ export function calculateLiquidationCascadeRadar(
 
     // Tick Hazard scoring
     let tickHazard: LiquidationCascadeCluster['tickHazard'] = 'SAFE';
-    if (distanceTicks <= 28 || distPct <= 0.35) tickHazard = 'EXTREME';
-    else if (distanceTicks <= 70 || distPct <= 0.85) tickHazard = 'HIGH';
-    else if (distanceTicks <= 170 || distPct <= 2.0) tickHazard = 'MODERATE';
+    if (!isMitigated) {
+      if (distanceTicks <= 28 || distPct <= 0.35) tickHazard = 'EXTREME';
+      else if (distanceTicks <= 70 || distPct <= 0.85) tickHazard = 'HIGH';
+      else if (distanceTicks <= 170 || distPct <= 2.0) tickHazard = 'MODERATE';
+    }
 
     // Cascade hazard score (closer in ticks = higher; OI-heavy tiers scale up)
     const proximityWeight = isTickMode
       ? Math.max(0, 1 - distanceTicks / 200)
       : Math.max(0, 1 - distPct / 6);
     const tierBoost = t.leverage >= 75 ? 14 : t.leverage >= 50 ? 11 : 8;
-    const hazard = Math.min(99, Math.round(proximityWeight * 85 * (0.85 + t.distWeight) + tierBoost));
-    const isImminent = isTickMode ? (distanceTicks <= 35 || distPct <= 0.45) : (distPct <= 1.2 && distPct > 0);
+    const hazard = isMitigated
+      ? Math.round(proximityWeight * 18)
+      : Math.min(99, Math.round(proximityWeight * 85 * (0.85 + t.distWeight) + tierBoost));
+    const isImminent = isMitigated
+      ? false
+      : (isTickMode ? (distanceTicks <= 35 || distPct <= 0.45) : (distPct <= 1.2 && distPct > 0));
 
     // Confidence: pivot quality + volume confirmation + volatility sanity + base bias
     const pivotQuality = pivotSource === 'session' ? 0.92 : pivotSource === 'long_term' ? 0.88 : pivotSource === 'medium_term' ? 0.78 : 0.68;
@@ -3517,20 +3562,7 @@ export function calculateLiquidationCascadeRadar(
 
     const notionalM = notionalUsd / 1e6;
     const notionalTxt = notionalM >= 1 ? `$${notionalM.toFixed(1)}M` : `$${Math.round(notionalUsd / 1e3)}K`;
-    const description = `💥 ${t.tier} ${isShort ? 'Short' : 'Long'} Liquidation Pool (${notionalTxt} Notional, ${distanceTicks} Ticks, ${pivotSource} pivot)`;
-
-    // [HEATMAP v4 GRADED ZONES] Time-aware recency & visual grading.
-    // The pool's resting order mass ages with the market: a fresh pivot anchor means
-    // untouched stops still stacked there, while an old anchor has likely been swept,
-    // retraced or consumed. We anchor the age to the bar index of the pivot print.
-    const anchorBarIndex = (() => {
-      const searchLen = recent.length;
-      for (let b = searchLen - 1; b >= 0; b--) {
-        if (isShort ? recent[b].high >= pivotPrice : recent[b].low <= pivotPrice) return b;
-      }
-      return searchLen - 1;
-    })();
-    const barsSinceAnchor = Math.max(0, (len - 1) - anchorBarIndex);
+    const description = `💥 ${t.tier} ${isShort ? 'Short' : 'Long'} Liquidation Pool (${notionalTxt} Notional, ${distanceTicks} Ticks, ${pivotSource} pivot)${isMitigated ? ' [SWEPT]' : ''}`;
 
     const gradeHalfLifeBars = isTickMode
       ? (timeframeMode === 'tick' ? 6 : timeframeMode === '10t' ? 10 : timeframeMode === '50t' ? 18 : 26)
@@ -3543,10 +3575,12 @@ export function calculateLiquidationCascadeRadar(
     // Exponential recency decay (half-life per timeframe mode), floored at 0.25 so
     // ancient pools fade visually but never fully vanish from the map.
     const recencyWeight = Math.max(0.25, Math.pow(0.5, Math.max(0, clusterAgeBars - gradeFreshBars) / gradeHalfLifeBars));
-    const effectiveIntensity = Math.max(0.02, heatIntensity * recencyWeight * (0.55 + 0.45 * (confidence - 35) / 62));
-    const visualGrade = gradeClusterZone(heatIntensity, confidence, recencyWeight);
+    const effectiveIntensity = isMitigated
+      ? Math.max(0.01, heatIntensity * 0.22)
+      : Math.max(0.02, heatIntensity * recencyWeight * (0.55 + 0.45 * (confidence - 35) / 62));
+    const visualGrade: ClusterVisualGrade = isMitigated ? 'C' : gradeClusterZone(heatIntensity, confidence, recencyWeight);
     const gradeColor = CLUSTER_GRADE_COLORS[visualGrade];
-    const gradeLabel = clusterAgeBars <= gradeFreshBars ? 'SEGER' : ageFraction < 0.34 ? 'AKTIF' : ageFraction < 0.67 ? 'MENUA' : 'STALE';
+    const gradeLabel = isMitigated ? 'SWEPT' : (clusterAgeBars <= gradeFreshBars ? 'SEGER' : ageFraction < 0.34 ? 'AKTIF' : ageFraction < 0.67 ? 'MENUA' : 'STALE');
 
     return {
       clusterAgeBars,
@@ -3846,7 +3880,11 @@ let __heatPaletteCounter = 0;
  * precision-anchored tier stops; memoized so identical liquidity levels always render
  * the exact same color (zero banding shimmer at 120 FPS).
  */
-export function getBookmapThemeColor(
+/**
+ * Super Gradient Color mapper returning [r, g, b, a255] tuple directly.
+ * Avoids string allocations for ultra-fast 120 FPS rasterization into Canvas ImageData.
+ */
+export function getBookmapThemeColorRgbaTuple(
   density: number, // 0 to 1
   side: 'bid' | 'ask',
   mode: 'theme' | 'thermal' | 'bid_ask' = 'theme',
@@ -3854,53 +3892,27 @@ export function getBookmapThemeColor(
   _baseOpacity: number = 0.90,
   peakStyle: 'default' | 'pure' | 'poc' = 'default',
   alphaRef?: number
-): string {
+): [number, number, number, number] {
   const rawD = Math.max(0, Math.min(1, density));
-  if (rawD < 0.01) return 'rgba(0,0,0,0)';
-  
-  // Strictly clamp normalized density to [0, 1]
-  const d = Math.max(0, Math.min(1.0, (rawD - 0.01) / 0.99));
+  if (rawD < 0.01) return [0, 0, 0, 0];
 
+  const d = Math.max(0, Math.min(1.0, (rawD - 0.01) / 0.99));
   const opacityMultiplier = typeof _baseOpacity === 'number' && !isNaN(_baseOpacity)
     ? Math.max(0.2, Math.min(1.0, _baseOpacity))
     : 0.95;
 
-  // [v7.2 MONOTONE ALPHA] Opacity SELALU dihitung dari level density asli sel
-  // (alphaRef bila diberikan), bukan dari nilai yang didorong untuk keperluan
-  // warna — makin rendah level liquidity => makin padam, makin tinggi level =>
-  // makin terang, berlaku seragam di semua baris & zona.
   const alphaNorm = (typeof alphaRef === 'number' && !isNaN(alphaRef))
     ? Math.max(0, Math.min(1.0, (Math.max(0, Math.min(1, alphaRef)) - 0.01) / 0.99))
     : d;
   const rawOpacity = calibratedHeatAlpha(alphaNorm);
-  const finalAlpha = Math.max(0.06, Math.min(1.0, Number((rawOpacity * opacityMultiplier).toFixed(3))));
-  
-  // [ACCURACY v2] Memoization key: quantized density (1/256) + palette identity +
-  // mode + side + base opacity. Identical liquidity levels reuse the EXACT rgba.
-  const dKey = Math.min(255, Math.round(d * 255));
-  const modeKey = mode === 'theme' ? 0 : mode === 'thermal' ? 1 : 2;
-  const opKey = Math.round(opacityMultiplier * 100);
-  const paletteMeta = palette as unknown as { __heatPaletteId?: number } | null;
-  if (paletteMeta && typeof paletteMeta.__heatPaletteId !== 'number') {
-    paletteMeta.__heatPaletteId = ++__heatPaletteCounter;
-  }
-  const styleKey = peakStyle === 'pure' ? 1 : peakStyle === 'poc' ? 2 : 0;
-  const aKey = (typeof alphaRef === 'number' && !isNaN(alphaRef))
-    ? Math.min(255, Math.round(Math.max(0, Math.min(1, alphaRef)) * 255)) + 1
-    : 0;
-  const baseKey = (((((paletteMeta?.__heatPaletteId ?? 0) * 3 + modeKey) * 2 + (side === 'bid' ? 0 : 1)) * 101 + opKey) * 3 + styleKey) * 256 + dKey;
-  const cacheKey = baseKey * 257 + aKey;
-  const cachedColor = HEAT_COLOR_CACHE.get(cacheKey);
-  if (cachedColor) return cachedColor;
+  const finalAlpha255 = Math.max(15, Math.min(255, Math.round(rawOpacity * opacityMultiplier * 255)));
 
   const bgRGB = parseHexToRgb(palette?.dark, '#0a101d');
   const bullRGB = parseHexToRgb(palette?.bull, '#00ff66');
   const bearRGB = parseHexToRgb(palette?.bear, '#ff0044');
-
   const isBid = side === 'bid';
   const targetRGB = isBid ? bullRGB : bearRGB;
 
-  // Luminous peak variant within the SAME theme color family (brighter/saturated version of targetRGB)
   const peakTargetRGB: [number, number, number] = [
     Math.min(255, Math.round(targetRGB[0] + (255 - targetRGB[0]) * 0.52)),
     Math.min(255, Math.round(targetRGB[1] + (255 - targetRGB[1]) * 0.52)),
@@ -3908,16 +3920,11 @@ export function getBookmapThemeColor(
   ];
 
   let stops: ColorStop[];
-
   if (mode === 'thermal') {
-    // [HEATMAP v4 GLOBAL-LOOK] Inferno-style spectrum anchored to theme aggressor
-    // colors: near-transparent background wash -> deep base -> saturated core ->
-    // white-hot peak, exactly how global platforms graduate wall intensity.
     const deepRGB = mixRgbColors(bgRGB, targetRGB, 0.30);
     const coreRGB = mixRgbColors(targetRGB, peakTargetRGB, 0.30);
     const peakRGB = peakTargetRGB;
     if (peakStyle === 'pure') {
-      // [v7] Zona NON-puncak: berhenti di warna tema penuh — tanpa putih/POC.
       stops = [
         { pos: 0.00, rgb: mixRgbColors(bgRGB, deepRGB, 0.35) },
         { pos: 0.18, rgb: deepRGB },
@@ -3925,7 +3932,6 @@ export function getBookmapThemeColor(
         { pos: 1.00, rgb: targetRGB },
       ];
     } else if (peakStyle === 'poc') {
-      // [v7] Area tertinggi saja: gradasi peak -> warna POC (putih pada tema default).
       const pocRGB = parseHexToRgb(palette?.poc, '#ffffff');
       stops = [
         { pos: 0.00, rgb: mixRgbColors(bgRGB, deepRGB, 0.35) },
@@ -3952,13 +3958,11 @@ export function getBookmapThemeColor(
       ];
     }
   } else if (mode === 'bid_ask') {
-    // Dual Bid/Ask Spectrum - 100% theme color consistency with v4 faint low-end.
     const faintRGB = mixRgbColors(bgRGB, targetRGB, 0.14);
     const midRGB = mixRgbColors(bgRGB, targetRGB, 0.45);
     const fullRGB = targetRGB;
     const peakRGB = peakTargetRGB;
     if (peakStyle === 'pure') {
-      // [v7] Zona NON-puncak: gradasi warna tema murni per level — tanpa putih.
       stops = [
         { pos: 0.00, rgb: faintRGB },
         { pos: 0.22, rgb: midRGB },
@@ -3967,7 +3971,6 @@ export function getBookmapThemeColor(
         { pos: 1.00, rgb: fullRGB },
       ];
     } else if (peakStyle === 'poc') {
-      // [v7] Area tertinggi saja: gradasi peak -> warna POC (putih pada tema default).
       const pocRGB = parseHexToRgb(palette?.poc, '#ffffff');
       stops = [
         { pos: 0.00, rgb: faintRGB },
@@ -3990,9 +3993,6 @@ export function getBookmapThemeColor(
       ];
     }
   } else {
-    // [HEATMAP v4 GLOBAL-LOOK] Theme mode: starts almost invisible at the faint end
-    // and pushes into a luminous halo at wall densities, so thin bands no longer paint
-    // solid boxes over candles and the map reads like Bookmap/Coinglass depth fields.
     const faintRGB = mixRgbColors(bgRGB, targetRGB, 0.10);
     const lowRGB = mixRgbColors(bgRGB, targetRGB, 0.24);
     const midRGB = mixRgbColors(bgRGB, targetRGB, 0.52);
@@ -4000,8 +4000,6 @@ export function getBookmapThemeColor(
     const peakRGB = peakTargetRGB;
 
     if (peakStyle === 'pure') {
-      // [v7 PURE NON-PEAK] Gradasi warna tema murni per level density — nol putih.
-      // Kontras antar level datang dari alpha ladder terkalibrasi (opacity per level).
       stops = [
         { pos: 0.00, rgb: faintRGB },
         { pos: 0.16, rgb: lowRGB },
@@ -4010,9 +4008,6 @@ export function getBookmapThemeColor(
         { pos: 1.00, rgb: fullRGB },
       ];
     } else if (peakStyle === 'poc') {
-      // [v7.6 PEAK-ONLY] Region 0.55-0.82 = warna tema MURNI (tanpa putih)
-      // untuk semua sel non-tertinggi; gradasi putih/POC dipadatkan di
-      // 0.92-1.00 sehingga HANYA sel terkuat pada waktunya yang memutih.
       const pocRGB = parseHexToRgb(palette?.poc, '#ffffff');
       stops = [
         { pos: 0.00, rgb: faintRGB },
@@ -4038,7 +4033,50 @@ export function getBookmapThemeColor(
   }
 
   const rgb = interpolateSmoothStops(d, stops);
-  const result = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${finalAlpha})`;
+  return [rgb[0], rgb[1], rgb[2], finalAlpha255];
+}
+
+/**
+ * Super Gradient Color mapper matching Bookmap aesthetic with thermal and theme palettes.
+ * [ACCURACY v2] linear-light blending + calibrated perceptual alpha ladder +
+ * precision-anchored tier stops; memoized so identical liquidity levels always render
+ * the exact same color (zero banding shimmer at 120 FPS).
+ */
+export function getBookmapThemeColor(
+  density: number, // 0 to 1
+  side: 'bid' | 'ask',
+  mode: 'theme' | 'thermal' | 'bid_ask' = 'theme',
+  palette: ThemeColors,
+  _baseOpacity: number = 0.90,
+  peakStyle: 'default' | 'pure' | 'poc' = 'default',
+  alphaRef?: number
+): string {
+  const rawD = Math.max(0, Math.min(1, density));
+  if (rawD < 0.01) return 'rgba(0,0,0,0)';
+  
+  const d = Math.max(0, Math.min(1.0, (rawD - 0.01) / 0.99));
+  const opacityMultiplier = typeof _baseOpacity === 'number' && !isNaN(_baseOpacity)
+    ? Math.max(0.2, Math.min(1.0, _baseOpacity))
+    : 0.95;
+
+  const dKey = Math.min(255, Math.round(d * 255));
+  const modeKey = mode === 'theme' ? 0 : mode === 'thermal' ? 1 : 2;
+  const opKey = Math.round(opacityMultiplier * 100);
+  const paletteMeta = palette as unknown as { __heatPaletteId?: number } | null;
+  if (paletteMeta && typeof paletteMeta.__heatPaletteId !== 'number') {
+    paletteMeta.__heatPaletteId = ++__heatPaletteCounter;
+  }
+  const styleKey = peakStyle === 'pure' ? 1 : peakStyle === 'poc' ? 2 : 0;
+  const aKey = (typeof alphaRef === 'number' && !isNaN(alphaRef))
+    ? Math.min(255, Math.round(Math.max(0, Math.min(1, alphaRef)) * 255)) + 1
+    : 0;
+  const baseKey = (((((paletteMeta?.__heatPaletteId ?? 0) * 3 + modeKey) * 2 + (side === 'bid' ? 0 : 1)) * 101 + opKey) * 3 + styleKey) * 256 + dKey;
+  const cacheKey = baseKey * 257 + aKey;
+  const cachedColor = HEAT_COLOR_CACHE.get(cacheKey);
+  if (cachedColor) return cachedColor;
+
+  const [r, g, b, a255] = getBookmapThemeColorRgbaTuple(density, side, mode, palette, _baseOpacity, peakStyle, alphaRef);
+  const result = `rgba(${r}, ${g}, ${b}, ${(a255 / 255).toFixed(3)})`;
   if (HEAT_COLOR_CACHE.size > 4096) HEAT_COLOR_CACHE.clear();
   HEAT_COLOR_CACHE.set(cacheKey, result);
   return result;
@@ -5817,28 +5855,21 @@ export function renderLiquidityHeatmapLayer({
 
       const buyFraction = Math.max(0.0, Math.min(1.0, bubble.buyRatio));
       
-      // High-Contrast Deep Drop Shadow
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
-      ctx.shadowBlur = Math.max(2.0, r * 0.35);
-      ctx.shadowOffsetX = Math.max(0.8, r * 0.12);
-      ctx.shadowOffsetY = Math.max(0.8, r * 0.16);
+      // Fast-path clean rendering without expensive GPU drop-shadow blur per bubble
+      const isFastPath = Boolean(isDragging || settings.ecoMode || chartWidth < 768 || r < 5.0);
 
       // 1. Dual-Tone Radial Pie Chart Split (Authentic Bookmap Standard)
-      // Top starts at 12 o'clock (-PI/2) and sweeps clockwise by buyFraction
       if (buyFraction >= 0.99) {
-        // 100% Full Buy Sphere
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fillStyle = bullCol;
         ctx.fill();
       } else if (buyFraction <= 0.01) {
-        // 100% Full Sell Sphere
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fillStyle = bearCol;
         ctx.fill();
       } else {
-        // Mixed Trades: Radial Pie Chart with Buy (Green) and Sell (Red) sectors
         const startAngle = -Math.PI / 2;
         const splitAngle = startAngle + Math.PI * 2 * buyFraction;
 
@@ -5858,26 +5889,17 @@ export function renderLiquidityHeatmapLayer({
         ctx.fillStyle = bearCol;
         ctx.fill();
 
-        // Crisp dividing seam line between Buy and Sell sectors
         if (r >= 3.0) {
           ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
           ctx.lineWidth = 0.85;
           ctx.beginPath();
-          // Top radius line
           ctx.moveTo(cx, cy);
           ctx.lineTo(cx + r * Math.cos(startAngle), cy + r * Math.sin(startAngle));
-          // Split radius line
           ctx.moveTo(cx, cy);
           ctx.lineTo(cx + r * Math.cos(splitAngle), cy + r * Math.sin(splitAngle));
           ctx.stroke();
         }
       }
-
-      // Reset shadows for overlay layers
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
 
       // 3. Crisp Dark Outer Rim Boundary
       ctx.strokeStyle = '#000000';
@@ -5886,59 +5908,29 @@ export function renderLiquidityHeatmapLayer({
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.stroke();
 
-      // 4. Inner Specular Accent Rim
-      if (r >= 3.2) {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-        ctx.lineWidth = 0.75;
-        ctx.beginPath();
-        ctx.arc(cx, cy, Math.max(1.0, r - 0.7), 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      // 4. Lightweight Specular 3D Highlight
+      if (r >= 2.8) {
+        if (isFastPath) {
+          // Lightweight specular dot (1 fast draw call)
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+          ctx.beginPath();
+          ctx.arc(cx - r * 0.32, cy - r * 0.32, Math.max(0.8, r * 0.28), 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Full 3D sphere gradient on desktop when idle
+          const specGrad = ctx.createRadialGradient(
+            cx - r * 0.35, cy - r * 0.35, 0,
+            cx - r * 0.35, cy - r * 0.35, r * 0.45
+          );
+          specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+          specGrad.addColorStop(0.4, 'rgba(255, 255, 255, 0.35)');
+          specGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
-      // 5. 3D Glossy Marble Specular Lighting (Authentic Sphere Reflection)
-      if (r >= 2.5) {
-        // Ambient 3D sphere gradient
-        const ambientGrad = ctx.createRadialGradient(
-          cx - r * 0.25, cy - r * 0.25, 0,
-          cx - r * 0.15, cy - r * 0.15, r
-        );
-        ambientGrad.addColorStop(0, 'rgba(255, 255, 255, 0.28)');
-        ambientGrad.addColorStop(0.45, 'rgba(0, 0, 0, 0)');
-        ambientGrad.addColorStop(0.82, 'rgba(0, 0, 0, 0.45)');
-        ambientGrad.addColorStop(1, 'rgba(0, 0, 0, 0.80)');
-
-        ctx.fillStyle = ambientGrad;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Upper-left glossy specular highlight spot
-        const specGrad = ctx.createRadialGradient(
-          cx - r * 0.35, cy - r * 0.35, 0,
-          cx - r * 0.35, cy - r * 0.35, r * 0.42
-        );
-        specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
-        specGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.48)');
-        specGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-        ctx.fillStyle = specGrad;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Bottom bounce rim reflection
-        const bounceGrad = ctx.createRadialGradient(
-          cx + r * 0.3, cy + r * 0.3, 0,
-          cx + r * 0.3, cy + r * 0.3, r * 0.65
-        );
-        bounceGrad.addColorStop(0, 'rgba(255, 255, 255, 0.35)');
-        bounceGrad.addColorStop(0.45, 'rgba(255, 255, 255, 0)');
-        bounceGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-        ctx.fillStyle = bounceGrad;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fill();
+          ctx.fillStyle = specGrad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
       // 6. Clean Volume Badge for prominent large executed trades

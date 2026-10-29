@@ -302,27 +302,42 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [palette, theme, isHighContrast, isCustomDarkBg]);
 
+  const themeContextValue = useMemo(() => ({
+    theme,
+    setTheme,
+    palette,
+    availableThemes: THEME_LIST,
+    isAutoOsTheme,
+    setIsAutoOsTheme,
+    isHighContrast,
+    setIsHighContrast,
+    isCustomDarkBg,
+    setIsCustomDarkBg,
+    customAccentColor,
+    setCustomAccentColor,
+    customPocColor,
+    setCustomPocColor,
+    isSystemDark,
+    isLight: palette.dark === '#ffffff',
+  }), [
+    theme,
+    setTheme,
+    palette,
+    isAutoOsTheme,
+    setIsAutoOsTheme,
+    isHighContrast,
+    setIsHighContrast,
+    isCustomDarkBg,
+    setIsCustomDarkBg,
+    customAccentColor,
+    setCustomAccentColor,
+    customPocColor,
+    setCustomPocColor,
+    isSystemDark,
+  ]);
+
   return (
-    <ThemeContext.Provider
-      value={{
-        theme,
-        setTheme,
-        palette,
-        availableThemes: THEME_LIST,
-        isAutoOsTheme,
-        setIsAutoOsTheme,
-        isHighContrast,
-        setIsHighContrast,
-        isCustomDarkBg,
-        setIsCustomDarkBg,
-        customAccentColor,
-        setCustomAccentColor,
-        customPocColor,
-        setCustomPocColor,
-        isSystemDark,
-        isLight: palette.dark === '#ffffff',
-      }}
-    >
+    <ThemeContext.Provider value={themeContextValue}>
       {children}
     </ThemeContext.Provider>
   );

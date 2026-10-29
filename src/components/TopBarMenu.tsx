@@ -204,8 +204,7 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
       {/* Workspace Presets 1-Click Switcher */}
       <button
         onClick={() => setIsWorkspacePresetsOpen(true)}
-        
-        className={`${btnClass} text-[var(--color-text)]`}
+        className={`${btnClass} text-[var(--color-text)] hidden md:flex`}
         title="Buka Workspace Presets"
       >
         <LayoutGrid size={14} className="shrink-0 text-[var(--color-text-muted)]" />
@@ -214,7 +213,7 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
 
       {/* Global Scroll Zoom Controller Badge & Presets Menu */}
       {globalZoom !== undefined && zoomIn && zoomOut && resetZoom && setGlobalZoom && (
-        <div className="relative flex items-center shrink-0" ref={zoomMenuRef}>
+        <div className="relative hidden md:flex items-center shrink-0" ref={zoomMenuRef}>
           <div 
             
             className={`${btnClass} !p-0.5 flex items-center gap-0.5 select-none text-[var(--color-text)]`}
@@ -375,7 +374,7 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
       {setIsNewsModalOpen && (
         <button
           onClick={() => setIsNewsModalOpen(true)}
-          className={`${btnClass} flex items-center gap-1.5 font-bold transition-all bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white`}
+          className={`${btnClass} hidden md:flex items-center gap-1.5 font-bold transition-all bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white`}
           title="Buka Real-Time Financial News Feeds & Kalender Berita Ekonomi Realtime"
         >
           <Newspaper size={13} className="shrink-0 text-zinc-400" />
@@ -437,7 +436,7 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
 
       <button
         onClick={() => setIsZenMode(true)}
-        className={`${btnClass}`}
+        className={`${btnClass} hidden sm:flex`}
         title="Minimize Semua Layout (Zen Mode)"
       >
         <Maximize size={13} className="shrink-0" />
@@ -696,6 +695,17 @@ export const TopBarMenu: React.FC<TopBarMenuProps> = ({
                   <span className="font-semibold text-[11px] sm:text-xs text-[var(--color-text)] flex-1">Workspace Presets</span>
                   <span style={{ backgroundColor: 'var(--color-box-bull)', color: 'var(--color-bull)' }} className="text-[8px] sm:text-[9px] font-mono px-1 sm:px-1.5 py-0.5 rounded font-bold shrink-0">
                     LAYOUTS
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => { setIsZenMode(true); setIsOpen(false); }}
+                  className="flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-md sm:rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition-colors w-full text-left cursor-pointer active:bg-white/20 min-h-[36px] sm:min-h-[42px]"
+                >
+                  <Maximize size={14} className="text-[var(--color-text-muted)]" />
+                  <span className="font-semibold text-[11px] sm:text-xs text-[var(--color-text)] flex-1">Zen Mode (Fokus Penuh)</span>
+                  <span style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'var(--color-text-muted)' }} className="text-[8px] sm:text-[9px] font-mono px-1 sm:px-1.5 py-0.5 rounded font-bold shrink-0">
+                    ZEN
                   </span>
                 </button>
 

@@ -499,6 +499,7 @@ html, body {
   image-rendering: crisp-edges;
   transform: translateZ(0);
   will-change: transform;
+  contain: strict;
   touch-action: none;
 }
 

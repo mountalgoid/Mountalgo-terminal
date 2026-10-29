@@ -1676,23 +1676,35 @@ export function renderDrawingItem(
 export function renderSelectionHandles(
   ctx: CanvasRenderingContext2D,
   item: DrawingItem,
-  utils: CoordinateUtils
+  utils: CoordinateUtils,
+  isTouch?: boolean
 ) {
   const { getY, getXFromTime, chartWidth, fullHeight } = utils;
+  const isTouchDevice = isTouch ?? (typeof window !== 'undefined' && ('ontouchstart' in window || window.innerWidth < 768));
+  const baseRadius = isTouchDevice ? 6.5 : 5;
 
-  const drawHandle = (hx: number, hy: number, color = '#0284c7', radius = 4.5) => {
+  const drawHandle = (hx: number, hy: number, color = '#0284c7', radius = baseRadius) => {
     ctx.save();
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
+    // Soft outer glow halo
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
     ctx.beginPath();
-    ctx.arc(hx, hy, radius + 3.5, 0, Math.PI * 2);
+    ctx.arc(hx, hy, radius + (isTouchDevice ? 5 : 3.5), 0, Math.PI * 2);
     ctx.fill();
+
+    // Solid contrasting body
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.2;
     ctx.beginPath();
     ctx.arc(hx, hy, radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+
+    // Inner center pin
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(hx, hy, radius * 0.4, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   };
 
@@ -1721,7 +1733,7 @@ export function renderSelectionHandles(
       drawHandle(x2, y2);
       drawHandle(x1, y2);
       drawHandle(x2, y1);
-      drawHandle((x1 + x2) / 2, (y1 + y2) / 2, '#38bdf8', 3.5);
+      drawHandle((x1 + x2) / 2, (y1 + y2) / 2, '#38bdf8', baseRadius * 0.85);
     }
   } else if (
     item.type === 'triangle' ||
@@ -1748,7 +1760,7 @@ export function renderSelectionHandles(
       const x2 = getXFromTime(p2.time);
       const y2 = getY(p2.price);
       drawHandle(x2, y2);
-      drawHandle((x1 + x2) / 2, (y1 + y2) / 2, '#38bdf8', 3.5);
+      drawHandle((x1 + x2) / 2, (y1 + y2) / 2, '#38bdf8', baseRadius * 0.85);
     }
   }
 }

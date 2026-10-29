@@ -241,8 +241,8 @@ export default function FloatingDrawingToolbar({
     setShowPinManager(false);
   };
 
-  // Shared tool button class — uniform sizing
-  const toolBtnClass = "flex items-center justify-center min-w-[36px] min-h-[36px] w-9 h-9 sm:w-8 sm:h-8 rounded-lg sm:rounded-md transition-all cursor-pointer border shrink-0";
+  // Shared tool button class — uniform finger-friendly touch sizing (40px+ on mobile)
+  const toolBtnClass = "flex items-center justify-center min-w-[40px] min-h-[40px] w-10 h-10 sm:min-w-[32px] sm:min-h-[32px] sm:w-8 sm:h-8 rounded-xl sm:rounded-md transition-all cursor-pointer border shrink-0 touch-manipulation";
   const toolBtnActive = (active: boolean, color?: string) => 
     active ? { backgroundColor: `${color || palette.bull}33`, color: color || palette.bull, borderColor: `${color || palette.bull}88` } : {};
 

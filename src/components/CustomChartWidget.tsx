@@ -66,7 +66,7 @@ import { IndicatorSettings,
 } from '../utils/indicators';
 import { computeVolumeProfile, renderVolumeProfileOverlay, VolumeProfileResult, getContrastTextColor } from '../utils/volumeProfileEngine';
 import { generateFootprintData, FootprintCandleData } from '../utils/footprints';
-import { DrawingToolType, DrawingItem, FIBONACCI_LEVELS } from '../utils/drawingTools';
+import { DrawingToolType, DrawingItem, FIBONACCI_LEVELS, getToolRequiredPoints, getToolInstruction, DRAWING_TOOLS_METADATA } from '../utils/drawingTools';
 import { formatVol } from '../utils/numberFormatters';
 import { TimezoneSelector } from './TimezoneSelector';
 import { MarketSessionsOverlay } from './MarketSessionsOverlay';
@@ -1996,14 +1996,17 @@ export default function CustomChartWidget({
   const isAutoEcoModeRef = useRef<boolean>(false);
   const isFastInteractingRef = useRef<boolean>(false);
   const fastInteractTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isChartDirtyRef = useRef<boolean>(true);
 
   const notifyFastInteraction = useCallback(() => {
     isFastInteractingRef.current = true;
+    isChartDirtyRef.current = true;
     if (fastInteractTimerRef.current) {
       clearTimeout(fastInteractTimerRef.current);
     }
     fastInteractTimerRef.current = setTimeout(() => {
       isFastInteractingRef.current = false;
+      isChartDirtyRef.current = true;
       if (renderCanvasRef.current) {
         renderCanvasRef.current();
       }
@@ -2024,6 +2027,7 @@ export default function CustomChartWidget({
   }, []);
 
   const requestRender = useCallback(() => {
+    isChartDirtyRef.current = true;
     if (animFrameRef.current !== null) return;
     animFrameRef.current = requestAnimationFrame(() => {
       animFrameRef.current = null;
@@ -3152,11 +3156,29 @@ export default function CustomChartWidget({
   ]);
 
   // Hit testing for User Drawings and Control Handles
-  const getDrawingHit = useCallback((mouseX: number, mouseY: number) => {
+  const getDrawingHit = useCallback((mouseX: number, mouseY: number, isTouch = false) => {
     const utils = getCoordinateUtils();
     if (!utils || hideDrawings) return null;
-    return getDrawingHitTest(mouseX, mouseY, drawings, utils, hideDrawings);
+    return getDrawingHitTest(mouseX, mouseY, drawings, utils, hideDrawings, isTouch);
   }, [drawings, getCoordinateUtils, hideDrawings]);
+
+  // Global Escape key listener to gracefully cancel active drawing or reset tool to cursor
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (currentDrawing) {
+          setCurrentDrawing(null);
+          drawStartCoordsRef.current = null;
+        } else if (activeTool !== 'cursor') {
+          setActiveTool('cursor');
+        } else if (selectedDrawingId) {
+          setSelectedDrawingId(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentDrawing, activeTool, selectedDrawingId]);
 
   // Canvas buffer resize is now handled inline in the render loop to prevent
   // blank-on-reload race conditions where canvas.width reset clears the buffer
@@ -3167,6 +3189,7 @@ export default function CustomChartWidget({
     let animationFrameId: number;
 
     const renderCanvas = () => {
+      if (!isChartDirtyRef.current && !isDragging) return;
       const frameStartTime = performance.now();
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -3185,7 +3208,8 @@ export default function CustomChartWidget({
         // right before drawing, preventing blank-on-reload race conditions and optimizing for Global Zoom scaling
         {
           const zoomScale = getGlobalZoomScale();
-          const dpr = Math.max(1, Math.min((window.devicePixelRatio || 1) * zoomScale, 3.5));
+          const maxDprCap = isAutoEcoModeRef.current || isDragging ? 1.5 : 2.0;
+          const dpr = Math.max(1, Math.min((window.devicePixelRatio || 1) * zoomScale, maxDprCap));
           const targetW = Math.floor(utils.width * dpr);
           const targetH = Math.floor(utils.height * dpr);
           if (canvas.width !== targetW || canvas.height !== targetH) {
@@ -8787,11 +8811,15 @@ export default function CustomChartWidget({
     renderCanvasRef.current = renderCanvas;
 
     if (hasActiveAnimations) {
+      isChartDirtyRef.current = true;
       requestRender();
+    } else {
+      isChartDirtyRef.current = false;
     }
   };
 
   renderCanvasRef.current = renderCanvas;
+  isChartDirtyRef.current = true;
   requestRender();
 
   return () => {
@@ -10659,7 +10687,7 @@ export default function CustomChartWidget({
       }
 
       if (activeTool === 'cursor' && !isPriceAxis && !isTimeAxis && !isLockedDrawings) {
-        const hit = getDrawingHit(touchX, touchY);
+        const hit = getDrawingHit(touchX, touchY, true);
         if (hit) {
           setSelectedDrawingId(hit.id);
           if (getEffectiveDrawingLocked(hit.drawing, layersMap, isLockedDrawings)) {
@@ -10700,14 +10728,16 @@ export default function CustomChartWidget({
 
       // Handle drawing tools on touch
       if (activeTool !== 'cursor' && !isPriceAxis && !isTimeAxis && !isLockedDrawings && pt) {
-        if (activeTool === 'brush') {
-          const newDraw: DrawingItem = {
+        if (activeTool === 'brush' || activeTool === 'highlighter') {
+          const rawDraw: DrawingItem = {
             id: Date.now().toString(),
-            type: 'brush',
+            type: activeTool,
             points: [{ price: pt.price, time: pt.time }],
             color: drawingColor,
+            layerId: activeLayerId,
             isComplete: false,
           };
+          const newDraw = applyStyleToDrawing(rawDraw, activeTemplateStyle);
           setCurrentDrawing(newDraw);
           touchStateRef.current = {
             isInteracting: true,
@@ -10728,13 +10758,15 @@ export default function CustomChartWidget({
           if (rect) updateCrosshair(touchX, touchY, true);
           return;
         } else if (['horizontal', 'horizontal_ray', 'vertical', 'price_label'].includes(activeTool)) {
-          const newDrawing: DrawingItem = {
+          const rawDrawing: DrawingItem = {
             id: Date.now().toString(),
             type: activeTool as any,
             points: [{ price: pt.price, time: pt.time }],
             color: drawingColor,
+            layerId: activeLayerId,
             isComplete: true,
           };
+          const newDrawing = applyStyleToDrawing(rawDrawing, activeTemplateStyle);
           setDrawings((prev) => [...prev, newDrawing]);
           setSelectedDrawingId(newDrawing.id);
           if (!stayInDrawingMode) setActiveTool('cursor');
@@ -10781,9 +10813,12 @@ export default function CustomChartWidget({
           });
           if (!stayInDrawingMode) setActiveTool('cursor');
           return;
-        } else if (['trendline', 'ray', 'extended_line', 'parallel_channel', 'arrow', 'rectangle', 'ellipse', 'triangle', 'fibonacci', 'fib_fan', 'pitchfork', 'ruler'].includes(activeTool)) {
+        } else {
+          // Universal Multi-Point Tool Handler for Touch (2-point, 3-point, 5-point, 6-point, polyline)
+          const targetMaxPoints = getToolRequiredPoints(activeTool);
+
           if (!currentDrawing) {
-            const newDraw: DrawingItem = {
+            const rawDraw: DrawingItem = {
               id: Date.now().toString(),
               type: activeTool,
               points: [
@@ -10791,8 +10826,10 @@ export default function CustomChartWidget({
                 { price: pt.price, time: pt.time },
               ],
               color: drawingColor,
+              layerId: activeLayerId,
               isComplete: false,
             };
+            const newDraw = applyStyleToDrawing(rawDraw, activeTemplateStyle);
             setCurrentDrawing(newDraw);
             touchStateRef.current = {
               isInteracting: true,
@@ -10813,17 +10850,45 @@ export default function CustomChartWidget({
             if (rect) updateCrosshair(touchX, touchY, true);
             return;
           } else {
-            const completed: DrawingItem = {
-              ...currentDrawing,
-              points: [currentDrawing.points[0], { price: pt.price, time: pt.time }],
-              isComplete: true,
-            };
-            setDrawings((prev) => [...prev, completed]);
-            setSelectedDrawingId(completed.id);
-            setCurrentDrawing(null);
-            touchStateRef.current.isInteracting = false;
-            if (!stayInDrawingMode) setActiveTool('cursor');
-            return;
+            const currentPoints = currentDrawing.points;
+            const updatedPts = [...currentPoints.slice(0, -1), { price: pt.price, time: pt.time }];
+
+            if (updatedPts.length >= targetMaxPoints) {
+              const completed: DrawingItem = {
+                ...currentDrawing,
+                points: updatedPts,
+                isComplete: true,
+              };
+              setDrawings((prev) => [...prev, completed]);
+              setSelectedDrawingId(completed.id);
+              setCurrentDrawing(null);
+              touchStateRef.current.isInteracting = false;
+              if (!stayInDrawingMode) setActiveTool('cursor');
+              return;
+            } else {
+              // Append next point for live preview
+              setCurrentDrawing({
+                ...currentDrawing,
+                points: [...updatedPts, { price: pt.price, time: pt.time }],
+              });
+              touchStateRef.current = {
+                isInteracting: true,
+                mode: 'drawing' as any,
+                initialDistance: 0,
+                initialHDist: 0,
+                initialVDist: 0,
+                initialCenter: { x: t.clientX, y: t.clientY },
+                initialZoom: zoom,
+                initialPanOffset: panOffset,
+                initialPriceScale: priceScale,
+                initialPriceOffset: priceOffset,
+                lastTouchX: t.clientX,
+                lastTouchY: t.clientY,
+                touchStartTime: Date.now(),
+                hasMoved: false,
+              };
+              return;
+            }
           }
         }
       }
@@ -10994,14 +11059,14 @@ export default function CustomChartWidget({
             if (rect) updateCrosshair(touchX, touchY, true);
 
             if (currentDrawing && pt) {
-              if (currentDrawing.type === 'brush') {
+              if (currentDrawing.type === 'brush' || currentDrawing.type === 'highlighter') {
                 const lastPt = currentDrawing.points[currentDrawing.points.length - 1];
                 const lastPxX = utils.getXFromTime(lastPt.time);
                 const lastPxY = utils.getY(lastPt.price);
                 const dist = Math.hypot(touchX - lastPxX, touchY - lastPxY);
                 if (dist >= 2.5) {
                   setCurrentDrawing((prev) => {
-                    if (!prev || prev.type !== 'brush') return prev;
+                    if (!prev) return prev;
                     return {
                       ...prev,
                       points: [...prev.points, { price: pt.price, time: pt.time }],
@@ -11010,10 +11075,10 @@ export default function CustomChartWidget({
                 }
               } else {
                 setCurrentDrawing((prev) => {
-                  if (!prev) return null;
+                  if (!prev || prev.points.length === 0) return prev;
                   return {
                     ...prev,
-                    points: [prev.points[0], { price: pt.price, time: pt.time }],
+                    points: [...prev.points.slice(0, -1), { price: pt.price, time: pt.time }],
                   };
                 });
               }
@@ -11279,10 +11344,10 @@ export default function CustomChartWidget({
     holdStartPosRef.current = null;
     setHoldVisualState(null);
 
-    // Finalize Drawing Mode on touch
+    // Finalize Drawing Mode on touch (only freehand strokes finalize on touch up; multi-point tools continue)
     if ((touchStateRef.current.mode as any) === 'drawing') {
       if (currentDrawing) {
-        if (currentDrawing.type === 'brush' || currentDrawing.points.length > 1) {
+        if (currentDrawing.type === 'brush' || currentDrawing.type === 'highlighter') {
           const completed: DrawingItem = {
             ...currentDrawing,
             isComplete: true,
@@ -11290,7 +11355,7 @@ export default function CustomChartWidget({
           setDrawings((prev) => [...prev, completed]);
           setSelectedDrawingId(completed.id);
           setCurrentDrawing(null);
-          if (activeTool !== 'brush' && !stayInDrawingMode) {
+          if (!stayInDrawingMode) {
             setActiveTool('cursor');
           }
         }
@@ -12505,6 +12570,65 @@ export default function CustomChartWidget({
               onHideFloatingToolbar={toggleFloatingDrawingBar}
               className="top-2.5 left-2"
             />
+          )}
+
+          {/* Active Drawing Tool Step HUD Banner */}
+          {activeTool !== 'cursor' && (
+            <div 
+              style={{
+                borderColor: `${currentPalette.bull}60`,
+                background: getThemeModalGradient(currentPalette, isLight),
+                boxShadow: `0 8px 30px rgba(0,0,0,0.65), 0 0 20px ${currentPalette.bull}25`,
+              }}
+              className="absolute top-2.5 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2 px-3 py-1.5 rounded-xl border backdrop-blur-xl text-xs font-mono select-none pointer-events-auto animate-in fade-in slide-in-from-top-2 duration-150 max-w-[92vw]"
+            >
+              <div className="w-2 h-2 rounded-full animate-ping shrink-0" style={{ backgroundColor: currentPalette.bull }} />
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-[11px] sm:text-xs text-[var(--color-text)] truncate">
+                    {DRAWING_TOOLS_METADATA[activeTool]?.label || activeTool}
+                  </span>
+                  <span 
+                    style={{ backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull }}
+                    className="text-[9px] px-1.5 py-0.2 rounded font-bold uppercase hidden sm:inline"
+                  >
+                    Langkah {currentDrawing ? currentDrawing.points.length : 1}/{getToolRequiredPoints(activeTool)}
+                  </span>
+                </div>
+                <span className="text-[10px] text-[var(--color-text-muted)] truncate max-w-[200px] sm:max-w-[340px]">
+                  {getToolInstruction(activeTool, currentDrawing ? currentDrawing.points.length : 1)}
+                </span>
+              </div>
+
+              {activeTool === 'polyline' && currentDrawing && currentDrawing.points.length >= 2 && (
+                <button
+                  onClick={() => {
+                    const completed: DrawingItem = {
+                      ...currentDrawing,
+                      isComplete: true,
+                    };
+                    setDrawings((prev) => [...prev, completed]);
+                    setSelectedDrawingId(completed.id);
+                    setCurrentDrawing(null);
+                    if (!stayInDrawingMode) setActiveTool('cursor');
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 font-bold border border-emerald-500/40 text-[10px] cursor-pointer shrink-0"
+                >
+                  Selesai
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  setCurrentDrawing(null);
+                  setActiveTool('cursor');
+                }}
+                className="p-1 rounded-lg hover:bg-white/10 text-rose-400 hover:text-rose-300 cursor-pointer shrink-0 transition-colors"
+                title="Batal Gambar (Esc)"
+              >
+                <X size={15} />
+              </button>
+            </div>
           )}
 
 
