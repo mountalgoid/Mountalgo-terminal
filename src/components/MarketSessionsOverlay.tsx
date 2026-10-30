@@ -138,7 +138,7 @@ export const MarketSessionsOverlay: React.FC<MarketSessionsOverlayProps> = ({
             color: palette.bull,
             borderColor: `${palette.bull}60`,
           } : {}}
-          className={`h-6 px-2 py-0.5 rounded border text-[10px] font-mono flex items-center gap-1 transition-all cursor-pointer shrink-0 ${
+          className={`h-[22px] px-1.5 py-0 rounded border text-[9px] font-mono flex items-center gap-1 transition-all cursor-pointer shrink-0 ${
             isExpanded
               ? 'font-bold shadow-sm'
               : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'

@@ -106,7 +106,7 @@ import { LiquidityHeatmapGuideModal } from './LiquidityHeatmapGuideModal';
 import FootprintSettingsModal from './FootprintSettingsModal';
 import { CircuitBreakerModal } from './CircuitBreakerModal';
 import FootprintHudPanel from './FootprintHudPanel';
-import CompactHotkeyHud from './CompactHotkeyHud';
+
 import FloatingTradeBar from './FloatingTradeBar';
 import DrawingSettingsModal from './DrawingSettingsModal';
 import DrawingTemplatesModal from './DrawingTemplatesModal';
@@ -1470,6 +1470,14 @@ export default function CustomChartWidget({
     return (localStorage.getItem(`mountalgo_hud_position_${id}`) as any) || (localStorage.getItem('mountalgo_hud_position') as any) || 'bottom';
   });
 
+  const [isFootprintHudMinimized, setIsFootprintHudMinimized] = useState(() => {
+    return localStorage.getItem(`mountalgo_hud_minimized_${id}`) === 'true';
+  });
+
+  const [isChartControlsMinimized, setIsChartControlsMinimized] = useState(() => {
+    return localStorage.getItem('mountalgo_chart_controls_minimized') === 'true';
+  });
+
   const [indicators, setIndicators] = useState<IndicatorSettings>(() => {
     try {
       const saved = localStorage.getItem(`mountalgo_indicators_${id}`) || localStorage.getItem('mountalgo_indicators');
@@ -1483,6 +1491,10 @@ export default function CustomChartWidget({
     localStorage.setItem(`mountalgo_hud_position_${id}`, hudPosition);
     localStorage.setItem('mountalgo_hud_position', hudPosition);
   }, [id, hudPosition]);
+
+  useEffect(() => {
+    localStorage.setItem(`mountalgo_hud_minimized_${id}`, isFootprintHudMinimized.toString());
+  }, [id, isFootprintHudMinimized]);
 
   useEffect(() => {
     try {
@@ -3799,306 +3811,345 @@ export default function CustomChartWidget({
             const candleGap = Math.max(4, centerBodyWidth / 2 + 2);
             const cellW = Math.max(8, (candleWidth / 2) - candleGap - 1);
 
-            // Value Area (VAH / VAL 70%) side bracket indicator matching Delta color
+            // Value Area (VAH / VAL 70%) - Institutional Minimalist Style
             if (footprintSettings.showValueArea && fp.vahPrice && fp.valPrice) {
               const vahY = getY(fp.vahPrice);
               const valY = getY(fp.valPrice);
-              const vaH = Math.max(2, valY - vahY);
+              const vaH = Math.max(1, valY - vahY);
               
-              // Determine color by delta
               const isPositiveDelta = fp.delta > 0;
-              const isNegativeDelta = fp.delta < 0;
-              const vahValColor = isPositiveDelta ? bullCol : (isNegativeDelta ? bearCol : '#ffffff');
-              const vahValFill = isPositiveDelta ? `${bullCol}15` : (isNegativeDelta ? `${bearCol}15` : 'rgba(255, 255, 255, 0.08)');
+              const vahValColor = themePoc; // Solid POC Color as requested
+              const vahValFill = isPositiveDelta ? hexToRgba(themeBull, 0.08) : hexToRgba(themeBear, 0.08);
 
               ctx.save();
-              // Highlight area between VAH and VAL with transparent fill matching delta
+              // Area background
               ctx.fillStyle = vahValFill;
-              ctx.fillRect(center - cellW - candleGap, vahY, (cellW + candleGap) * 2, vaH);
+              ctx.fillRect(center - cellW - candleGap - 2, vahY, (cellW + candleGap + 2) * 2, vaH);
 
-              // Bold stroke for VAH and VAL lines & side brackets
+              // Minimal Boundary Lines (Solid POC Color)
               ctx.strokeStyle = vahValColor;
-              ctx.lineWidth = 1.8;
+              ctx.lineWidth = 1.2;
+              ctx.setLineDash([]); // Solid style
               ctx.beginPath();
-              // VAH top border line
-              ctx.moveTo(center - cellW - candleGap - 4, vahY);
-              ctx.lineTo(center + cellW + candleGap + 4, vahY);
-              // VAL bottom border line
-              ctx.moveTo(center - cellW - candleGap - 4, valY);
-              ctx.lineTo(center + cellW + candleGap + 4, valY);
-              // Side bracket lines
-              ctx.moveTo(center - cellW - candleGap - 4, vahY);
-              ctx.lineTo(center - cellW - candleGap - 4, valY);
-              ctx.moveTo(center + cellW + candleGap + 4, vahY);
-              ctx.lineTo(center + cellW + candleGap + 4, valY);
+              ctx.moveTo(center - cellW - candleGap - 8, vahY);
+              ctx.lineTo(center + cellW + candleGap + 8, vahY);
+              ctx.moveTo(center - cellW - candleGap - 8, valY);
+              ctx.lineTo(center + cellW + candleGap + 8, valY);
               ctx.stroke();
 
-              // Label text if candle is wide enough
-              if (candleWidth >= 32) {
+              // Clean Side Markers
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(center - cellW - candleGap - 6, vahY - 2);
+              ctx.lineTo(center - cellW - candleGap - 6, vahY + 4);
+              ctx.moveTo(center - cellW - candleGap - 6, valY - 4);
+              ctx.lineTo(center - cellW - candleGap - 6, valY + 2);
+              ctx.stroke();
+
+              // Labels
+              if (candleWidth >= 30) {
                 ctx.fillStyle = vahValColor;
-                ctx.font = 'bold 8.5px monospace';
+                ctx.font = 'bold 7.5px monospace';
                 ctx.textAlign = 'right';
-                ctx.fillText('VAH', center - cellW - candleGap - 6, vahY + 3);
-                ctx.fillText('VAL', center - cellW - candleGap - 6, valY + 3);
+                ctx.textBaseline = 'middle';
+                ctx.fillText('VAH', center - cellW - candleGap - 10, vahY);
+                ctx.fillText('VAL', center - cellW - candleGap - 10, valY);
               }
               ctx.restore();
             }
 
-            // Render Bid x Ask Levels
+            // 2. Render Bid x Ask Levels
             fp.levels.forEach((lvl, lIdx) => {
               const lvlY = lowY - (lIdx + 1) * levelHeight;
-              const pad = levelHeight > 6 ? 1 : 0;
-              const barH = levelHeight - pad;
+              const barH = levelHeight - (levelHeight > 6 ? 1 : 0);
               const yCenter = lvlY + barH / 2;
 
               const leftX = center - candleGap - cellW;
               const rightX = center + candleGap;
+              const totalBarW = cellW * 2 + candleGap * 2;
 
-              if (footprintSettings.footprintType === 'Split Bid/Ask Profile') {
+              const mode = footprintSettings.footprintType || 'Bid × Ask Profile';
+
+              if (mode === 'Bid × Ask Profile') {
+                // MODE 1: Bid × Ask Profile (Institutional relative bars)
                 const bidRatio = Math.min(1, maxVol > 0 ? lvl.bidVol / maxVol : 0);
                 const askRatio = Math.min(1, maxVol > 0 ? lvl.askVol / maxVol : 0);
-
-                const bidOpHex = Math.floor(Math.max(0.08, bidRatio) * 255).toString(16).padStart(2, '0');
-                const askOpHex = Math.floor(Math.max(0.08, askRatio) * 255).toString(16).padStart(2, '0');
-
                 const isSellImb = lvl.isImbalanceSell && footprintSettings.showImbalance;
                 const isBuyImb = lvl.isImbalanceBuy && footprintSettings.showImbalance;
 
-                ctx.fillStyle = '#10111a';
+                // Neutral high-performance background blit
+                ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.65)' : (currentPalette.dark || 'rgba(16, 17, 26, 0.65)');
                 ctx.fillRect(leftX, lvlY, cellW, barH);
                 ctx.fillRect(rightX, lvlY, cellW, barH);
 
-                ctx.fillStyle = `${themeBear}${bidOpHex}`;
-                ctx.fillRect(leftX, lvlY, cellW, barH);
-                
-                ctx.fillStyle = `${themeBull}${askOpHex}`;
-                ctx.fillRect(rightX, lvlY, cellW, barH);
+                // Bid/Ask relative bars
+                if (bidRatio > 0) {
+                  ctx.fillStyle = isSellImb ? hexToRgba(themeBear, 0.45) : hexToRgba(themeBear, 0.25 + bidRatio * 0.4);
+                  ctx.fillRect(leftX + cellW * (1 - bidRatio), lvlY, cellW * bidRatio, barH);
+                }
+                if (askRatio > 0) {
+                  ctx.fillStyle = isBuyImb ? hexToRgba(themeBull, 0.45) : hexToRgba(themeBull, 0.25 + askRatio * 0.4);
+                  ctx.fillRect(rightX, lvlY, cellW * askRatio, barH);
+                }
 
+                // Imbalance vertical accent indicators (Cleanest visual)
                 if (isSellImb) {
-                  ctx.strokeStyle = themeBear;
-                  ctx.lineWidth = Math.max(1.5, candleWidth / 30);
-                  ctx.strokeRect(leftX, lvlY, cellW, barH);
-
-                  // Thicker vertical line visual of imbalance outside VAH / VAL, offset next to VAH VAL side bracket to prevent overlap
-                  if (!lvl.inValueArea) {
-                    const imbKey = `sell-${globalIdx}-${lvl.price}`;
-                    let birth = animBirthMapRef.current.get(imbKey);
-                    if (!birth) {
-                      birth = now;
-                      animBirthMapRef.current.set(imbKey, birth);
-                    }
-                    const age = now - birth;
-                    let progress = 1;
-                    if (age < animDuration) {
-                      progress = age / animDuration;
-                      progress = 1 - Math.pow(1 - progress, 3); // ease out cubic
-                      hasActiveAnimations = true;
-                    }
-                    const currentWidth = 4 * progress;
-
-                    ctx.fillStyle = themeBear; 
-                    ctx.fillRect(center - cellW - candleGap - 10 + (4 - currentWidth) / 2, lvlY, currentWidth, barH); 
-                  }
+                  ctx.fillStyle = themeBear;
+                  ctx.fillRect(leftX, lvlY, 2, barH);
                 }
-
                 if (isBuyImb) {
-                  ctx.strokeStyle = themeBull;
-                  ctx.lineWidth = Math.max(1.5, candleWidth / 30);
-                  ctx.strokeRect(rightX, lvlY, cellW, barH);
-
-                  // Thicker vertical line visual of imbalance outside VAH / VAL, offset next to VAH VAL side bracket to prevent overlap
-                  if (!lvl.inValueArea) {
-                    const imbKey = `buy-${globalIdx}-${lvl.price}`;
-                    let birth = animBirthMapRef.current.get(imbKey);
-                    if (!birth) {
-                      birth = now;
-                      animBirthMapRef.current.set(imbKey, birth);
-                    }
-                    const age = now - birth;
-                    let progress = 1;
-                    if (age < animDuration) {
-                      progress = age / animDuration;
-                      progress = 1 - Math.pow(1 - progress, 3); // ease out cubic
-                      hasActiveAnimations = true;
-                    }
-                    const currentWidth = 4 * progress;
-
-                    ctx.fillStyle = themeBull; 
-                    ctx.fillRect(center + cellW + candleGap + 6 + (4 - currentWidth) / 2, lvlY, currentWidth, barH); 
-                  }
+                  ctx.fillStyle = themeBull;
+                  ctx.fillRect(rightX + cellW - 2, lvlY, 2, barH);
                 }
 
                 if (footprintSettings.showPoc && lvl.isPoc) {
                   ctx.strokeStyle = themePoc;
-                  ctx.lineWidth = 1.8;
-                  ctx.strokeRect(leftX, lvlY, cellW * 2 + candleGap * 2, barH);
+                  ctx.lineWidth = 1.2;
+                  ctx.strokeRect(leftX - 1, lvlY - 0.5, totalBarW + 2, barH + 1);
                 }
 
-                if (candleWidth >= 22) {
-                  const fontSize = Math.max(7, Math.min(candleWidth / 5, levelHeight * 0.75));
-                  ctx.font = `bold ${fontSize}px monospace`;
+                if (candleWidth >= 20) {
+                  const fontSize = Math.max(7, Math.min(candleWidth / 5.5, levelHeight * 0.8));
+                  ctx.font = `${lvl.isPoc ? 'bold' : 'normal'} ${fontSize}px monospace`;
                   ctx.textBaseline = 'middle';
+                  
+                  // Optimized text contrast for relative bars matching ThemeContext colors
+                  const primaryText = isLight ? '#0f172a' : '#f8fafc';
+                  const secondaryText = isLight ? '#475569' : '#94a3b8';
 
-                  ctx.fillStyle = (isSellImb || bidRatio > 0.5) ? '#ffffff' : '#c8d0e0';
+                  // Large Volume or Imbalance -> Use POC Color (Solid)
+                  ctx.fillStyle = (isSellImb || lvl.isLargeVolSell) ? themePoc : (isLight ? primaryText : secondaryText);
                   ctx.textAlign = 'right';
-                  ctx.fillText(`${formatVol(lvl.bidVol)}`, center - candleGap - 2, yCenter);
-
-                  ctx.fillStyle = (isBuyImb || askRatio > 0.5) ? '#ffffff' : '#c8d0e0';
+                  ctx.fillText(`${formatVol(lvl.bidVol)}`, center - candleGap - 3, yCenter);
+                  
+                  ctx.fillStyle = (isBuyImb || lvl.isLargeVolBuy) ? themePoc : (isLight ? primaryText : secondaryText);
                   ctx.textAlign = 'left';
-                  ctx.fillText(`${formatVol(lvl.askVol)}`, center + candleGap + 2, yCenter);
+                  ctx.fillText(`${formatVol(lvl.askVol)}`, center + candleGap + 3, yCenter);
                 }
-              } else if (footprintSettings.footprintType === 'Delta Profile') {
-                const deltaRatio = Math.min(1, maxVol > 0 ? Math.abs(lvl.delta) / maxVol : 0);
-                const deltaOpHex = Math.floor(Math.max(0.08, deltaRatio) * 255).toString(16).padStart(2, '0');
-                const isPosDelta = lvl.delta >= 0;
-                const dCol = isPosDelta ? themeBull : themeBear;
+              } else if (mode === 'Bid × Ask Ladder') {
+                // MODE 2: Bid × Ask Ladder (Solid cell background tints)
+                const bidRatio = Math.min(1, maxVol > 0 ? lvl.bidVol / maxVol : 0);
+                const askRatio = Math.min(1, maxVol > 0 ? lvl.askVol / maxVol : 0);
+                const isSellImb = lvl.isImbalanceSell && footprintSettings.showImbalance;
+                const isBuyImb = lvl.isImbalanceBuy && footprintSettings.showImbalance;
 
-                ctx.fillStyle = '#10111a';
-                ctx.fillRect(leftX, lvlY, cellW * 2 + candleGap * 2, barH);
+                ctx.fillStyle = isSellImb ? hexToRgba(themeBear, 0.55) : hexToRgba(themeBear, 0.1 + bidRatio * 0.35);
+                ctx.fillRect(leftX, lvlY, cellW, barH);
 
-                ctx.fillStyle = `${dCol}${deltaOpHex}`;
-                if (isPosDelta) {
-                  ctx.fillRect(rightX, lvlY, cellW, barH);
-                } else {
-                  ctx.fillRect(leftX, lvlY, cellW, barH);
-                }
+                ctx.fillStyle = isBuyImb ? hexToRgba(themeBull, 0.55) : hexToRgba(themeBull, 0.1 + askRatio * 0.35);
+                ctx.fillRect(rightX, lvlY, cellW, barH);
 
                 if (footprintSettings.showPoc && lvl.isPoc) {
-                  ctx.strokeStyle = themePoc;
-                  ctx.lineWidth = Math.max(1.5, candleWidth / 30);
-                  ctx.strokeRect(leftX, lvlY, cellW * 2 + candleGap * 2, barH);
+                  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+                  ctx.lineWidth = 1;
+                  ctx.strokeRect(leftX, lvlY, totalBarW, barH);
                 }
 
-                if (candleWidth >= 16) {
-                  const fontSize = Math.max(7, Math.min(candleWidth / 5, levelHeight * 0.75));
-                  ctx.font = `bold ${fontSize}px monospace`;
-                  ctx.textBaseline = 'middle';
-                  ctx.fillStyle = deltaRatio > 0.5 ? '#ffffff' : '#c8d0e0';
-                  ctx.textAlign = isPosDelta ? 'left' : 'right';
-                  ctx.fillText(`${isPosDelta ? '+' : ''}${formatVol(lvl.delta)}`, center + (isPosDelta ? candleGap + 2 : -candleGap - 2), yCenter);
+                if (candleWidth >= 20) {
+                  const primaryText = isLight ? '#0f172a' : '#f8fafc';
+                  const secondaryText = isLight ? '#475569' : '#94a3b8';
+
+                  // In Ladder mode, if it's Large Volume or Imbalance, use POC color
+                  ctx.fillStyle = (isSellImb || lvl.isLargeVolSell) ? themePoc : (isLight ? primaryText : secondaryText);
+                  ctx.textAlign = 'right';
+                  ctx.fillText(`${formatVol(lvl.bidVol)}`, center - candleGap - 3, yCenter);
+                  
+                  ctx.fillStyle = (isBuyImb || lvl.isLargeVolBuy) ? themePoc : (isLight ? primaryText : secondaryText);
+                  ctx.textAlign = 'left';
+                  ctx.fillText(`${formatVol(lvl.askVol)}`, center + candleGap + 3, yCenter);
                 }
-              } else {
+              } else if (mode === 'Volume Profile') {
+                // MODE 3: Volume Profile (Split buy/sell volume bar per level)
                 const volRatio = Math.min(1, maxVol > 0 ? lvl.totalVol / maxVol : 0);
-                const volOpHex = Math.floor(Math.max(0.08, volRatio) * 255).toString(16).padStart(2, '0');
-                
-                ctx.fillStyle = '#10111a';
-                ctx.fillRect(leftX, lvlY, cellW * 2 + candleGap * 2, barH);
+                ctx.fillStyle = isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(16, 17, 26, 0.8)';
+                ctx.fillRect(leftX, lvlY, totalBarW, barH);
 
-                ctx.fillStyle = lvl.isPoc ? `${themePoc}${volOpHex}` : `rgba(148, 163, 184, ${Math.max(0.08, volRatio)})`;
-                ctx.fillRect(leftX, lvlY, cellW * 2 + candleGap * 2, barH);
+                const sellShare = lvl.totalVol > 0 ? lvl.bidVol / lvl.totalVol : 0.5;
+                const filledW = totalBarW * volRatio;
+                const sellW = filledW * sellShare;
+                const buyW = filledW - sellW;
 
-                if (footprintSettings.showPoc && lvl.isPoc) {
-                  ctx.strokeStyle = themePoc;
-                  ctx.lineWidth = Math.max(1.5, candleWidth / 30);
-                  ctx.strokeRect(leftX, lvlY, cellW * 2 + candleGap * 2, barH);
+                ctx.fillStyle = hexToRgba(themeBear, 0.7);
+                ctx.fillRect(leftX, lvlY, sellW, barH);
+                ctx.fillStyle = hexToRgba(themeBull, 0.7);
+                ctx.fillRect(leftX + sellW, lvlY, buyW, barH);
+
+                if (candleWidth >= 16) {
+                  ctx.font = `bold ${Math.max(7, Math.min(candleWidth/6, levelHeight*0.8))}px monospace`;
+                  const primaryText = isLight ? '#0f172a' : '#f8fafc';
+                  // Total Volume Profile: if total volume is large, use POC color
+                  ctx.fillStyle = (lvl.isLargeVolBuy || lvl.isLargeVolSell || lvl.isPoc) ? themePoc : primaryText;
+                  ctx.textAlign = 'center';
+                  ctx.textBaseline = 'middle';
+                  ctx.fillText(`${formatVol(lvl.totalVol)}`, center, yCenter);
+                }
+              } else if (mode === 'Delta Profile') {
+                // MODE 4: Delta Profile (Horizontal delta bar)
+                const deltaRatio = Math.min(1, maxVol > 0 ? Math.abs(lvl.delta) / maxVol : 0);
+                const isPosDelta = lvl.delta >= 0;
+                ctx.fillStyle = isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(16, 17, 26, 0.8)';
+                ctx.fillRect(leftX, lvlY, totalBarW, barH);
+
+                const barW = cellW * deltaRatio;
+                ctx.fillStyle = isPosDelta ? hexToRgba(themeBull, 0.8) : hexToRgba(themeBear, 0.8);
+                if (isPosDelta) {
+                  ctx.fillRect(center + 1, lvlY, barW, barH);
+                } else {
+                  ctx.fillRect(center - 1 - barW, lvlY, barW, barH);
                 }
 
                 if (candleWidth >= 16) {
-                  const fontSize = Math.max(7, Math.min(candleWidth / 5, levelHeight * 0.75));
-                  ctx.font = `bold ${fontSize}px monospace`;
+                  ctx.font = `bold ${Math.max(7, Math.min(candleWidth/6, levelHeight*0.8))}px monospace`;
+                  const primaryText = isLight ? '#0f172a' : '#f8fafc';
+                  const isLargeDelta = lvl.isLargeVolBuy || lvl.isLargeVolSell;
+                  ctx.fillStyle = isLargeDelta ? themePoc : (isLight ? (isPosDelta ? themeBull : themeBear) : primaryText);
+                  ctx.textAlign = isPosDelta ? 'left' : 'right';
                   ctx.textBaseline = 'middle';
-                  ctx.fillStyle = (lvl.isPoc || volRatio > 0.5) ? '#ffffff' : '#e5e7eb';
+                  ctx.fillText(`${isPosDelta ? '+' : ''}${formatVol(lvl.delta)}`, center + (isPosDelta ? 4 : -4), yCenter);
+                }
+              } else if (mode === 'Absolute Delta') {
+                // MODE 5: Absolute Delta (Centered net delta badges along ultra-thin candle stem)
+                const isPosDelta = lvl.delta > 0;
+                const isNegDelta = lvl.delta < 0;
+                const dCol = isPosDelta ? themeBull : (isNegDelta ? themeBear : (isLight ? '#94a3b8' : '#475569'));
+                
+                // badge width is fixed relative to cell size for perfect symmetry
+                const badgeW = Math.max(48, cellW * 1.6);
+                const badgeX = center - badgeW / 2;
+
+                // Sharp professional badge rendering
+                ctx.fillStyle = lvl.isPoc ? dCol : hexToRgba(dCol, 0.9);
+                ctx.fillRect(badgeX, lvlY + 0.5, badgeW, barH - 1);
+
+                if (lvl.isPoc) {
+                  ctx.strokeStyle = isLight ? '#000000' : '#ffffff';
+                  ctx.lineWidth = 1.5;
+                  ctx.strokeRect(badgeX - 0.5, lvlY, badgeW + 1, barH);
+                } else {
+                  ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.15)';
+                  ctx.lineWidth = 0.5;
+                  ctx.strokeRect(badgeX, lvlY + 0.5, badgeW, barH - 1);
+                }
+
+                if (candleWidth >= 12) {
+                  const fontSize = Math.max(7.5, Math.min(badgeW / 4.5, levelHeight * 0.85));
+                  ctx.font = `bold ${fontSize}px monospace`;
+                  // High-contrast text matching ThemeContext: Use primary color for normal badges
+                  const primaryText = isLight ? '#0f172a' : '#f8fafc';
+                  const isLargeDelta = lvl.isLargeVolBuy || lvl.isLargeVolSell;
+                  ctx.fillStyle = (lvl.isPoc || isLargeDelta) ? (isLight ? '#ffffff' : '#000000') : primaryText;
                   ctx.textAlign = 'center';
-                  ctx.fillText(`${formatVol(lvl.totalVol)}`, center, yCenter);
+                  ctx.textBaseline = 'middle';
+                  ctx.fillText(`${lvl.delta > 0 ? '+' : ''}${formatVol(lvl.delta)}`, center, yCenter + 0.5);
                 }
               }
             });
 
-            // Central Candle Wick & Body ON TOP
+            // 3. Central Candle Wick & Body (Ultra-Thin Institutional Stem)
             ctx.save();
             ctx.strokeStyle = isBull ? themeBull : themeBear;
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1.2; // Thin institutional wick
             ctx.beginPath();
             ctx.moveTo(center, highY);
             ctx.lineTo(center, lowY);
             ctx.stroke();
 
-            const candleBodyH = Math.max(3, bottomY - topY);
+            // Very thin body overlay to show open/close clearly without cluttering cells
+            const stemW = 2.5;
             ctx.fillStyle = isBull ? themeBull : themeBear;
-            ctx.fillRect(center - centerBodyWidth / 2, topY, centerBodyWidth, candleBodyH);
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 0.8;
-            ctx.strokeRect(center - centerBodyWidth / 2, topY, centerBodyWidth, candleBodyH);
+            ctx.fillRect(center - stemW / 2, topY, stemW, Math.max(1, bottomY - topY));
             ctx.restore();
 
-            // Institutional Absorption Badges
+            // Institutional Absorption Badges & Unfinished Auction Indicators
+            if (footprintSettings.showUnfinishedAuction) {
+              const unfinishedColor = isLight ? (themePoc || '#d97706') : (themePoc || '#f59e0b');
+              if (fp.isUnfinishedHigh && candleWidth >= 32) {
+                ctx.fillStyle = unfinishedColor;
+                ctx.font = 'bold 8px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('⚡UNFINISHED HIGH', center, highY - 8);
+              }
+              if (fp.isUnfinishedLow && candleWidth >= 32) {
+                ctx.fillStyle = unfinishedColor;
+                ctx.font = 'bold 8px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('⚡UNFINISHED LOW', center, lowY + 10);
+              }
+            }
+
             if (footprintSettings.showAbsorptionBadges) {
-              if (fp.divergenceType === 'BUY_ABSORPTION' && candleWidth >= 50) {
+              if (fp.divergenceType === 'BUY_ABSORPTION' && candleWidth >= 48) {
                 ctx.fillStyle = themeBull;
                 ctx.font = 'bold 7.5px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText('⚡ABSORB BUY', center, highY - 10);
-              } else if (fp.divergenceType === 'SELL_ABSORPTION' && candleWidth >= 50) {
+                ctx.fillText('🛡️ABSORB BUY', center, highY - (fp.isUnfinishedHigh ? 18 : 8));
+              } else if (fp.divergenceType === 'SELL_ABSORPTION' && candleWidth >= 48) {
                 ctx.fillStyle = themeBear;
                 ctx.font = 'bold 7.5px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText('⚡ABSORB SELL', center, lowY + 12);
+                ctx.fillText('🛡️ABSORB SELL', center, lowY + (fp.isUnfinishedLow ? 20 : 10));
               }
             }
 
             // Stacked Imbalance Candle Badges are omitted to maintain clean visual thick lines without text labels as requested.
 
-            // G. Multi-Tier Order Flow Footprint Summary Table (With Enlarged Clear Font Size on Zoom)
+            // G. Multi-Tier Order Flow Footprint Summary Table - Professional Glass Style
             const summaryMode = footprintSettings.summaryRows || '4-Tier (Vol, Delta, Range, CVD)';
             let summaryHeightOffset = 0;
 
             if (summaryMode !== 'Off') {
-              const fontSz = Math.max(8.5, candleWidth * 0.12);
-              const rowHeight = Math.max(14, candleWidth * 0.20);
+              const fontSz = Math.max(8.5, candleWidth * 0.11);
+              const rowHeight = Math.max(14, candleWidth * 0.18);
               const cardHeight = rowHeight * 3 + 2;
-              summaryHeightOffset = cardHeight + 4;
-              const summaryStartY = mainChartHeight - cardHeight - 2;
+              summaryHeightOffset = cardHeight + 6;
+              const summaryStartY = mainChartHeight - cardHeight - 4;
               
-              const cardW = Math.max(candleWidth - 2, 38);
+              const cardW = Math.max(candleWidth - 2, 40);
               const cardX = x + (candleWidth - cardW) / 2;
 
-              // Row 1: Delta & Delta% Block
+              // Background glass blit for the entire card
+              ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.85)' : 'rgba(15, 17, 26, 0.75)';
+              ctx.beginPath();
+              ctx.roundRect(cardX, summaryStartY, cardW, cardHeight, 4);
+              ctx.fill();
+              ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.08)';
+              ctx.stroke();
+
+              // Row 1: Delta & Delta%
               const isPosDelta = fp.delta >= 0;
               const deltaPct = fp.totalVolume > 0 ? Math.abs(fp.delta) / fp.totalVolume * 100 : 0;
-              const deltaStr = cardW >= 55 ? `${fp.delta > 0 ? '+' : ''}${fp.delta} (${deltaPct.toFixed(0)}%)` : `${fp.delta > 0 ? '+' : ''}${fp.delta}`;
+              const formattedDelta = formatVol(fp.delta);
+              const deltaStr = cardW >= 60 ? `${fp.delta > 0 ? '+' : ''}${formattedDelta} (${deltaPct.toFixed(0)}%)` : `${fp.delta > 0 ? '+' : ''}${formattedDelta}`;
               
               ctx.fillStyle = isPosDelta ? themeBull : themeBear;
-              if (cardW >= 42) {
-                ctx.beginPath();
-                ctx.roundRect(cardX, summaryStartY, cardW, rowHeight, 3);
-                ctx.fill();
-              } else {
-                ctx.fillRect(cardX, summaryStartY, cardW, rowHeight);
-              }
-              ctx.fillStyle = isPosDelta ? '#000000' : '#ffffff';
-              const row1Font = cardW >= 55 ? Math.max(7.5, fontSz - 1) : fontSz;
-              ctx.font = `bold ${row1Font}px monospace`;
+              ctx.beginPath();
+              ctx.roundRect(cardX + 2, summaryStartY + 2, cardW - 4, rowHeight - 2, 2);
+              ctx.fill();
+              
+               // Determine readable text color over bull/bear badge
+              const getBadgeTextColor = (isBullish: boolean) => {
+                // If light mode, saturated green/red needs white text usually.
+                // If dark mode, bright green/red needs dark text.
+                return isLight ? '#ffffff' : '#000000';
+              };
+
+              ctx.fillStyle = getBadgeTextColor(isPosDelta);
+              ctx.font = `bold ${Math.max(7, cardW >= 60 ? fontSz - 1 : fontSz)}px monospace`;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.fillText(deltaStr, cardX + cardW / 2, summaryStartY + rowHeight / 2);
-
-              // Row 2: CVD Block
+              ctx.fillText(deltaStr, cardX + cardW / 2, summaryStartY + rowHeight / 2 + 1);
+              // Row 2: CVD (Cumulative Delta)
               const cvd = cvdData[globalIdx];
               const isPosCvd = cvd >= 0;
-              ctx.fillStyle = isPosCvd ? `${themeBull}20` : `${themeBear}20`; // subtle background
-              if (cardW >= 42) {
-                ctx.beginPath();
-                ctx.roundRect(cardX, summaryStartY + rowHeight + 1, cardW, rowHeight, 3);
-                ctx.fill();
-              } else {
-                ctx.fillRect(cardX, summaryStartY + rowHeight + 1, cardW, rowHeight);
-              }
               ctx.fillStyle = isPosCvd ? themeBull : themeBear;
               ctx.font = `bold ${fontSz}px monospace`;
-              ctx.fillText(`${cvd > 0 ? '+' : ''}${cvd}`, cardX + cardW / 2, summaryStartY + rowHeight * 1.5 + 1);
+              ctx.fillText(`${cvd > 0 ? '+' : ''}${formatVol(cvd)}`, cardX + cardW / 2, summaryStartY + rowHeight * 1.5 + 1);
 
-              // Row 3: Volume Block
-              ctx.fillStyle = '#1c1e2b';
-              if (cardW >= 42) {
-                ctx.beginPath();
-                ctx.roundRect(cardX, summaryStartY + rowHeight * 2 + 2, cardW, rowHeight, 3);
-                ctx.fill();
-              } else {
-                ctx.fillRect(cardX, summaryStartY + rowHeight * 2 + 2, cardW, rowHeight);
-              }
-              ctx.fillStyle = '#ffffff';
+              // Row 3: Total Volume
+              // Use secondary text color matching ThemeContext for less emphasis on volume compared to delta
+              ctx.fillStyle = isLight ? '#475569' : '#94a3b8';
               ctx.font = `bold ${fontSz}px monospace`;
-              ctx.fillText(`${fp.totalVolume}`, cardX + cardW / 2, summaryStartY + rowHeight * 2.5 + 2);
+              ctx.fillText(`${formatVol(fp.totalVolume)}`, cardX + cardW / 2, summaryStartY + rowHeight * 2.5 + 1);
             }
 
             // Profile Shape Info
@@ -4114,7 +4165,7 @@ export default function CustomChartWidget({
                 ctx.fillStyle = themeBear;
                 ctx.fillText('📐 b-SHAPE', center, shapeY);
               } else {
-                ctx.fillStyle = '#9ca3af';
+                ctx.fillStyle = isLight ? '#475569' : '#9ca3af';
                 ctx.fillText('📐 D-SHAPE', center, shapeY);
               }
               ctx.restore();
@@ -4186,14 +4237,17 @@ export default function CustomChartWidget({
           ctx.fill();
 
           // HUD Title
-          ctx.fillStyle = isLight ? '#4b5563' : '#9ca3af';
+          ctx.fillStyle = isLight ? '#475569' : '#9ca3af';
           ctx.font = 'bold 9.5px monospace';
           ctx.textAlign = 'left';
           ctx.fillText('ORDER FLOW HUD (V7.2)', hudX + 12, hudY + 17);
+          
+          const labelCol = isLight ? '#475569' : '#d1d5db';
+          const valueCol = isLight ? '#0f172a' : '#ffffff';
 
           // Net Bar Delta
           ctx.font = 'bold 9px monospace';
-          ctx.fillStyle = isLight ? '#374151' : '#d1d5db';
+          ctx.fillStyle = labelCol;
           ctx.fillText('Bar Delta:', hudX + 12, hudY + 33);
           ctx.fillStyle = lastBar.delta >= 0 ? bullCol : bearCol;
           ctx.textAlign = 'right';
@@ -4201,29 +4255,27 @@ export default function CustomChartWidget({
 
           // Total Bar Vol
           ctx.textAlign = 'left';
-          ctx.fillStyle = isLight ? '#374151' : '#d1d5db';
+          ctx.fillStyle = labelCol;
           ctx.fillText('Total Volume:', hudX + 12, hudY + 48);
-          ctx.fillStyle = isLight ? '#111827' : '#ffffff';
+          ctx.fillStyle = valueCol;
           ctx.textAlign = 'right';
           ctx.fillText(`${formatVol(lastBar.totalVolume)}`, hudX + hudW - 10, hudY + 48);
 
           // CVD
           ctx.textAlign = 'left';
-          ctx.fillStyle = isLight ? '#374151' : '#d1d5db';
+          ctx.fillStyle = labelCol;
           ctx.fillText('Cumulative CVD:', hudX + 12, hudY + 63);
-          ctx.fillStyle = lastBar.cumulativeDelta >= 0 ? '#38bdf8' : '#f43f5e';
+          ctx.fillStyle = lastBar.cumulativeDelta >= 0 ? (isLight ? '#0284c7' : '#38bdf8') : (isLight ? '#e11d48' : '#f43f5e');
           ctx.textAlign = 'right';
           ctx.fillText(`${formatVol(lastBar.cumulativeDelta)}`, hudX + hudW - 10, hudY + 63);
 
           // POC
           ctx.textAlign = 'left';
-          ctx.fillStyle = isLight ? '#374151' : '#d1d5db';
+          ctx.fillStyle = labelCol;
           ctx.fillText('Bar POC Price:', hudX + 12, hudY + 78);
-          ctx.fillStyle = pocCol;
+          ctx.fillStyle = isLight ? '#854d0e' : (pocCol || '#f59e0b');
           ctx.textAlign = 'right';
-          ctx.fillText(`$${lastBar.pocPrice.toFixed(2)}`, hudX + hudW - 10, hudY + 78);
-
-          ctx.restore();
+          ctx.fillText(`$${lastBar.pocPrice.toFixed(2)}`, hudX + hudW - 10, hudY + 78);          ctx.restore();
         }
       }
     } else {
@@ -4885,8 +4937,8 @@ export default function CustomChartWidget({
       ctx.restore();
 
       // VAH & VAL Solid Lines & Solid Box Badges
-      const vahCol = currentPalette.bull || '#00ff66';
-      const valCol = currentPalette.bear || '#ff0044';
+      const vahCol = currentPalette.poc || '#ffd600'; // VAH Solid POC style as requested
+      const valCol = currentPalette.poc || '#ffd600'; // VAL Solid POC style as requested
 
       ctx.save();
       // VAH Solid Bar & Solid Box Badge
@@ -12382,13 +12434,15 @@ export default function CustomChartWidget({
         {(chartType === 'footprints' || indicators.showFootprints) &&
           footprintData &&
           footprintData.length > 0 &&
-          hudPosition === 'left' && (
+          hudPosition === 'left' && !isFootprintHudMinimized && (
             <FootprintHudPanel
               footprintData={footprintData}
               symbol={activeSymbol}
               timeframe={timeframe}
               position="left"
               onPositionChange={setHudPosition}
+              isMinimized={false}
+              setIsMinimized={setIsFootprintHudMinimized}
             />
           )}
 
@@ -12852,169 +12906,176 @@ export default function CustomChartWidget({
 
 
 
-          {/* 4A. Unified Minimalist Chart & Market Controls Bar (Bottom-Left) */}
-          <div className="absolute bottom-8 left-3 z-30 flex items-center gap-1 bg-[var(--color-panel)]/95 border border-[var(--color-border)] px-1.5 py-1 rounded-lg shadow-xl backdrop-blur-md text-[10px] font-mono select-none pointer-events-auto">
-            {/* Market Sessions Global HUD Popover */}
-            <MarketSessionsOverlay variant="minimal" />
+          {/* 4A. Unified Minimalist Chart & Market Controls Bar (Bottom-Right Corner) */}
+          <div className="absolute bottom-[34px] right-2 z-[60] flex flex-col items-end gap-1 select-none pointer-events-auto transition-all duration-300">
+            {!isChartControlsMinimized ? (
+              <div className="flex flex-col gap-1 p-1 bg-[var(--color-panel)]/90 border border-[var(--color-border)] rounded shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 max-w-[95vw]">
+                {/* Top Row: Time, Session & Trading Safety */}
+                <div className="flex items-center gap-0.5 overflow-x-auto no-scrollbar pb-0.5">
+                  <MarketSessionsOverlay variant="minimal" />
+                  <div className="h-3.5 w-px bg-[var(--color-border)] mx-0.5 shrink-0" />
+                  <TimezoneSelector variant="badge" />
+                  <div className="h-3.5 w-px bg-[var(--color-border)] mx-0.5 shrink-0" />
+                  {(panOffset > 3 || chartJumpTarget || targetSpotlightTime) && (
+                    <button
+                      onClick={handleReturnToLiveChart}
+                      title="Kembali ke Live Chart / Realtime"
+                      className="h-[22px] px-1.5 py-0 rounded bg-emerald-600/25 hover:bg-emerald-600/50 text-emerald-300 font-bold flex items-center gap-1 cursor-pointer border border-emerald-500/40 animate-pulse shrink-0"
+                    >
+                      <Play size={10} fill="currentColor" />
+                      <span className="leading-none text-[9px]">Live</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsSLTPLocked(!isSLTPLocked)}
+                    title={isSLTPLocked ? "SL/TP Terkunci" : "Kunci Posisi Garis SL/TP"}
+                    className={`h-[22px] px-1.5 py-0 rounded cursor-pointer transition-colors flex items-center gap-1 border shrink-0 ${
+                      isSLTPLocked
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 font-bold'
+                        : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
+                    }`}
+                  >
+                    {isSLTPLocked ? <Lock size={10} className="text-rose-400" /> : <Unlock size={10} />}
+                    <span className="leading-none text-[9px]">Lock</span>
+                  </button>
+                  <button
+                    onClick={() => setRequireSLTPVerification(!requireSLTPVerification)}
+                    title={requireSLTPVerification ? "Verifikasi Aktif" : "Mode Cepat"}
+                    className={`h-[22px] px-1.5 py-0 rounded cursor-pointer transition-colors flex items-center gap-1 border shrink-0 ${
+                      requireSLTPVerification
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
+                        : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                    }`}
+                  >
+                    <Shield size={10} />
+                    <span className="leading-none text-[9px]">{requireSLTPVerification ? "Safe" : "Fast"}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsChartControlsMinimized(true);
+                      localStorage.setItem('mountalgo_chart_controls_minimized', 'true');
+                    }}
+                    className="h-[22px] w-[22px] flex items-center justify-center rounded bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border border-white/10 transition-colors ml-0.5 shrink-0"
+                    title="Minimize Panel"
+                  >
+                    <ChevronDown size={12} />
+                  </button>
+                </div>
 
-            <div className="h-3.5 w-px bg-[var(--color-border)] mx-0.5" />
-
-            {/* Jump to Realtime / Reset View Button */}
-            {(panOffset > 3 || chartJumpTarget || targetSpotlightTime) && (
+                {/* Bottom Row: Scale & Visibility Related */}
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() => {
+                      const nextState = !isAutoScale;
+                      setIsAutoScale(nextState);
+                      isAutoScaleRef.current = nextState;
+                      if (nextState) {
+                        setPriceScale(1);
+                        setPriceOffset(0);
+                        priceScaleRef.current = 1;
+                        priceOffsetRef.current = 0;
+                      }
+                    }}
+                    title="Toggle Auto Scale"
+                    style={isAutoScale ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}60` } : {}}
+                    className={`h-[22px] px-1.5 py-0 rounded-sm cursor-pointer transition-colors border flex items-center gap-1 shrink-0 ${
+                      isAutoScale
+                        ? 'font-bold shadow-sm'
+                        : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
+                    }`}
+                  >
+                    <Maximize2 size={10} />
+                    <span className="leading-none text-[9px]">Auto</span>
+                  </button>
+                  <button
+                    onClick={() => setIsLogScale(!isLogScale)}
+                    title="Toggle Logarithmic Scale"
+                    style={isLogScale ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}60` } : {}}
+                    className={`h-[22px] px-1.5 py-0 rounded-sm cursor-pointer transition-colors border flex items-center gap-1 shrink-0 ${
+                      isLogScale
+                        ? 'font-bold shadow-sm'
+                        : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
+                    }`}
+                  >
+                    <TrendingUp size={10} />
+                    <span className="leading-none text-[9px]">Log</span>
+                  </button>
+                  <div className="h-3.5 w-px bg-[var(--color-border)] mx-0.5 shrink-0" />
+                  <button
+                    onClick={() => {
+                      const next = !showNewsMarkers;
+                      setShowNewsMarkers(next);
+                      localStorage.setItem('mountalgo_show_news_markers', next ? 'true' : 'false');
+                      window.dispatchEvent(new CustomEvent('mountalgo_news_markers_toggled', { detail: next }));
+                      tradingAudio.play('CLICK');
+                    }}
+                    type="button"
+                    style={showNewsMarkers ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}60` } : {}}
+                    className={`h-[22px] px-1.5 py-0 rounded transition-all flex items-center gap-1 border cursor-pointer shrink-0 ${
+                      showNewsMarkers
+                        ? 'font-bold shadow-sm'
+                        : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
+                    }`}
+                  >
+                    <Flame size={10} className={showNewsMarkers ? "animate-pulse" : ""} />
+                    <span className="leading-none text-[9px]">News</span>
+                  </button>
+                  {showNewsMarkers && (
+                    <>
+                      <button
+                        onClick={() => {
+                          const impacts: Array<'ALL' | 'HIGH' | 'MEDIUM' | 'LOW'> = ['ALL', 'HIGH', 'MEDIUM', 'LOW'];
+                          const next = impacts[(impacts.indexOf(newsFilterImpact) + 1) % impacts.length];
+                          setNewsFilterImpact(next);
+                          localStorage.setItem('mountalgo_news_filter_impact', next);
+                          tradingAudio.play('CLICK');
+                        }}
+                        type="button"
+                        className={`h-[22px] px-1.5 py-0 rounded font-bold transition-all flex items-center gap-0.5 border cursor-pointer shrink-0 text-[9px] ${
+                          newsFilterImpact === 'HIGH'
+                            ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                            : newsFilterImpact === 'MEDIUM'
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                            : 'bg-[var(--color-bg)]/80 text-[var(--color-text)] border-[var(--color-border)]'
+                        }`}
+                      >
+                        <Filter size={10} />
+                        <span>{newsFilterImpact}</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const next = !filterByInstrumentOnly;
+                          setFilterByInstrumentOnly(next);
+                          localStorage.setItem('mountalgo_news_instrument_only', next ? 'true' : 'false');
+                          tradingAudio.play('CLICK');
+                        }}
+                        type="button"
+                        style={filterByInstrumentOnly ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}60` } : {}}
+                        className={`h-[22px] px-1.5 py-0 rounded font-bold transition-all flex items-center gap-0.5 border cursor-pointer shrink-0 text-[9px] ${
+                          filterByInstrumentOnly
+                            ? 'shadow-sm'
+                            : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
+                        }`}
+                      >
+                        <Target size={10} />
+                        <span>{activeMarketPair.base}</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
               <button
-                onClick={handleReturnToLiveChart}
-                title="Kembali ke Live Chart / Realtime"
-                className="h-6 px-2 py-0.5 rounded bg-emerald-600/25 hover:bg-emerald-600/50 text-emerald-300 font-bold flex items-center gap-1 cursor-pointer border border-emerald-500/40 animate-pulse shrink-0"
+                onClick={() => {
+                  setIsChartControlsMinimized(false);
+                  localStorage.setItem('mountalgo_chart_controls_minimized', 'false');
+                }}
+                className="h-[28px] w-[28px] flex items-center justify-center rounded-lg bg-[var(--color-panel)]/90 border border-[var(--color-border)] text-white shadow-2xl backdrop-blur-md hover:bg-[var(--color-hover)] transition-all animate-in fade-in zoom-in-90 active:scale-95"
+                title="Expand Chart Controls"
               >
-                <Play size={10} fill="currentColor" />
-                <span>Live</span>
+                <Settings2 size={15} className="opacity-80" />
               </button>
             )}
-
-            {/* Auto Scale Toggle Button */}
-            <button
-              onClick={() => {
-                const nextState = !isAutoScale;
-                setIsAutoScale(nextState);
-                isAutoScaleRef.current = nextState;
-                if (nextState) {
-                  setPriceScale(1);
-                  setPriceOffset(0);
-                  priceScaleRef.current = 1;
-                  priceOffsetRef.current = 0;
-                }
-              }}
-              title="Toggle Auto Scale (Double click price axis to reset)"
-              style={isAutoScale ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}60` } : {}}
-              className={`h-6 px-2 py-0.5 rounded cursor-pointer transition-colors border flex items-center gap-1 shrink-0 ${
-                isAutoScale
-                  ? 'font-bold shadow-sm'
-                  : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
-              }`}
-            >
-              <Maximize2 size={11} />
-              <span>Auto</span>
-            </button>
-
-            {/* Logarithmic Scale Toggle Button */}
-            <button
-              onClick={() => setIsLogScale(!isLogScale)}
-              title="Toggle Logarithmic Scale"
-              style={isLogScale ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}60` } : {}}
-              className={`h-6 px-2 py-0.5 rounded cursor-pointer transition-colors border flex items-center gap-1 shrink-0 ${
-                isLogScale
-                  ? 'font-bold shadow-sm'
-                  : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
-              }`}
-            >
-              <TrendingUp size={11} />
-              <span>Log</span>
-            </button>
-
-            <div className="h-3.5 w-px bg-[var(--color-border)] mx-0.5" />
-
-            {/* Interactive Global Timezone Selector */}
-            <TimezoneSelector variant="badge" />
-
-            <div className="h-3.5 w-px bg-[var(--color-border)] mx-0.5" />
-
-            {/* Visual News Icons & Laser Markers Toggle [ON/OFF] */}
-            <button
-              onClick={() => {
-                const next = !showNewsMarkers;
-                setShowNewsMarkers(next);
-                localStorage.setItem('mountalgo_show_news_markers', next ? 'true' : 'false');
-                window.dispatchEvent(new CustomEvent('mountalgo_news_markers_toggled', { detail: next }));
-                tradingAudio.play('CLICK');
-              }}
-              type="button"
-              style={showNewsMarkers ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}60` } : {}}
-              className={`h-6 px-2 py-0.5 rounded transition-all flex items-center gap-1 border cursor-pointer shrink-0 ${
-                showNewsMarkers
-                  ? 'font-bold shadow-sm'
-                  : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
-              }`}
-              title={showNewsMarkers ? "Sembunyikan Visual Ikon Berita di Chart [ON]" : "Tampilkan Visual Ikon Berita di Chart [OFF]"}
-            >
-              <Flame size={11} className={showNewsMarkers ? "animate-pulse" : ""} />
-              <span>News</span>
-            </button>
-
-            {/* News Impact & Active Instrument Filter Controls */}
-            {showNewsMarkers && (
-              <>
-                <button
-                  onClick={() => {
-                    const impacts: Array<'ALL' | 'HIGH' | 'MEDIUM' | 'LOW'> = ['ALL', 'HIGH', 'MEDIUM', 'LOW'];
-                    const next = impacts[(impacts.indexOf(newsFilterImpact) + 1) % impacts.length];
-                    setNewsFilterImpact(next);
-                    localStorage.setItem('mountalgo_news_filter_impact', next);
-                    tradingAudio.play('CLICK');
-                  }}
-                  type="button"
-                  className={`h-6 px-2 py-0.5 rounded font-bold transition-all flex items-center gap-1 border cursor-pointer shrink-0 ${
-                    newsFilterImpact === 'HIGH'
-                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                      : newsFilterImpact === 'MEDIUM'
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                      : 'bg-[var(--color-bg)]/80 text-[var(--color-text)] border-[var(--color-border)]'
-                  }`}
-                  title="Filter Tingkat Dampak Berita Chart (ALL / HIGH / MEDIUM / LOW)"
-                >
-                  <Filter size={11} />
-                  <span>{newsFilterImpact}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    const next = !filterByInstrumentOnly;
-                    setFilterByInstrumentOnly(next);
-                    localStorage.setItem('mountalgo_news_instrument_only', next ? 'true' : 'false');
-                    tradingAudio.play('CLICK');
-                  }}
-                  type="button"
-                  style={filterByInstrumentOnly ? { backgroundColor: `${currentPalette.bull}20`, color: currentPalette.bull, borderColor: `${currentPalette.bull}60` } : {}}
-                  className={`h-6 px-2 py-0.5 rounded font-bold transition-all flex items-center gap-1 border cursor-pointer shrink-0 ${
-                    filterByInstrumentOnly
-                      ? 'shadow-sm'
-                      : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
-                  }`}
-                  title={`Khusus Berita ${activeMarketPair.base}/${activeMarketPair.quote}`}
-                >
-                  <Target size={11} />
-                  <span>{activeMarketPair.base}</span>
-                </button>
-              </>
-            )}
-
-            <div className="h-3.5 w-px bg-[var(--color-border)] mx-0.5" />
-
-            {/* SL/TP Lock and Verification Safety Controls */}
-            <button
-              onClick={() => setIsSLTPLocked(!isSLTPLocked)}
-              title={isSLTPLocked ? "SL/TP Terkunci (Klik untuk membuka)" : "Kunci Posisi Garis SL/TP (Mencegah pergeseran)"}
-              className={`h-6 px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1 border shrink-0 ${
-                isSLTPLocked
-                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 font-bold'
-                  : 'bg-[var(--color-bg)]/80 text-[var(--color-text-muted)] border-[var(--color-border)] hover:text-[var(--color-text)] hover:bg-[var(--color-hover)]'
-              }`}
-            >
-              {isSLTPLocked ? <Lock size={11} className="text-rose-400" /> : <Unlock size={11} />}
-              <span>SL/TP</span>
-            </button>
-
-            <button
-              onClick={() => setRequireSLTPVerification(!requireSLTPVerification)}
-              title={requireSLTPVerification ? "Verifikasi Seret SL/TP Aktif (Klik untuk matikan)" : "Matikan Verifikasi Seret (Mode Cepat)"}
-              className={`h-6 px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1 border shrink-0 ${
-                requireSLTPVerification
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
-                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-              }`}
-            >
-              <Shield size={11} />
-              <span>{requireSLTPVerification ? "Safe" : "Fast"}</span>
-            </button>
           </div>
 
           {/* 4B. Right-Click TradingView Context Menu */}
@@ -13309,8 +13370,7 @@ export default function CustomChartWidget({
             </button>
           )}
 
-          {/* Compact Hotkeys HUD at the bottom of the chart */}
-          {hotkeysEnabled && <CompactHotkeyHud />}
+          {/* Compact Hotkeys HUD removed as requested */}
 
           {/* Floating Trade Bar for Instant Execution */}
           {isInstantTradeEnabled && (
@@ -13470,13 +13530,15 @@ export default function CustomChartWidget({
         {(chartType === 'footprints' || indicators.showFootprints) &&
           footprintData &&
           footprintData.length > 0 &&
-          hudPosition === 'right' && (
+          hudPosition === 'right' && !isFootprintHudMinimized && (
             <FootprintHudPanel
               footprintData={footprintData}
               symbol={activeSymbol}
               timeframe={timeframe}
               position="right"
               onPositionChange={setHudPosition}
+              isMinimized={false}
+              setIsMinimized={setIsFootprintHudMinimized}
             />
           )}
 
@@ -13519,19 +13581,26 @@ export default function CustomChartWidget({
         )}
       </div>
 
-      {/* Bottom Docked HUD Panel */}
-
+      {/* Bottom Docked HUD Panel OR Minimized simple button */}
       {(chartType === 'footprints' || indicators.showFootprints) &&
         footprintData &&
-        footprintData.length > 0 &&
-        hudPosition === 'bottom' && (
-          <FootprintHudPanel
-            footprintData={footprintData}
-            symbol={activeSymbol}
-            timeframe={timeframe}
-            position="bottom"
-            onPositionChange={setHudPosition}
-          />
+        footprintData.length > 0 && (
+          (hudPosition === 'bottom' && !isFootprintHudMinimized) || isFootprintHudMinimized
+        ) && (
+          <div className={isFootprintHudMinimized 
+            ? "absolute bottom-[34px] left-2 z-[60] pointer-events-auto animate-in fade-in slide-in-from-bottom-2"
+            : `flex justify-start px-2.5 border-t border-[var(--color-border)] bg-[var(--color-panel)]`
+          }>
+            <FootprintHudPanel
+              footprintData={footprintData}
+              symbol={activeSymbol}
+              timeframe={timeframe}
+              position="bottom"
+              onPositionChange={setHudPosition}
+              isMinimized={isFootprintHudMinimized}
+              setIsMinimized={setIsFootprintHudMinimized}
+            />
+          </div>
         )}
 
       {/* 5. Symbol Selector Modal */}

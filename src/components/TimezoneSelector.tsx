@@ -229,7 +229,7 @@ export const TimezoneSelector: React.FC<TimezoneSelectorProps> = ({
             backgroundColor: `${palette.bull}20`,
             borderColor: `${palette.bull}60`,
           } : {}}
-          className={`h-6 px-2 py-0.5 rounded-lg border text-[10px] font-mono flex items-center gap-1 transition-all cursor-pointer shrink-0 ${
+          className={`h-[22px] px-1.5 py-0 rounded border text-[9px] font-mono flex items-center gap-1 transition-all cursor-pointer shrink-0 ${
             isOpen 
               ? 'text-white font-bold shadow-xs' 
               : 'bg-white/[0.04] hover:bg-white/[0.08] text-white border-white/10'

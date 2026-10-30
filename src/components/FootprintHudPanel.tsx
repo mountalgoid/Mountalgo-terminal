@@ -29,6 +29,8 @@ interface FootprintHudPanelProps {
   position?: 'bottom' | 'left' | 'right';
   onPositionChange?: (pos: 'bottom' | 'left' | 'right') => void;
   onClose?: () => void;
+  isMinimized?: boolean;
+  setIsMinimized?: (min: boolean) => void;
 }
 
 const FootprintHudPanel = React.memo(function FootprintHudPanel({
@@ -37,12 +39,13 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
   timeframe,
   position = 'bottom',
   onPositionChange,
-  onClose
+  onClose,
+  isMinimized = false,
+  setIsMinimized
 }: FootprintHudPanelProps) {
   const { palette, isLight } = useTheme();
   const [activeTab, setActiveTab] = useState<'all' | 'charts' | 'distribution'>('all');
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
   const [panelWidth, setPanelWidth] = useState<'narrow' | 'medium' | 'wide'>('narrow');
 
   if (!footprintData || footprintData.length === 0) {
@@ -88,118 +91,19 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
 
   // Minimized Compact Bar View
   if (isMinimized) {
-    // Vertical side dock minimized state (Left or Right)
-    if (position === 'left' || position === 'right') {
-      return (
-        <div 
-          style={{
-            background: getThemeModalGradient(palette, isLight),
-            borderColor: getThemeCardBorder(palette, false)
-          }}
-          className={`backdrop-blur-2xl text-[var(--color-text)] font-sans text-xs select-none shadow-2xl flex flex-col items-center justify-between py-2.5 px-1 z-20 shrink-0 ${
-            position === 'left' ? 'border-r w-11 sm:w-12 h-full' : 'border-l w-11 sm:w-12 h-full'
-          }`}
-        >
-          {/* Top Control */}
-          <div className="flex flex-col items-center gap-2 font-mono text-[10px]">
-            <button
-              onClick={() => setIsMinimized(false)}
-              style={{ color: palette.poc }}
-              className="p-1.5 bg-[var(--color-input-bg)] border border-[var(--color-input-border)] hover:border-cyan-400 rounded-lg cursor-pointer transition-all hover:scale-110 shadow-sm"
-              title="Buka / Expand Footprint HUD"
-            >
-              <Maximize2 size={13} />
-            </button>
-
-            <div 
-              style={{ backgroundColor: `${palette.bull}25`, borderColor: palette.bull, color: palette.bull }}
-              className="p-1.5 rounded-lg border flex items-center justify-center shadow-sm"
-              title="Footprint HUD Minimized"
-            >
-              <BarChart3 size={13} />
-            </div>
-
-            <div className="[writing-mode:vertical-lr] rotate-180 uppercase tracking-widest font-extrabold text-[var(--color-text-muted)] text-[9px] my-2 select-none">
-              FOOTPRINT
-            </div>
-          </div>
-
-          {/* Center Vertical Compact Metrics */}
-          <div className="flex flex-col items-center gap-3 font-mono text-[9px]">
-            <div className="flex flex-col items-center text-center" title={`Volume Total: ${formatVol(currentVol)}`}>
-              <span className="text-[7.5px] text-[var(--color-text-muted)] font-bold uppercase tracking-tighter">VOL</span>
-              <span className="text-[var(--color-text)] font-bold">{formatVol(currentVol)}</span>
-            </div>
-
-            <div className="flex flex-col items-center text-center" title={`Delta: ${currentDelta >= 0 ? '+' : ''}${formatVol(currentDelta)}`}>
-              <span className="text-[7.5px] text-[var(--color-text-muted)] font-bold uppercase tracking-tighter">DLT</span>
-              <span className="font-bold font-mono" style={{ color: currentDelta >= 0 ? palette.bull : palette.bear }}>
-                {currentDelta >= 0 ? '+' : ''}{formatVol(currentDelta)}
-              </span>
-            </div>
-
-            <div className="flex flex-col items-center text-center hidden sm:flex" title={`CVD: ${currentCvd >= 0 ? '+' : ''}${formatVol(currentCvd)}`}>
-              <span className="text-[7.5px] text-[var(--color-text-muted)] font-bold uppercase tracking-tighter">CVD</span>
-              <span className="text-sky-400 font-bold">
-                {currentCvd >= 0 ? '+' : ''}{formatVol(currentCvd)}
-              </span>
-            </div>
-          </div>
-
-          {/* Bottom Expand Label */}
-          <button
-            onClick={() => setIsMinimized(false)}
-            style={{ color: palette.poc }}
-            className="text-[9px] font-mono hover:opacity-80 cursor-pointer [writing-mode:vertical-lr] rotate-180 font-bold py-1 transition-colors uppercase tracking-wider"
-            title="Klik untuk membuka Footprint HUD"
-          >
-            BUKA HUD
-          </button>
-        </div>
-      );
-    }
-
-    // Horizontal top or bottom minimized state
     return (
-      <div 
-        style={{
-          background: getThemeModalGradient(palette, isLight),
-          borderColor: getThemeCardBorder(palette, false)
-        }}
-        className={`backdrop-blur-2xl text-[var(--color-text)] font-sans text-xs select-none shadow-2xl flex items-center justify-between px-3 py-1.5 chart-layer-indicators-hud ${
-          position === 'bottom' ? 'border-t w-full' : 'border-b w-full'
+      <button 
+        onClick={(e) => { e.stopPropagation(); setIsMinimized?.(false); }}
+        className={`h-7 px-2 rounded-lg border shadow-xl backdrop-blur-xl flex items-center gap-2 hover:scale-105 active:scale-95 transition-all cursor-pointer select-none ${
+          isLight ? 'bg-white/90 border-zinc-200 text-zinc-800' : 'bg-[var(--color-panel)]/90 border-[var(--color-border)] text-white'
         }`}
+        style={{ borderColor: `${palette.poc}60` }}
+        title="Buka Footprint HUD"
       >
-        <div className="flex items-center gap-3 font-mono text-[10.5px] overflow-x-auto no-scrollbar">
-          <div 
-            style={{ backgroundColor: `${palette.bull}25`, borderColor: palette.bull, color: palette.bull }}
-            className="p-1 rounded border flex items-center justify-center shrink-0 animate-pulse"
-          >
-            <BarChart3 size={12} />
-          </div>
-          <span className="font-bold text-[var(--color-text)] uppercase tracking-tight shrink-0 flex items-center gap-1.5">
-            FOOTPRINT HUD
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
-          </span>
-          <span className="text-[var(--color-text-muted)] font-semibold shrink-0">Vol: <strong className="text-[var(--color-text)]">{formatVol(currentVol)}</strong></span>
-          <span className="font-bold shrink-0 transition-all duration-300" style={{ color: currentDelta >= 0 ? palette.bull : palette.bear }}>
-            Delta: {currentDelta >= 0 ? '+' : ''}{formatVol(currentDelta)}
-          </span>
-          <span className="font-bold shrink-0 hidden sm:inline" style={{ color: currentCvd >= 0 ? palette.bull : palette.bear }}>
-            CVD: {currentCvd >= 0 ? '+' : ''}{formatVol(currentCvd)}
-          </span>
-        </div>
-
-        <button
-          onClick={() => setIsMinimized(false)}
-          style={{ color: palette.poc }}
-          className="px-2 py-0.5 bg-[var(--color-input-bg)] border border-[var(--color-input-border)] hover:border-cyan-400 rounded font-bold font-mono text-[10px] cursor-pointer flex items-center gap-1 transition-colors shrink-0"
-          title="Buka / Expand Footprint HUD"
-        >
-          <Maximize2 size={11} />
-          <span>Buka HUD</span>
-        </button>
-      </div>
+        <BarChart3 size={14} style={{ color: palette.poc }} />
+        <span className="text-[10px] font-bold uppercase tracking-wider">Footprint</span>
+        <Maximize2 size={10} className="opacity-50" />
+      </button>
     );
   }
 
@@ -361,8 +265,8 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
                 {absorptionSignal && (
                   <span 
                     style={{
-                      backgroundColor: absorptionSignal === 'BUY_ABSORPTION' ? `${palette.bull}20` : 'rgba(244,63,94,0.2)',
-                      color: absorptionSignal === 'BUY_ABSORPTION' ? palette.bull : '#fb7185'
+                      backgroundColor: absorptionSignal === 'BUY_ABSORPTION' ? `${palette.bull}20` : `${palette.bear}20`,
+                      color: absorptionSignal === 'BUY_ABSORPTION' ? palette.bull : palette.bear
                     }}
                     className="px-1.5 py-0.5 rounded text-[9px] font-black animate-pulse"
                   >
@@ -522,7 +426,7 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
             />
             <div className="flex items-center justify-between mb-1.5">
               <span className="font-bold text-[var(--color-text-muted)] font-mono text-[11px] flex items-center gap-1">
-                <LineChart size={13} className="text-blue-400" /> Line Chart (Cumulative Delta)
+                <LineChart size={13} style={{ color: palette.poc }} /> Line Chart (Cumulative Delta)
               </span>
               <span className="text-[10px] text-[var(--color-text-muted)] font-mono">CVD Trend</span>
             </div>
@@ -661,7 +565,7 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
             />
             <div className="flex items-center justify-between mb-1.5">
               <span className="font-bold text-[var(--color-text-muted)] font-mono text-[11px] flex items-center gap-1">
-                <Zap size={13} className="text-yellow-400" /> Key Metrics & Signals
+                <Zap size={13} style={{ color: palette.poc }} /> Key Metrics & Signals
               </span>
               <span className="text-[10px] text-[var(--color-text-muted)] font-mono">Real-time</span>
             </div>
@@ -683,7 +587,10 @@ const FootprintHudPanel = React.memo(function FootprintHudPanel({
 
               <div className="bg-[var(--color-input-bg)] p-1.5 rounded border border-[var(--color-input-border)]">
                 <span className="text-[var(--color-text-muted)] text-[9px] block">VPIN Toxicity</span>
-                <span className={`text-xs font-bold font-mono ${isToxic ? 'text-rose-400 animate-pulse' : 'text-sky-400'}`}>
+                <span 
+                  className={`text-xs font-bold font-mono ${isToxic ? 'animate-pulse' : ''}`}
+                  style={{ color: isToxic ? palette.bear : palette.bull }}
+                >
                   {vpinPct}% {isToxic ? '⚠️' : '⚡'}
                 </span>
               </div>

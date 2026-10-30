@@ -2,7 +2,14 @@ import { formatValueShorthand } from "./numberFormatters";
 import { Candle } from '../components/CustomChartWidget';
 
 
-export type FootprintType = 'Split Bid/Ask Profile' | 'Delta Profile' | 'Total Volume Profile';
+export type FootprintType =
+  | 'Bid × Ask Profile'
+  | 'Bid × Ask Ladder'
+  | 'Volume Profile'
+  | 'Delta Profile'
+  | 'Absolute Delta'
+  | 'Split Bid/Ask Profile'
+  | 'Total Volume Profile';
 export type ImbalanceMode = 'Diagonal' | 'Horizontal';
 export type SRSourceType = 'Imbalances' | 'Large Volume' | 'Both';
 export type MitigationType = 'HTF Wick' | 'HTF Body Close';
@@ -113,7 +120,7 @@ export const DEFAULT_MTF_FOOTPRINT_SETTINGS: FootprintSettings = {
   showLogo: true,
   logoOffset: 85,
 
-  footprintType: 'Split Bid/Ask Profile',
+  footprintType: 'Bid × Ask Profile',
   showImbalance: true,
   imbalanceMode: 'Diagonal',
   imbalanceRatio: 3.0,
@@ -192,10 +199,24 @@ export interface MTFFootprintResult {
 }
 
 /**
- * Format Volume Helper (Pine Script format_vol replica)
+ * Intelligent Multi-Timeframe Volume Formatter (Preserves sub-integer precision for LTF/Crypto)
  */
-export function formatVol(v: number): string {
-  return formatValueShorthand(v, false);
+export function formatVol(v: number | undefined | null): string {
+  if (v === undefined || v === null || isNaN(v)) return '0';
+  const absV = Math.abs(v);
+  if (absV >= 1000) {
+    return formatValueShorthand(v, false);
+  }
+  if (absV >= 100) {
+    return (Math.round(v * 10) / 10).toString();
+  }
+  if (absV >= 1) {
+    return Number.isInteger(v) ? v.toString() : parseFloat(v.toFixed(2)).toString();
+  }
+  if (absV > 0) {
+    return parseFloat(v.toFixed(3)).toString();
+  }
+  return '0';
 }
 
 /**
@@ -288,11 +309,15 @@ function distributeVol(
     const idxL = Math.min(maxIdx, Math.max(0, Math.floor((l - lowestP) * invRowH)));
     const idxH = Math.min(maxIdx, Math.max(0, Math.floor((bLow - lowestP) * invRowH)));
     if (idxL <= idxH) {
-      const vJ = vL / (idxH - idxL + 1);
-      const vJBuy = vJ * 0.9;
+      const count = idxH - idxL + 1;
+      const vJ = vL / count;
       for (let j = idxL; j <= idxH; j++) {
         bucketTotal[j] += vJ;
-        bucketBuy[j] += vJBuy;
+        // Lower wick: Rejection from below is Buying (Ask). 
+        // To allow finished auction (Bid=0), the very bottom tick should be 100% Ask if rejection is clean.
+        // We use a gradient: 100% buy at bottom, tapering to 90% at top of wick.
+        const ratio = j === idxL ? 1.0 : 0.9; 
+        bucketBuy[j] += vJ * ratio;
       }
     }
   }
@@ -314,11 +339,14 @@ function distributeVol(
     const idxL = Math.min(maxIdx, Math.max(0, Math.floor((bHigh - lowestP) * invRowH)));
     const idxH = Math.min(maxIdx, Math.max(0, Math.floor((h - lowestP) * invRowH)));
     if (idxL <= idxH) {
-      const vJ = vU / (idxH - idxL + 1);
-      const vJBuy = vJ * 0.1;
+      const count = idxH - idxL + 1;
+      const vJ = vU / count;
       for (let j = idxL; j <= idxH; j++) {
         bucketTotal[j] += vJ;
-        bucketBuy[j] += vJBuy;
+        // Upper wick: Rejection from above is Selling (Bid).
+        // To allow finished auction (Ask=0), the very top tick should be 100% Bid (0% Ask).
+        const ratio = j === idxH ? 0.0 : 0.1;
+        bucketBuy[j] += vJ * ratio;
       }
     }
   }
@@ -765,6 +793,8 @@ export interface FootprintLevel {
   isImbalanceBuy: boolean;
   isImbalanceSell: boolean;
   isPoc: boolean;
+  isLargeVolBuy: boolean;
+  isLargeVolSell: boolean;
   inValueArea: boolean;
 }
 
@@ -827,9 +857,9 @@ export function generateFootprintData(
   let cumulativeDelta = 0;
   const result: (FootprintCandleData | null)[] = [];
 
-  // ADAPTIVE SUB-SAMPLED FOOTPRINT VOLUME PROFILE
-  // Only process the most recent 150 candles to prevent UI thread lockup on huge histories
-  const MAX_PROCESSED_CANDLES = 150;
+  // HIGH-PRECISION FOOTPRINT VOLUME PROFILE ENGINE
+  // Process up to 450 historical candles for full order flow coverage without performance degradation
+  const MAX_PROCESSED_CANDLES = 450;
   const startIndex = Math.max(0, candles.length - MAX_PROCESSED_CANDLES);
 
   for (let i = 0; i < candles.length; i++) {
@@ -859,37 +889,10 @@ export function generateFootprintData(
       buyBuckets
     );
 
-    // Round and Normalize Volume Buckets for perfect accuracy
-    const targetTotal = Math.round(c.volume);
-    const roundedVols = volBuckets.map(v => Math.round(v || 0));
-    const roundedBuys = buyBuckets.map(b => Math.round(b || 0));
-
-    // Ensure sum of roundedVols is exactly targetTotal
-    let currentSum = roundedVols.reduce((a, b) => a + b, 0);
-    if (targetTotal > 0 && currentSum !== targetTotal) {
-      let maxIdx = 0;
-      let maxV = -1;
-      for (let l = 0; l < numTicks; l++) {
-        if (roundedVols[l] > maxV) {
-          maxV = roundedVols[l];
-          maxIdx = l;
-        }
-      }
-      const diff = targetTotal - currentSum;
-      roundedVols[maxIdx] = Math.max(0, roundedVols[maxIdx] + diff);
-    }
-
-    // Ensure roundedBuys[l] <= roundedVols[l] and calculate roundedSells
-    const roundedSells = new Array(numTicks).fill(0);
-    for (let l = 0; l < numTicks; l++) {
-      if (roundedBuys[l] > roundedVols[l]) {
-        roundedBuys[l] = roundedVols[l];
-      }
-      if (roundedVols[l] > 0 && roundedBuys[l] === 0 && buyBuckets[l] > 0) {
-        roundedBuys[l] = Math.round(roundedVols[l] * (buyBuckets[l] / (volBuckets[l] || 1)));
-      }
-      roundedSells[l] = Math.max(0, roundedVols[l] - roundedBuys[l]);
-    }
+    // High-Precision Volume Buckets (Preserves exact micro-volume floats for LTF/Crypto)
+    const preciseVols = volBuckets.map(v => Math.max(0, v || 0));
+    const preciseBuys = buyBuckets.map((b, l) => Math.max(0, Math.min(preciseVols[l], b || 0)));
+    const preciseSells = preciseVols.map((v, l) => Math.max(0, v - preciseBuys[l]));
 
     let barTotalVol = 0;
     let barBuyVol = 0;
@@ -898,9 +901,9 @@ export function generateFootprintData(
     let pocIdx = 0;
 
     for (let l = 0; l < numTicks; l++) {
-      const v = roundedVols[l];
-      const b = roundedBuys[l];
-      const s = roundedSells[l];
+      const v = preciseVols[l];
+      const b = preciseBuys[l];
+      const s = preciseSells[l];
       barTotalVol += v;
       barBuyVol += b;
       barSellVol += s;
@@ -914,15 +917,18 @@ export function generateFootprintData(
     const deltaPct = barTotalVol > 0 ? (barDelta / barTotalVol) * 100 : 0;
     cumulativeDelta += barDelta;
 
-    // Value Area Calculation (70% standard) using rounded volume
+    const avgLvlBuyVol = barBuyVol / numTicks;
+    const avgLvlSellVol = barSellVol / numTicks;
+
+    // Value Area Calculation (70% standard) using precise volume
     const targetVaVol = barTotalVol * vaPct;
-    let currentVaVol = roundedVols[pocIdx] || 0;
+    let currentVaVol = preciseVols[pocIdx] || 0;
     let upIdx = pocIdx;
     let downIdx = pocIdx;
 
     while (currentVaVol < targetVaVol && (upIdx < numTicks - 1 || downIdx > 0)) {
-      const nextUpVol = upIdx < numTicks - 1 ? roundedVols[upIdx + 1] : 0;
-      const nextDownVol = downIdx > 0 ? roundedVols[downIdx - 1] : 0;
+      const nextUpVol = upIdx < numTicks - 1 ? preciseVols[upIdx + 1] : 0;
+      const nextDownVol = downIdx > 0 ? preciseVols[downIdx - 1] : 0;
 
       if (nextUpVol >= nextDownVol && upIdx < numTicks - 1) {
         upIdx++;
@@ -960,9 +966,9 @@ export function generateFootprintData(
       const levelHigh = c.low + step * (l + 1);
       const levelMid = (levelLow + levelHigh) / 2;
 
-      const v = roundedVols[l];
-      const b = roundedBuys[l];
-      const s = roundedSells[l];
+      const v = preciseVols[l];
+      const b = preciseBuys[l];
+      const s = preciseSells[l];
       const lvlDelta = b - s;
       rollingDelta += lvlDelta;
       if (rollingDelta > runningMaxDelta) runningMaxDelta = rollingDelta;
@@ -972,11 +978,11 @@ export function generateFootprintData(
       const inValueArea = l >= downIdx && l <= upIdx;
 
       // Diagonal Imbalance comparison (Ask/Buy vs Bid/Sell one tick lower or higher)
-      const bidBelow = l > 0 ? roundedSells[l - 1] : 0;
-      const askAbove = l < numTicks - 1 ? roundedBuys[l + 1] : 0;
+      const bidBelow = l > 0 ? preciseSells[l - 1] : 0;
+      const askAbove = l < numTicks - 1 ? preciseBuys[l + 1] : 0;
 
-      const isImbalanceBuy = b >= minVolFilter && (bidBelow === 0 ? b >= minVolFilter * 1.5 : b >= bidBelow * imbalanceMult);
-      const isImbalanceSell = s >= minVolFilter && (askAbove === 0 ? s >= minVolFilter * 1.5 : s >= askAbove * imbalanceMult);
+      const isImbalanceBuy = b >= minVolFilter && (bidBelow === 0 ? b >= minVolFilter * 2.5 : b >= bidBelow * imbalanceMult);
+      const isImbalanceSell = s >= minVolFilter && (askAbove === 0 ? s >= minVolFilter * 2.5 : s >= askAbove * imbalanceMult);
 
       if (isImbalanceBuy) {
         if (consecutiveBuyImb === 0) startBuyImbPrice = levelLow;
@@ -1010,6 +1016,9 @@ export function generateFootprintData(
         consecutiveSellImb = 0;
       }
 
+      const isLargeVolBuy = b > avgLvlBuyVol * 1.75;
+      const isLargeVolSell = s > avgLvlSellVol * 1.75;
+
       levels.push({
         price: levelMid,
         levelMid,
@@ -1021,6 +1030,8 @@ export function generateFootprintData(
         isImbalanceBuy,
         isImbalanceSell,
         isPoc: l === pocIdx,
+        isLargeVolBuy,
+        isLargeVolSell,
         inValueArea,
       });
     }
@@ -1048,9 +1059,18 @@ export function generateFootprintData(
     const topLevel = levels[levels.length - 1];
     const bottomLevel = levels[0];
 
-    const isUnfinishedHigh = topLevel ? topLevel.askVol > 0 : false;
+    // Strict Order Flow Auction Theory: An Unfinished High/Low requires non-zero trading at extreme limits
+    // that fails to exhaust the auction (zero on one side).
+    const topUpperWick = c.high - Math.max(c.open, c.close);
+    const isUnfinishedHigh = topLevel
+      ? topLevel.askVol > 0 && topLevel.bidVol > 0 && topLevel.totalVol >= minVolFilter * 3 && topUpperWick <= step * 0.15
+      : false;
     const isFinishedAuctionHigh = topLevel ? topLevel.askVol === 0 : false;
-    const isUnfinishedLow = bottomLevel ? bottomLevel.bidVol > 0 : false;
+
+    const bottomLowerWick = Math.min(c.open, c.close) - c.low;
+    const isUnfinishedLow = bottomLevel
+      ? bottomLevel.bidVol > 0 && bottomLevel.askVol > 0 && bottomLevel.totalVol >= minVolFilter * 3 && bottomLowerWick <= step * 0.15
+      : false;
 
     // Profile Shape Classification (Market Profile Theory)
     // P-Shape: High volume in upper half, thin stalk at bottom (Short Covering / Bullish Initiative)
@@ -1085,12 +1105,12 @@ export function generateFootprintData(
 
     result.push({
       time: c.time,
-      totalVolume: Math.round(barTotalVol),
-      delta: Math.round(barDelta),
+      totalVolume: barTotalVol,
+      delta: barDelta,
       deltaPct: Math.round(deltaPct * 10) / 10,
-      maxDelta: Math.round(runningMaxDelta || Math.max(0, barDelta)),
-      minDelta: Math.round(runningMinDelta || Math.min(0, barDelta)),
-      cumulativeDelta: Math.round(cumulativeDelta),
+      maxDelta: runningMaxDelta || Math.max(0, barDelta),
+      minDelta: runningMinDelta || Math.min(0, barDelta),
+      cumulativeDelta: cumulativeDelta,
       pocPrice,
       pocIdx,
       vahPrice,

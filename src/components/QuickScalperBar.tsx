@@ -106,7 +106,7 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
           title="Klik untuk memfokuskan keyboard hotkeys ke chart ini"
         >
           <Zap size={10} style={{ color: isCurrentFocus ? palette.bull : undefined }} className={isCurrentFocus ? `fill-current animate-pulse` : 'text-[var(--color-text-muted)]'} />
-          <span className="hidden sm:inline">{isCurrentFocus ? 'HOTKEYS AKTIF' : 'FOKUS'}</span>
+          <span className="hidden sm:inline">{isCurrentFocus ? 'AKTIF' : 'FOKUS'}</span>
           <span className="sm:hidden">{isCurrentFocus ? '⚡' : '🎯'}</span>
         </button>
 
@@ -127,14 +127,11 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
             color: palette.bull,
           }}
           className="group relative flex items-center gap-0.5 sm:gap-1.5 px-1.5 sm:px-2.5 md:px-3 py-0.5 sm:py-1 rounded-md sm:rounded-lg border font-bold text-[10px] sm:text-xs hover:brightness-125 active:scale-95 transition-all cursor-pointer shadow-sm"
-          title={`Beli Instan ${currentVolume} ${isForex ? 'Lot' : symbol} (${hotkeyMode === 'shift' ? 'Shift+B' : 'B'})`}
+          title={`Beli Instan ${currentVolume} ${isForex ? 'Lot' : symbol}`}
         >
           <TrendingUp size={11} className="stroke-[2.5]" />
           <span>BUY</span>
           <span className="font-mono text-[10px] sm:text-[11px] opacity-90 hidden sm:inline">{formatPriceDisplay(currentPrice)}</span>
-          <span className="ml-0.5 sm:ml-1 text-[8px] sm:text-[9px] font-mono px-0.5 sm:px-1 py-0.2 rounded bg-[var(--color-bg)]/40 border border-[var(--color-border)]/30 opacity-75 group-hover:opacity-100">
-            {hotkeyMode === 'shift' ? '⇧B' : 'B'}
-          </span>
         </button>
 
         {/* SELL Button */}
@@ -149,20 +146,17 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
             color: palette.bear,
           }}
           className="group relative flex items-center gap-0.5 sm:gap-1.5 px-1.5 sm:px-2.5 md:px-3 py-0.5 sm:py-1 rounded-md sm:rounded-lg border font-bold text-[10px] sm:text-xs hover:brightness-125 active:scale-95 transition-all cursor-pointer shadow-sm"
-          title={`Jual Instan ${currentVolume} ${isForex ? 'Lot' : symbol} (${hotkeyMode === 'shift' ? 'Shift+S' : 'S'})`}
+          title={`Jual Instan ${currentVolume} ${isForex ? 'Lot' : symbol}`}
         >
           <TrendingDown size={11} className="stroke-[2.5]" />
           <span>SELL</span>
           <span className="font-mono text-[10px] sm:text-[11px] opacity-90 hidden sm:inline">{formatPriceDisplay(currentPrice)}</span>
-          <span className="ml-0.5 sm:ml-1 text-[8px] sm:text-[9px] font-mono px-0.5 sm:px-1 py-0.2 rounded bg-[var(--color-bg)]/40 border border-[var(--color-border)]/30 opacity-75 group-hover:opacity-100">
-            {hotkeyMode === 'shift' ? '⇧S' : 'S'}
-          </span>
         </button>
       </div>
 
       {/* 3. Preset Volume Pills (Hotkeys 1 - 5) - Hidden on smallest screens */}
       <div className="hidden md:flex items-center gap-0.5 sm:gap-1 bg-[var(--color-bg)] p-0.5 rounded-md sm:rounded-lg border border-[var(--color-border)]">
-        <span className="text-[8px] sm:text-[9px] font-mono text-[var(--color-text-muted)] px-0.5 sm:px-1 hidden md:inline">VOL [1-5]:</span>
+        <span className="text-[8px] sm:text-[9px] font-mono text-[var(--color-text-muted)] px-0.5 sm:px-1 hidden md:inline">VOL:</span>
         {presets.map((vol, idx) => {
           const isSelected = activePresetIndex === idx;
           return (
@@ -178,9 +172,8 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
                   ? ''
                   : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]/5'
               }`}
-              title={`Preset Volume ${idx + 1} (${vol} ${isForex ? 'Lot' : ''}) - Tekan angka ${idx + 1}`}
+              title={`Preset Volume ${idx + 1} (${vol} ${isForex ? 'Lot' : ''})`}
             >
-              <span className="text-[8px] opacity-60 mr-0.5 hidden xs:inline">{idx + 1}:</span>
               <span>{vol}</span>
             </button>
           );
@@ -197,11 +190,10 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
               handleAction('CLOSE');
             }}
             className="flex items-center gap-1 px-2 py-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] hover:bg-[var(--color-bg)] text-[var(--color-text)] text-[10px] font-bold transition-all cursor-pointer"
-            title={`Tutup Posisi ${symbol} (${hotkeyMode === 'shift' ? 'Shift+C' : 'C'})`}
+            title={`Tutup Posisi ${symbol}`}
           >
             <XCircle size={11} style={{ color: palette.poc }} />
             <span className="hidden sm:inline">Close</span>
-            <span className="text-[8.5px] font-mono text-[var(--color-text-muted)]">{hotkeyMode === 'shift' ? '⇧C' : 'C'}</span>
           </button>
         )}
 
@@ -214,11 +206,10 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
             }}
             style={{ borderColor: `${palette.poc}50`, backgroundColor: `${palette.poc}20` }}
             className="flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-bold transition-all cursor-pointer text-[var(--color-text)]"
-            title={`Balik Posisi ${symbol} (${hotkeyMode === 'shift' ? 'Shift+R' : 'R'})`}
+            title={`Balik Posisi ${symbol}`}
           >
             <RotateCcw size={11} />
             <span className="hidden sm:inline">Rev</span>
-            <span className="text-[8.5px] font-mono" style={{ color: palette.poc }}>{hotkeyMode === 'shift' ? '⇧R' : 'R'}</span>
           </button>
         )}
 
@@ -235,7 +226,7 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
                 ? ''
                 : 'border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
             }`}
-            title={`Toggle Auto Break-Even (${hotkeyMode === 'shift' ? 'Shift+E' : 'E'})`}
+            title={`Toggle Auto Break-Even`}
           >
             <Shield size={11} />
             <span className="hidden md:inline">BE</span>
@@ -253,11 +244,10 @@ const QuickScalperBar = React.memo(function QuickScalperBar({
             }}
             style={{ borderColor: `${palette.bear}50`, backgroundColor: `${palette.bear}20` }}
             className="flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-bold transition-all cursor-pointer animate-pulse text-[var(--color-text)]"
-            title={`FLATTEN ALL: Tutup seketika semua posisi terbuka (${hotkeyMode === 'shift' ? 'Shift+X' : 'X'})`}
+            title={`FLATTEN ALL: Tutup seketika semua posisi terbuka`}
           >
             <AlertOctagon size={11} />
             <span className="hidden lg:inline">Flatten</span>
-            <span className="text-[8.5px] font-mono" style={{ color: palette.bear }}>{hotkeyMode === 'shift' ? '⇧X' : 'X'}</span>
           </button>
         )}
 
