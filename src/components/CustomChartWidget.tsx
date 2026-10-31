@@ -13341,33 +13341,38 @@ export default function CustomChartWidget({
 
           {/* 4B. Unified Liquidation & Microstructure Radar Bar (Single Dedicated Bar with Intuitive Visual Charts) */}
           {indicators.showLiquidityHeatmap && showLiquidationRadarBar && isRadarMinimized && liquidityHeatmapData && (
-            <LiquidationRadarBar
-              data={liquidityHeatmapData}
-              symbol={activeSymbol}
-              currentPrice={currentPrice || 0}
-              isForex={activeMarketPair.assetClass === 'Forex'}
-              timeframeMode={heatmapTimeframeMode}
-              onSelectTimeframeMode={handleSelectHeatmapTimeframeMode}
-              onJumpToPrice={handleJumpToLiquidationPrice}
-              onOpenGuide={() => setIsLiquidityHeatmapGuideOpen(true)}
-              onClose={() => setShowLiquidationRadarBar(false)}
-              isMinimized={isRadarMinimized}
-              setIsMinimized={setIsRadarMinimized}
-              isSeparate={false}
-              dockPosition={radarDockPosition}
-              setDockPosition={setRadarDockPosition}
-            />
+            <div className={`absolute bottom-[34px] ${(chartType === 'footprints' || indicators.showFootprints) && isFootprintHudMinimized ? 'left-[108px]' : 'left-2'} z-[60] pointer-events-auto animate-in fade-in slide-in-from-bottom-2`}>
+              <LiquidationRadarBar
+                data={liquidityHeatmapData}
+                symbol={activeSymbol}
+                currentPrice={currentPrice || 0}
+                isForex={activeMarketPair.assetClass === 'Forex'}
+                timeframeMode={heatmapTimeframeMode}
+                onSelectTimeframeMode={handleSelectHeatmapTimeframeMode}
+                onJumpToPrice={handleJumpToLiquidationPrice}
+                onOpenGuide={() => setIsLiquidityHeatmapGuideOpen(true)}
+                onClose={() => setShowLiquidationRadarBar(false)}
+                isMinimized={isRadarMinimized}
+                setIsMinimized={setIsRadarMinimized}
+                isSeparate={false}
+                dockPosition={radarDockPosition}
+                setDockPosition={setRadarDockPosition}
+              />
+            </div>
           )}
 
           {/* Radar Bar Re-open Button when closed */}
           {indicators.showLiquidityHeatmap && !showLiquidationRadarBar && (
-            <button
-              onClick={() => setShowLiquidationRadarBar(true)}
-              className="absolute bottom-16 right-3 z-40 bg-[var(--color-panel)]/90 border border-[var(--color-border)] p-2.5 rounded-full shadow-xl hover:bg-[var(--color-hover)] transition-all text-indigo-400 hover:text-indigo-300 flex items-center justify-center group cursor-pointer"
-              title="Tampilkan Liquidation Radar"
-            >
-              <Target size={20} className="group-hover:scale-110 transition-transform" />
-            </button>
+            <div className={`absolute bottom-[34px] ${(chartType === 'footprints' || indicators.showFootprints) && isFootprintHudMinimized ? 'left-[108px]' : 'left-2'} z-[60] pointer-events-auto animate-in fade-in slide-in-from-bottom-2`}>
+              <button
+                onClick={() => setShowLiquidationRadarBar(true)}
+                className="h-7 px-2.5 rounded-lg border shadow-xl backdrop-blur-xl flex items-center gap-1.5 hover:scale-105 active:scale-95 transition-all cursor-pointer select-none bg-[var(--color-panel)]/90 border-[var(--color-border)] text-[var(--color-text)]"
+                title="Tampilkan Liquidation Radar"
+              >
+                <Flame size={13} className="text-cyan-400" />
+                <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Radar</span>
+              </button>
+            </div>
           )}
 
           {/* Compact Hotkeys HUD removed as requested */}
