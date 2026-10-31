@@ -4630,6 +4630,20 @@ export function renderLiquidityHeatmapLayer({
       let runEndB = -1;
       let runRgba = '';
 
+      const flushRun = (startB: number, endB: number, color: string) => {
+        ctx.fillStyle = color;
+        for (let bi = startB; bi <= endB; bi++) {
+          const midY = getY(data.priceMin + (bi + 0.5) * data.priceStep);
+          const y0 = getY(data.priceMin + bi * data.priceStep);
+          const y1 = getY(data.priceMin + (bi + 1) * data.priceStep);
+          const fullH = Math.abs(y1 - y0);
+          // 2x shorter box height: 50% of bin vertical slot, centered at exact price tick
+          const boxH = Math.max(1.2, Math.round(fullH * 0.50));
+          const boxY = Math.round(midY - boxH / 2);
+          ctx.fillRect(geo.rawX, boxY, geo.rawW, boxH);
+        }
+      };
+
       for (let b = minVisB; b <= maxVisB; b++) {
         const d0 = col.density[b];
         const dl = colL ? colL.density[b] : d0;
@@ -4638,12 +4652,7 @@ export function renderLiquidityHeatmapLayer({
 
         if (dVal < minDensity || dVal < renderFloorDensity) {
           if (runStartB !== -1) {
-            const y0 = getY(data.priceMin + runStartB * data.priceStep);
-            const y1 = getY(data.priceMin + (runEndB + 1) * data.priceStep);
-            const topY = Math.floor(Math.min(y0, y1));
-            const botY = Math.ceil(Math.max(y0, y1));
-            ctx.fillStyle = runRgba;
-            ctx.fillRect(geo.rawX, topY, geo.rawW, Math.max(1, botY - topY));
+            flushRun(runStartB, runEndB, runRgba);
             runStartB = -1;
           }
           continue;
@@ -4653,12 +4662,7 @@ export function renderLiquidityHeatmapLayer({
           const binPrice = data.priceMin + (b + 0.5) * data.priceStep;
           if (col.volume[b] * (binPrice > 100 ? binPrice : 10000) < minNotional) {
             if (runStartB !== -1) {
-              const y0 = getY(data.priceMin + runStartB * data.priceStep);
-              const y1 = getY(data.priceMin + (runEndB + 1) * data.priceStep);
-              const topY = Math.floor(Math.min(y0, y1));
-              const botY = Math.ceil(Math.max(y0, y1));
-              ctx.fillStyle = runRgba;
-              ctx.fillRect(geo.rawX, topY, geo.rawW, Math.max(1, botY - topY));
+              flushRun(runStartB, runEndB, runRgba);
               runStartB = -1;
             }
             continue;
@@ -4691,12 +4695,7 @@ export function renderLiquidityHeatmapLayer({
         } else if (runRgba === rgba) {
           runEndB = b;
         } else {
-          const y0 = getY(data.priceMin + runStartB * data.priceStep);
-          const y1 = getY(data.priceMin + (runEndB + 1) * data.priceStep);
-          const topY = Math.floor(Math.min(y0, y1));
-          const botY = Math.ceil(Math.max(y0, y1));
-          ctx.fillStyle = runRgba;
-          ctx.fillRect(geo.rawX, topY, geo.rawW, Math.max(1, botY - topY));
+          flushRun(runStartB, runEndB, runRgba);
           runStartB = b;
           runEndB = b;
           runRgba = rgba;
@@ -4704,12 +4703,7 @@ export function renderLiquidityHeatmapLayer({
       }
 
       if (runStartB !== -1) {
-        const y0 = getY(data.priceMin + runStartB * data.priceStep);
-        const y1 = getY(data.priceMin + (runEndB + 1) * data.priceStep);
-        const topY = Math.floor(Math.min(y0, y1));
-        const botY = Math.ceil(Math.max(y0, y1));
-        ctx.fillStyle = runRgba;
-        ctx.fillRect(geo.rawX, topY, geo.rawW, Math.max(1, botY - topY));
+        flushRun(runStartB, runEndB, runRgba);
       }
     }
 
@@ -6433,149 +6427,154 @@ export function renderTopmostVolumeProfiles(params: {
     const themePocColor = palette.poc || '#f59e0b';
     const solidThemeFill = themeBullColor; // Theme consistent solid flat color
 
-    // Smooth Midpoint Quadratic Curve Interpolation & 100% Solid Flat Fill (Non-Gradient)
-    if (domLinePoints.length > 1) {
-      const sortedPoints = [...domLinePoints].sort((a, b) => a.y - b.y);
-      const baseX = domX + domWidth;
-
-      ctx.save();
-      ctx.globalAlpha = 1.0; // 100% OPAQUE SOLID FLAT FILL (ZERO TRANSPARENCY)
-
-      // 100% Solid Flat profile fill (non-gradient)
-      ctx.beginPath();
-      ctx.moveTo(baseX, sortedPoints[0].y);
-      ctx.lineTo(sortedPoints[0].tipX, sortedPoints[0].y);
-
-      for (let i = 0; i < sortedPoints.length - 1; i++) {
-        const p0 = sortedPoints[i];
-        const p1 = sortedPoints[i + 1];
-        const midX = (p0.tipX + p1.tipX) / 2;
-        const midY = (p0.y + p1.y) / 2;
-        ctx.quadraticCurveTo(p0.tipX, p0.y, midX, midY);
-      }
-      const lastPt = sortedPoints[sortedPoints.length - 1];
-      ctx.lineTo(lastPt.tipX, lastPt.y);
-      ctx.lineTo(baseX, lastPt.y);
-      ctx.closePath();
-
-      ctx.fillStyle = solidThemeFill;
-      ctx.fill();
-
-      // Smooth aesthetic curved black outline line
-      ctx.beginPath();
-      ctx.moveTo(sortedPoints[0].tipX, sortedPoints[0].y);
-      for (let i = 0; i < sortedPoints.length - 1; i++) {
-        const p0 = sortedPoints[i];
-        const p1 = sortedPoints[i + 1];
-        const midX = (p0.tipX + p1.tipX) / 2;
-        const midY = (p0.y + p1.y) / 2;
-        ctx.quadraticCurveTo(p0.tipX, p0.y, midX, midY);
-      }
-      ctx.lineTo(lastPt.tipX, lastPt.y);
-      ctx.strokeStyle = '#000000'; // Crisp solid black line profile
-      ctx.lineWidth = 1.8;
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // Short VAH, VAL, POC lines and compact badges on Right DOM with Hover Proximity Highlighting
-    ctx.save();
-    const lineLen = 26;
-
-    // VAH Short Line & Tag
-    if (vahY >= 0 && vahY <= domH) {
-      const isHovered = crosshairY !== null && crosshairY !== undefined && Math.abs(crosshairY - vahY) <= 10;
-      if (isHovered) {
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = themeBullColor;
-      }
-
-      ctx.strokeStyle = themeBullColor;
-      ctx.lineWidth = isHovered ? 2.4 : 1.3;
-      ctx.setLineDash([3, 3]);
-      ctx.beginPath();
-      ctx.moveTo(domX - (isHovered ? lineLen + 8 : lineLen), vahY);
-      ctx.lineTo(domX + domWidth, vahY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      const tagX = domX - (isHovered ? lineLen + 8 : lineLen) - 22;
-      ctx.fillStyle = themeBullColor;
-      if (typeof (ctx as any).roundRect === 'function') {
-        (ctx as any).roundRect(tagX, vahY - (isHovered ? 7.5 : 6), 21, isHovered ? 15 : 12, 2);
-      } else {
-        ctx.rect(tagX, vahY - (isHovered ? 7.5 : 6), 21, isHovered ? 15 : 12);
-      }
-      ctx.fill();
-      ctx.fillStyle = getContrastTextColor(themeBullColor);
-      ctx.font = isHovered ? 'bold 8.5px monospace' : 'bold 7.5px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('VAH', tagX + 10.5, vahY + 3.0);
-    }
-
-    // VAL Short Line & Tag
-    if (valY >= 0 && valY <= domH) {
-      const isHovered = crosshairY !== null && crosshairY !== undefined && Math.abs(crosshairY - valY) <= 10;
-      if (isHovered) {
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = themeBearColor;
-      }
-
-      ctx.strokeStyle = themeBearColor;
-      ctx.lineWidth = isHovered ? 2.4 : 1.3;
-      ctx.setLineDash([3, 3]);
-      ctx.beginPath();
-      ctx.moveTo(domX - (isHovered ? lineLen + 8 : lineLen), valY);
-      ctx.lineTo(domX + domWidth, valY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      const tagX = domX - (isHovered ? lineLen + 8 : lineLen) - 22;
-      ctx.fillStyle = themeBearColor;
-      if (typeof (ctx as any).roundRect === 'function') {
-        (ctx as any).roundRect(tagX, valY - (isHovered ? 7.5 : 6), 21, isHovered ? 15 : 12, 2);
-      } else {
-        ctx.rect(tagX, valY - (isHovered ? 7.5 : 6), 21, isHovered ? 15 : 12);
-      }
-      ctx.fill();
-      ctx.fillStyle = getContrastTextColor(themeBearColor);
-      ctx.font = isHovered ? 'bold 8.5px monospace' : 'bold 7.5px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('VAL', tagX + 10.5, valY + 3.0);
-    }
-
-    // POC Short Line & Tag
+    // -------------------------------------------------------------------------
+    // Super Presisi, Super Simple, Super Clean Right-Hand Volume Profile Ladder
+    // -------------------------------------------------------------------------
     const pocPrice = ladder[pocIdx].price;
     const pocY = getY(pocPrice);
-    if (pocY >= 0 && pocY <= domH) {
-      const isHovered = crosshairY !== null && crosshairY !== undefined && Math.abs(crosshairY - pocY) <= 10;
-      if (isHovered) {
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = themePocColor;
+
+    // 1. Precision Stepped Micro-Histogram Bars (jarak tiap volume sangat tipis / hairline micro-gap)
+    const stepPx = ladder.length > 1
+      ? Math.max(1.8, Math.abs(getY(ladder[0].price) - getY(ladder[1].price)))
+      : 4;
+    // Jarak tiap volume sangat tipis: razor-thin hairline gap (0.6px - 1.0px)
+    const gapPx = Math.max(0.6, Math.min(1.0, stepPx * 0.10));
+    const barH = Math.max(1.2, stepPx - gapPx);
+
+    ladder.forEach((row) => {
+      const y = getY(row.price);
+      if (y < -5 || y > domH + 5) return;
+
+      const isBid = row.side === 'bid';
+      const inVa = row.price >= valPrice && row.price <= vahPrice;
+      const isPoc = row.price === pocPrice;
+
+      // Precision bar length proportional to volume density
+      const barLen = Math.max(3, Math.min(maxBarWidth, maxBarWidth * row.densityRatio * 1.5));
+      const barX = domX + domWidth - barLen;
+
+      // Sleek precision bar vertical position centered on price level
+      const barY = Math.round(y - barH / 2);
+
+      let barColor: string;
+      if (isPoc) {
+        barColor = themePocColor;
+      } else if (inVa) {
+        barColor = isBid ? hexToRgbAlpha(themeBullColor, 0.72) : hexToRgbAlpha(themeBearColor, 0.72);
+      } else {
+        barColor = isBid ? hexToRgbAlpha(themeBullColor, 0.22) : hexToRgbAlpha(themeBearColor, 0.22);
       }
 
-      const effectiveLen = isHovered ? lineLen + 14 : lineLen + 6;
+      ctx.fillStyle = barColor;
+      if (typeof (ctx as any).roundRect === 'function' && barLen > 4) {
+        ctx.beginPath();
+        (ctx as any).roundRect(barX, barY, barLen, barH, [1.5, 0, 0, 1.5]);
+        ctx.fill();
+      } else {
+        ctx.fillRect(barX, barY, barLen, barH);
+      }
+    });
+
+    // 2. Value Area 70% Rail Guide (Delicate, super clean vertical dashed line on bar tips)
+    if (vahY >= 0 && valY <= domH && Math.abs(valY - vahY) > 6) {
+      const railX = domX + domWidth - maxBarWidth * 0.75;
+      ctx.strokeStyle = hexToRgbAlpha(themePocColor, 0.35);
+      ctx.lineWidth = 1.0;
+      ctx.setLineDash([2, 3]);
+      ctx.beginPath();
+      ctx.moveTo(railX, Math.min(vahY, valY));
+      ctx.lineTo(railX, Math.max(vahY, valY));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // 3. Super Simple, Super Clean POC Line & Micro-Pill Tag
+    if (pocY >= 0 && pocY <= domH) {
+      const isHovered = crosshairY !== null && crosshairY !== undefined && Math.abs(crosshairY - pocY) <= 8;
+      const lineLen = isHovered ? 48 : 36;
       ctx.strokeStyle = themePocColor;
-      ctx.lineWidth = isHovered ? 2.8 : 1.8;
+      ctx.lineWidth = isHovered ? 1.8 : 1.2;
       ctx.setLineDash([4, 3]);
       ctx.beginPath();
-      ctx.moveTo(domX - effectiveLen, pocY);
+      ctx.moveTo(domX - lineLen, pocY);
       ctx.lineTo(domX + domWidth, pocY);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      const tagX = domX - effectiveLen - 24;
+      // Sleek 13px micro-tag
+      const tagW = isHovered ? 26 : 22;
+      const tagH = 13;
+      const tagX = domX - lineLen - tagW - 2;
       ctx.fillStyle = themePocColor;
       if (typeof (ctx as any).roundRect === 'function') {
-        (ctx as any).roundRect(tagX, pocY - (isHovered ? 7.5 : 6.5), 23, isHovered ? 15 : 13, 2.5);
+        ctx.beginPath();
+        (ctx as any).roundRect(tagX, pocY - tagH / 2, tagW, tagH, 2.5);
+        ctx.fill();
       } else {
-        ctx.rect(tagX, pocY - (isHovered ? 7.5 : 6.5), 23, isHovered ? 15 : 13);
+        ctx.fillRect(tagX, pocY - tagH / 2, tagW, tagH);
       }
-      ctx.fill();
       ctx.fillStyle = getContrastTextColor(themePocColor);
-      ctx.font = isHovered ? 'bold 9px monospace' : 'bold 8px monospace';
+      ctx.font = 'bold 7.5px monospace';
       ctx.textAlign = 'center';
-      ctx.fillText('POC', tagX + 11.5, pocY + 3.0);
+      ctx.textBaseline = 'middle';
+      ctx.fillText('POC', tagX + tagW / 2, pocY + 0.5);
+    }
+
+    // 4. Super Clean VAH & VAL Lines & Micro-Pills
+    if (vahY >= 0 && vahY <= domH) {
+      ctx.strokeStyle = hexToRgbAlpha(themeBullColor, 0.65);
+      ctx.lineWidth = 0.9;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(domX - 22, vahY);
+      ctx.lineTo(domX + domWidth, vahY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const tagW = 20;
+      const tagH = 11;
+      const tagX = domX - 22 - tagW - 2;
+      ctx.fillStyle = hexToRgbAlpha(themeBullColor, 0.85);
+      if (typeof (ctx as any).roundRect === 'function') {
+        ctx.beginPath();
+        (ctx as any).roundRect(tagX, vahY - tagH / 2, tagW, tagH, 2);
+        ctx.fill();
+      } else {
+        ctx.fillRect(tagX, vahY - tagH / 2, tagW, tagH);
+      }
+      ctx.fillStyle = getContrastTextColor(themeBullColor);
+      ctx.font = 'bold 7px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('VAH', tagX + tagW / 2, vahY + 0.5);
+    }
+
+    if (valY >= 0 && valY <= domH) {
+      ctx.strokeStyle = hexToRgbAlpha(themeBearColor, 0.65);
+      ctx.lineWidth = 0.9;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(domX - 22, valY);
+      ctx.lineTo(domX + domWidth, valY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const tagW = 20;
+      const tagH = 11;
+      const tagX = domX - 22 - tagW - 2;
+      ctx.fillStyle = hexToRgbAlpha(themeBearColor, 0.85);
+      if (typeof (ctx as any).roundRect === 'function') {
+        ctx.beginPath();
+        (ctx as any).roundRect(tagX, valY - tagH / 2, tagW, tagH, 2);
+        ctx.fill();
+      } else {
+        ctx.fillRect(tagX, valY - tagH / 2, tagW, tagH);
+      }
+      ctx.fillStyle = getContrastTextColor(themeBearColor);
+      ctx.font = 'bold 7px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('VAL', tagX + tagW / 2, valY + 0.5);
     }
     ctx.restore();
 

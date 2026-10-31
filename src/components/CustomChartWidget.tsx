@@ -5833,12 +5833,14 @@ export default function CustomChartWidget({
       const maxVol = Math.max(...visibleCandles.map((c) => c.volume), 1);
       visibleCandles.forEach((c, idx) => {
         const globalIdx = startIndex + idx;
-        const x = getX(globalIdx) - candleWidth / 2;
+        // Jarak tiap volume sangat tipis: razor-thin 1px gap
+        const vBarW = Math.max(1, candleWidth > 3 ? candleWidth - 1 : candleWidth);
+        const x = getX(globalIdx) - vBarW / 2;
         const vH = (c.volume / maxVol) * (volHeight - 12);
         const isBull = c.close >= c.open;
         ctx.fillStyle = isBull ? (currentPalette.bull || '#10b981') : (currentPalette.bear || '#ef4444');
         ctx.globalAlpha = 0.85;
-        ctx.fillRect(x, panelTop + volHeight - vH, candleWidth, Math.max(1, vH));
+        ctx.fillRect(x, panelTop + volHeight - vH, vBarW, Math.max(1, vH));
       });
       ctx.globalAlpha = 1.0;
 
