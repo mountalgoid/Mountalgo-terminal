@@ -8,9 +8,11 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { MountAlgoLogo } from './MountAlgoLogo';
+import type { LogoutFn } from './authShim';
 
 interface LandingPageProps {
   onEnterTerminal: () => void;
+  logout?: LogoutFn;
 }
 
 function hexToRgbTuple(hex: string, fallback = [81, 52, 255]): [number, number, number] {
@@ -286,7 +288,7 @@ const metrics = [
 ];
 
 /* ───── main landing page ───── */
-export default function LandingPage({ onEnterTerminal }: LandingPageProps) {
+export default function LandingPage({ onEnterTerminal, logout = undefined, isLoggedIn = false }: LandingPageProps) {
   const { palette } = useTheme();
   const [showContent, setShowContent] = useState(false);
   const themeDarkGradient = getThemeDarkGradient(palette.bull, palette.bear);
@@ -398,19 +400,36 @@ export default function LandingPage({ onEnterTerminal }: LandingPageProps) {
           <span className="hidden md:flex items-center gap-1.5 text-[10px] text-zinc-400 font-mono uppercase tracking-wider">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             Live Network
-          </span>
-          <button
-            onClick={onEnterTerminal}
-            style={{
-              background: themeDarkGradient.background,
-              boxShadow: themeDarkGradient.boxShadow,
-            }}
-            className="group relative px-4 py-1.5 rounded-xl font-bold text-[10px] tracking-wider uppercase cursor-pointer transition-all duration-300 hover:brightness-125 active:scale-[0.97] text-white border border-white/20 backdrop-blur-md shadow-md"
-          >
-            <span className="relative z-10 flex items-center gap-1.5 font-bold text-white">
-              Enter Terminal
-            </span>
-          </button>
+          </span>              {isLoggedIn ? (
+                <button
+                  onClick={() => {
+                    logout?.();
+                    onEnterTerminal();
+                  }}
+                  style={{
+                    background: themeDarkGradient.background,
+                    boxShadow: themeDarkGradient.boxShadow,
+                  }}
+                  className="group relative px-4 py-1.5 rounded-xl font-bold text-[10px] tracking-wider uppercase cursor-pointer transition-all duration-300 hover:brightness-125 active:scale-[0.97] text-white border border-white/20 backdrop-blur-md shadow-md"
+                >
+                  <span className="relative z-10 flex items-center gap-1.5 font-bold text-white">
+                    Kembali ke Landing
+                  </span>
+                </button>
+              ) : (
+                <button
+                  onClick={onEnterTerminal}
+                  style={{
+                    background: themeDarkGradient.background,
+                    boxShadow: themeDarkGradient.boxShadow,
+                  }}
+                  className="group relative px-4 py-1.5 rounded-xl font-bold text-[10px] tracking-wider uppercase cursor-pointer transition-all duration-300 hover:brightness-125 active:scale-[0.97] text-white border border-white/20 backdrop-blur-md shadow-md"
+                >
+                  <span className="relative z-10 flex items-center gap-1.5 font-bold text-white">
+                    Enter Terminal
+                  </span>
+                </button>
+              )}
         </div>
       </nav>
 
@@ -475,6 +494,24 @@ export default function LandingPage({ onEnterTerminal }: LandingPageProps) {
                 transition={{ delay: 0.5, duration: 0.8 }}
                 className="flex flex-col sm:flex-row items-center gap-3"
               >
+                {isLoggedIn ? (
+                <button
+                  onClick={() => {
+                    logout?.();
+                    onEnterTerminal();
+                  }}
+                  style={{
+                    background: themeDarkGradient.background,
+                    boxShadow: themeDarkGradient.boxShadow,
+                  }}
+                  className="group relative px-7 py-3.5 rounded-lg font-extrabold text-[12px] tracking-wider uppercase overflow-hidden cursor-pointer transition-all duration-300 hover:brightness-125 active:scale-[0.98] text-white border border-white/25 backdrop-blur-md shadow-xl"
+                >
+                  <span className="relative z-10 flex items-center gap-2 font-black text-white">
+                    Kembali ke Landing
+                    <ArrowUpRight size={15} className="text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  </span>
+                </button>
+              ) : (
                 <button
                   onClick={onEnterTerminal}
                   style={{
@@ -488,12 +525,18 @@ export default function LandingPage({ onEnterTerminal }: LandingPageProps) {
                     <ArrowUpRight size={15} className="text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                   </span>
                 </button>
-                <button 
-                  onClick={onEnterTerminal}
+              )}              <button
+                  onClick={() => {
+                    if (logout) {
+                      logout().then(() => onEnterTerminal());
+                    } else {
+                      onEnterTerminal();
+                    }
+                  }}
                   className="group flex items-center gap-2 px-6 py-3.5 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/[0.09] hover:border-white/25 backdrop-blur-md text-zinc-400 hover:text-white transition-all duration-300 text-[12px] tracking-wider uppercase font-bold cursor-pointer shadow-lg"
                 >
                   <Monitor size={15} className="text-zinc-400 group-hover:text-white transition-colors" />
-                  View Demo
+                  {isLoggedIn ? 'Log out dulu' : 'View Demo'}
                 </button>
               </motion.div>
 
@@ -626,20 +669,38 @@ export default function LandingPage({ onEnterTerminal }: LandingPageProps) {
             </h2>
             <p className="text-xs sm:text-sm text-zinc-400 mb-8 max-w-md mx-auto leading-relaxed">
               Join elite traders who demand institutional-grade order flow analytics. Launch instantly.
-            </p>
-            <button
-              onClick={onEnterTerminal}
-              style={{
-                background: themeDarkGradient.background,
-                boxShadow: themeDarkGradient.boxShadow,
-              }}
-              className="group relative px-7 py-3.5 rounded-lg font-extrabold text-[12px] tracking-wider uppercase overflow-hidden cursor-pointer transition-all duration-300 hover:brightness-125 active:scale-[0.98] text-white border border-white/25 backdrop-blur-md shadow-2xl"
-            >
-              <span className="relative z-10 flex items-center gap-2 font-black text-white">
-                Enter Terminal
-                <ArrowUpRight size={15} className="text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-              </span>
-            </button>
+            </p>            {isLoggedIn ? (
+              <button
+                onClick={() => {
+                  logout?.();
+                  onEnterTerminal();
+                }}
+                style={{
+                  background: themeDarkGradient.background,
+                  boxShadow: themeDarkGradient.boxShadow,
+                }}
+                className="group relative px-7 py-3.5 rounded-lg font-extrabold text-[12px] tracking-wider uppercase overflow-hidden cursor-pointer transition-all duration-300 hover:brightness-125 active:scale-[0.98] text-white border border-white/25 backdrop-blur-md shadow-2xl"
+              >
+                <span className="relative z-10 flex items-center gap-2 font-black text-white">
+                  Kembali ke Landing
+                  <ArrowUpRight size={15} className="text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={onEnterTerminal}
+                style={{
+                  background: themeDarkGradient.background,
+                  boxShadow: themeDarkGradient.boxShadow,
+                }}
+                className="group relative px-7 py-3.5 rounded-lg font-extrabold text-[12px] tracking-wider uppercase overflow-hidden cursor-pointer transition-all duration-300 hover:brightness-125 active:scale-[0.98] text-white border border-white/25 backdrop-blur-md shadow-2xl"
+              >
+                <span className="relative z-10 flex items-center gap-2 font-black text-white">
+                  Enter Terminal
+                  <ArrowUpRight size={15} className="text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </span>
+              </button>
+            )}
           </motion.div>
         </div>
       </section>

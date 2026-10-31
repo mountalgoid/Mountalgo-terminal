@@ -31,8 +31,8 @@ import { DynamicListingTimer } from './components/DynamicListingTimer';
 import { ListingSniperHubModal } from './components/ListingSniperHubModal';
 import { NewsAndCalendarModal } from './components/NewsAndCalendarModal';
 import { AiAgentTerminalModal } from './components/AiAgentTerminalModal';
-import { detectScreenResolution } from './utils/resolutionDetector';
-import { 
+import { statusForLanding, logoutFromTerminal } from './components/authShim';
+import { detectScreenResolution } from './utils/resolutionDetector';import {
   Minimize,
   CheckCircle2,
   Flame,
@@ -43,7 +43,8 @@ import {
   ZoomOut,
   RotateCw,
   Crosshair,
-  Target
+  Target,
+  PowerOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -65,6 +66,24 @@ export default function App() {
     dismissNewListingToast,
     instantSnipeListing
   } = useTrade();
+
+  const [sessionUser, setSessionUser] = useState<{ email: string; provider?: string } | null>(null);
+  const [outboundAuth, setOutboundAuth] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    statusForLanding().then((s) => {
+      if (!cancelled) {
+        setSessionUser(s?.user ?? null);
+        setOutboundAuth(!s?.authenticated);
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    logoutFromTerminal();
+  }, []);
 
   const {
     settings: riskSettings,
@@ -555,7 +574,8 @@ export default function App() {
   return (
     <>
     {/* Landing Page → Splash Screen → Terminal */}
-    {showLanding && <LandingPage onEnterTerminal={handleEnterTerminal} />}
+    {showLanding && <LandingPage onEnterTerminal={handleEnterTerminal} logout={handleLogout} />}
+    {!showLanding && outboundAuth && <LandingPage onEnterTerminal={handleEnterTerminal} logout={handleLogout} />}
     {!showLanding && showSplash && <SplashScreen onComplete={handleSplashComplete} />}
 
     <div 
@@ -680,6 +700,20 @@ export default function App() {
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: palette.bull }} />
               <span>LIVE NETWORK</span>
             </div>
+
+            {/* Session pill: who is driving the terminal */}
+            <button
+              onClick={() => setIsOpen(true)}
+              className="flex items-center gap-1.5 h-7 px-2 rounded-sm text-xs font-bold border border-[var(--color-border)] bg-[var(--color-panel)] hover:bg-[var(--color-hover)] text-[var(--color-text)] cursor-pointer transition-colors shrink-0"
+              title={`Anda login sebagai ${currentUser?.email ?? 'tamu'}`}
+            >
+              <PowerOff size={12} className="shrink-0 text-[var(--color-text-muted)]" />
+              <span className="truncate max-w-[120px] sm:max-w-[180px] sm:inline">
+                {currentUser
+                  ? `${currentUser.email} (${currentUser.provider === 'google' ? 'Google' : 'Email'})`
+                  : 'Tanpa login'}
+              </span>
+            </button>
           </div>
 
           {/* Exit Fullscreen button if in fullscreen mode */}
@@ -723,6 +757,8 @@ export default function App() {
           zoomIn={zoomIn}
           zoomOut={zoomOut}
           resetZoom={resetZoom}
+          currentUser={sessionUser}
+          onLogout={handleLogout}
         />
       </header>
       )}
