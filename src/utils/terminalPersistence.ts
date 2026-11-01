@@ -23,6 +23,8 @@ export interface ThemeColors {
   bg?: string;
   vahVal?: string;
   grid?: string;
+  hvn?: string;
+  lvn?: string;
   [key: string]: string | undefined;
 }
 

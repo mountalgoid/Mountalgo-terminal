@@ -6456,26 +6456,22 @@ export function renderTopmostVolumeProfiles(params: {
       // Sleek precision bar vertical position centered on price level
       const barY = Math.round(y - barH / 2);
 
-      let barColor: string;
       if (isPoc) {
-        barColor = themePocColor;
+        ctx.fillStyle = themePocColor; // SOLID
+        ctx.fillRect(barX, barY, barLen, barH);
       } else if (inVa) {
-        barColor = isBid ? hexToRgbAlpha(themeBullColor, 0.72) : hexToRgbAlpha(themeBearColor, 0.72);
+        ctx.fillStyle = isBid ? themeBullColor : themeBearColor; // SOLID 100%
+        ctx.fillRect(barX, barY, barLen, barH);
       } else {
-        barColor = isBid ? hexToRgbAlpha(themeBullColor, 0.22) : hexToRgbAlpha(themeBearColor, 0.22);
-      }
-
-      ctx.fillStyle = barColor;
-      if (typeof (ctx as any).roundRect === 'function' && barLen > 4) {
-        ctx.beginPath();
-        (ctx as any).roundRect(barX, barY, barLen, barH, [1.5, 0, 0, 1.5]);
-        ctx.fill();
-      } else {
+        // Di luar Area Value: Sedikit transparan mengikuti kualitas volume
+        const density = Math.max(0.1, Math.min(1.0, row.densityRatio));
+        const outVaAlpha = Math.max(0.18, Math.min(0.38, 0.16 + density * 0.22));
+        ctx.fillStyle = isBid ? hexToRgbAlpha(themeBullColor, outVaAlpha) : hexToRgbAlpha(themeBearColor, outVaAlpha);
         ctx.fillRect(barX, barY, barLen, barH);
       }
     });
 
-    // 2. Value Area 70% Rail Guide (Delicate, super clean vertical dashed line on bar tips)
+    // 2. Value Area 70% Rail Guide (Dashed vertical line)
     if (vahY >= 0 && valY <= domH && Math.abs(valY - vahY) > 6) {
       const railX = domX + domWidth - maxBarWidth * 0.75;
       ctx.strokeStyle = hexToRgbAlpha(themePocColor, 0.35);
@@ -6488,94 +6484,86 @@ export function renderTopmostVolumeProfiles(params: {
       ctx.setLineDash([]);
     }
 
-    // 3. Super Simple, Super Clean POC Line & Micro-Pill Tag
+    // 3. Super Simple POC Line (Solid line across ladder)
     if (pocY >= 0 && pocY <= domH) {
       const isHovered = crosshairY !== null && crosshairY !== undefined && Math.abs(crosshairY - pocY) <= 8;
       const lineLen = isHovered ? 48 : 36;
       ctx.strokeStyle = themePocColor;
       ctx.lineWidth = isHovered ? 1.8 : 1.2;
-      ctx.setLineDash([4, 3]);
+      ctx.setLineDash([]); // SOLID line
       ctx.beginPath();
       ctx.moveTo(domX - lineLen, pocY);
       ctx.lineTo(domX + domWidth, pocY);
       ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Sleek 13px micro-tag
-      const tagW = isHovered ? 26 : 22;
-      const tagH = 13;
-      const tagX = domX - lineLen - tagW - 2;
-      ctx.fillStyle = themePocColor;
-      if (typeof (ctx as any).roundRect === 'function') {
-        ctx.beginPath();
-        (ctx as any).roundRect(tagX, pocY - tagH / 2, tagW, tagH, 2.5);
-        ctx.fill();
-      } else {
-        ctx.fillRect(tagX, pocY - tagH / 2, tagW, tagH);
-      }
-      ctx.fillStyle = getContrastTextColor(themePocColor);
-      ctx.font = 'bold 7.5px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('POC', tagX + tagW / 2, pocY + 0.5);
     }
 
-    // 4. Super Clean VAH & VAL Lines & Micro-Pills
+    // 4. Super Clean VAH & VAL Lines (Solid Tebal)
     if (vahY >= 0 && vahY <= domH) {
-      ctx.strokeStyle = hexToRgbAlpha(themeBullColor, 0.65);
-      ctx.lineWidth = 0.9;
-      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = hexToRgbAlpha(themeBullColor, 0.95);
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([]); // SOLID TEBAL
       ctx.beginPath();
-      ctx.moveTo(domX - 22, vahY);
+      ctx.moveTo(domX - 24, vahY);
       ctx.lineTo(domX + domWidth, vahY);
       ctx.stroke();
-      ctx.setLineDash([]);
-
-      const tagW = 20;
-      const tagH = 11;
-      const tagX = domX - 22 - tagW - 2;
-      ctx.fillStyle = hexToRgbAlpha(themeBullColor, 0.85);
-      if (typeof (ctx as any).roundRect === 'function') {
-        ctx.beginPath();
-        (ctx as any).roundRect(tagX, vahY - tagH / 2, tagW, tagH, 2);
-        ctx.fill();
-      } else {
-        ctx.fillRect(tagX, vahY - tagH / 2, tagW, tagH);
-      }
-      ctx.fillStyle = getContrastTextColor(themeBullColor);
-      ctx.font = 'bold 7px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('VAH', tagX + tagW / 2, vahY + 0.5);
     }
 
     if (valY >= 0 && valY <= domH) {
-      ctx.strokeStyle = hexToRgbAlpha(themeBearColor, 0.65);
-      ctx.lineWidth = 0.9;
-      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = hexToRgbAlpha(themeBearColor, 0.95);
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([]); // SOLID TEBAL
       ctx.beginPath();
-      ctx.moveTo(domX - 22, valY);
+      ctx.moveTo(domX - 24, valY);
       ctx.lineTo(domX + domWidth, valY);
       ctx.stroke();
-      ctx.setLineDash([]);
-
-      const tagW = 20;
-      const tagH = 11;
-      const tagX = domX - 22 - tagW - 2;
-      ctx.fillStyle = hexToRgbAlpha(themeBearColor, 0.85);
-      if (typeof (ctx as any).roundRect === 'function') {
-        ctx.beginPath();
-        (ctx as any).roundRect(tagX, valY - tagH / 2, tagW, tagH, 2);
-        ctx.fill();
-      } else {
-        ctx.fillRect(tagX, valY - tagH / 2, tagW, tagH);
-      }
-      ctx.fillStyle = getContrastTextColor(themeBearColor);
-      ctx.font = 'bold 7px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('VAL', tagX + tagW / 2, valY + 0.5);
     }
+
+    // 5. Super Clean HVN & LVN Lines (Dashed Tebal)
+    const ladderAvgVol = totalAllVol / Math.max(1, ladder.length);
+    const ladderHvns = ladder.filter((r, idx) => {
+      if (idx === pocIdx || r.price === vahPrice || r.price === valPrice) return false;
+      const prev = ladder[idx - 1];
+      const next = ladder[idx + 1];
+      return r.totalVolume > ladderAvgVol * 1.35 && (!prev || r.totalVolume >= prev.totalVolume) && (!next || r.totalVolume >= next.totalVolume);
+    }).slice(0, 3);
+
+    const ladderLvns = ladder.filter((r, idx) => {
+      if (idx === pocIdx || r.price === vahPrice || r.price === valPrice || idx === 0 || idx === ladder.length - 1) return false;
+      const prev = ladder[idx - 1];
+      const next = ladder[idx + 1];
+      return r.totalVolume < ladderAvgVol * 0.55 && (!prev || r.totalVolume <= prev.totalVolume) && (!next || r.totalVolume <= next.totalVolume);
+    }).slice(0, 3);
+
+    const hvnColor = palette.hvn || themeBullColor;
+    const lvnColor = palette.lvn || themeBearColor;
+
+    ladderHvns.forEach((row) => {
+      const hy = getY(row.price);
+      if (hy >= 0 && hy <= domH) {
+        ctx.strokeStyle = hvnColor;
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([5, 4]); // DASHED TEBAL
+        ctx.beginPath();
+        ctx.moveTo(domX - 20, hy);
+        ctx.lineTo(domX + domWidth, hy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    });
+
+    ladderLvns.forEach((row) => {
+      const ly = getY(row.price);
+      if (ly >= 0 && ly <= domH) {
+        ctx.strokeStyle = lvnColor;
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([5, 4]); // DASHED TEBAL
+        ctx.beginPath();
+        ctx.moveTo(domX - 20, ly);
+        ctx.lineTo(domX + domWidth, ly);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    });
     ctx.restore();
 
     ctx.restore();

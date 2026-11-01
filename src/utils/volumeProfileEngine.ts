@@ -407,22 +407,124 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
   ctx.beginPath();
   ctx.rect(0, 0, Math.max(0, chartWidth - rightScaleWidth), mainChartHeight);
   ctx.clip();
-  ctx.globalAlpha = opacity;
+  ctx.globalAlpha = 1.0; // 100% SOLID WARNANYA
 
-  // 1. Value Area 70% Rail Accent (Minimalist)
   const vahY = getY(data.vahPrice);
   const valY = getY(data.valPrice);
   const vaTop = Math.min(vahY, valY);
   const vaHeight = Math.abs(valY - vahY);
 
-  if (vaHeight > 3) {
+  const barMaxW = Math.max(14, vpWidth - 8);
+  const isUpDown = baseConfig.colorMode === 'upDown';
+  const isDelta = baseConfig.colorMode === 'delta';
+
+  // 1. Precision Stepped Micro-Histogram Bars (SOLID DI AREA VALUE, 0 OPACITY DI LUAR)
+  data.nodes.forEach((node) => {
+    const yTop = getY(node.priceTop);
+    const yBot = getY(node.priceBottom);
+    const midY = (yTop + yBot) / 2;
+
+    if (midY < -5 || midY > mainChartHeight + 5) return;
+
+    const pct = Math.min(1.0, node.totalVol / data.maxVol);
+    const barW = Math.max(2.5, barMaxW * pct);
+    const inVa = Boolean(node.inValueArea);
+    const isPocNode = Boolean(node.isPoc);
+
+    // Hairline micro-gap (jarak tiap volume sangat tipis: 0.6px - 1.0px)
+    const stepH = Math.max(1.8, Math.abs(yBot - yTop));
+    const gapPx = Math.max(0.6, Math.min(1.0, stepH * 0.10));
+    const nodeH = Math.max(1.2, stepH - gapPx);
+    const nodeY = Math.round(midY - nodeH / 2);
+
+    const barX = isRightLayout ? (vpEndX - barW) : vpStartX;
+
+    if (isPocNode) {
+      ctx.fillStyle = pocColor; // SOLID
+      ctx.fillRect(barX, nodeY, barW, nodeH);
+    } else if (inVa) {
+      // Area Value: SOLID 100% OPAQUE
+      if (isUpDown) {
+        const buyRatio = node.totalVol > 0 ? Math.max(0, Math.min(1, node.buyVol / node.totalVol)) : 0.5;
+        const buyW = Math.round(barW * buyRatio);
+        const sellW = barW - buyW;
+
+        if (isRightLayout) {
+          if (sellW > 0) {
+            ctx.fillStyle = bearColor; // SOLID
+            ctx.fillRect(vpEndX - barW, nodeY, sellW, nodeH);
+          }
+          if (buyW > 0) {
+            ctx.fillStyle = bullColor; // SOLID
+            ctx.fillRect(vpEndX - buyW, nodeY, buyW, nodeH);
+          }
+        } else {
+          if (buyW > 0) {
+            ctx.fillStyle = bullColor; // SOLID
+            ctx.fillRect(vpStartX, nodeY, buyW, nodeH);
+          }
+          if (sellW > 0) {
+            ctx.fillStyle = bearColor; // SOLID
+            ctx.fillRect(vpStartX + buyW, nodeY, sellW, nodeH);
+          }
+        }
+      } else if (isDelta) {
+        const isPos = node.delta >= 0;
+        ctx.fillStyle = isPos ? bullColor : bearColor; // SOLID
+        ctx.fillRect(barX, nodeY, barW, nodeH);
+      } else {
+        ctx.fillStyle = bullColor; // SOLID
+        ctx.fillRect(barX, nodeY, barW, nodeH);
+      }
+    } else {
+      // Di luar Area Value: Sedikit transparan mengikuti kualitas volume
+      const outVaAlpha = Math.max(0.18, Math.min(0.38, 0.16 + pct * 0.22));
+      const outBullCol = hexToRgbAlpha(bullColor, outVaAlpha);
+      const outBearCol = hexToRgbAlpha(bearColor, outVaAlpha);
+
+      if (isUpDown) {
+        const buyRatio = node.totalVol > 0 ? Math.max(0, Math.min(1, node.buyVol / node.totalVol)) : 0.5;
+        const buyW = Math.round(barW * buyRatio);
+        const sellW = barW - buyW;
+
+        if (isRightLayout) {
+          if (sellW > 0) {
+            ctx.fillStyle = outBearCol;
+            ctx.fillRect(vpEndX - barW, nodeY, sellW, nodeH);
+          }
+          if (buyW > 0) {
+            ctx.fillStyle = outBullCol;
+            ctx.fillRect(vpEndX - buyW, nodeY, buyW, nodeH);
+          }
+        } else {
+          if (buyW > 0) {
+            ctx.fillStyle = outBullCol;
+            ctx.fillRect(vpStartX, nodeY, buyW, nodeH);
+          }
+          if (sellW > 0) {
+            ctx.fillStyle = outBearCol;
+            ctx.fillRect(vpStartX + buyW, nodeY, sellW, nodeH);
+          }
+        }
+      } else if (isDelta) {
+        const isPos = node.delta >= 0;
+        ctx.fillStyle = isPos ? outBullCol : outBearCol;
+        ctx.fillRect(barX, nodeY, barW, nodeH);
+      } else {
+        ctx.fillStyle = outBullCol;
+        ctx.fillRect(barX, nodeY, barW, nodeH);
+      }
+    }
+  });
+
+  // 2. Value Area 70% Rail Guide (DASHED LINE)
+  if (vaHeight > 4) {
     ctx.save();
-    // Subtle edge rail accent denoting the Value Area boundary
-    ctx.strokeStyle = `${pocColor}50`;
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([3, 3]);
+    const railX = isRightLayout ? (vpEndX - barMaxW * 0.70) : (vpStartX + barMaxW * 0.70);
+    ctx.strokeStyle = hexToRgbAlpha(pocColor, 0.35);
+    ctx.lineWidth = 1.0;
+    ctx.setLineDash([2, 3]);
     ctx.beginPath();
-    const railX = isRightLayout ? (vpEndX - 1) : vpStartX;
     ctx.moveTo(railX, vaTop);
     ctx.lineTo(railX, vaTop + vaHeight);
     ctx.stroke();
@@ -430,387 +532,114 @@ export function renderVolumeProfileOverlay(params: VolumeProfileRenderContext): 
     ctx.restore();
   }
 
-  const barMaxW = Math.max(14, vpWidth - 8);
-  const nodeLinePoints: Array<{
-    midY: number;
-    tipX: number;
-    inVa: boolean;
-    isPocNode: boolean;
-    node: typeof data.nodes[0];
-    nodeY: number;
-    nodeH: number;
-    barW: number;
-  }> = [];
-
-  const isUpDown = baseConfig.colorMode === 'upDown';
-  const isDelta = baseConfig.colorMode === 'delta';
-
-  data.nodes.forEach((node) => {
-    const yTop = getY(node.priceTop);
-    const yBot = getY(node.priceBottom);
-    const midY = (yTop + yBot) / 2;
-
-    if (midY < 0 || midY > mainChartHeight) return;
-
-    const pct = Math.min(1.0, node.totalVol / data.maxVol);
-    const barW = Math.max(2.5, barMaxW * pct);
-    const inVa = Boolean(node.inValueArea);
-    const isPocNode = Boolean(node.isPoc);
-    const tipX = isRightLayout ? (vpEndX - barW - 2) : (vpStartX + barW);
-
-    // Jarak tiap volume sangat tipis: razor-thin hairline micro-gap (0.6px - 1.0px)
-    const stepH = Math.abs(yBot - yTop);
-    const gapPx = Math.max(0.6, Math.min(1.0, stepH * 0.10));
-    const nodeH = Math.max(1.2, stepH - gapPx);
-    const nodeY = Math.min(yTop, yBot) + gapPx / 2;
-
-    nodeLinePoints.push({ midY, tipX, inVa, isPocNode, node, nodeY, nodeH, barW });
-  });
-
-  // 2. Smooth Curved Profile Wave Contour Clipping & Bar/VA Fill Rendering
-  if (nodeLinePoints.length > 1) {
-    const sortedNodes = [...nodeLinePoints].sort((a, b) => a.midY - b.midY);
-    const baseLineX = isRightLayout ? (vpEndX - 2) : vpStartX;
-
-    // Create the smooth quadratic contour path
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(baseLineX, sortedNodes[0].midY);
-    ctx.lineTo(sortedNodes[0].tipX, sortedNodes[0].midY);
-
-    for (let i = 0; i < sortedNodes.length - 1; i++) {
-      const p0 = sortedNodes[i];
-      const p1 = sortedNodes[i + 1];
-      const midX = (p0.tipX + p1.tipX) / 2;
-      const midY = (p0.midY + p1.midY) / 2;
-      ctx.quadraticCurveTo(p0.tipX, p0.midY, midX, midY);
-    }
-    const lastPt = sortedNodes[sortedNodes.length - 1];
-    ctx.lineTo(lastPt.tipX, lastPt.midY);
-    ctx.lineTo(baseLineX, lastPt.midY);
-    ctx.closePath();
-
-    // STRICT CLIPPING: Ensures every bar box corner is clipped inside the smooth profile curve!
-    ctx.clip();
-
-    // Render bar fills inside the smooth clipped contour
-    sortedNodes.forEach(({ node, nodeY, nodeH, barW }) => {
-      if (isUpDown) {
-        // Dual Split: Buy (Bull Green) vs Sell (Bear Red)
-        const buyRatio = node.totalVol > 0 ? Math.max(0, Math.min(1, node.buyVol / node.totalVol)) : 0.5;
-        const buyW = barW * buyRatio;
-        const sellW = barW - buyW;
-
-        if (isRightLayout) {
-          if (sellW > 0) {
-            ctx.fillStyle = `${bearColor}dd`;
-            ctx.fillRect(vpEndX - barW, nodeY, sellW, nodeH);
-          }
-          if (buyW > 0) {
-            ctx.fillStyle = `${bullColor}ee`;
-            ctx.fillRect(vpEndX - buyW, nodeY, buyW, nodeH);
-          }
-        } else {
-          if (buyW > 0) {
-            ctx.fillStyle = `${bullColor}ee`;
-            ctx.fillRect(vpStartX, nodeY, buyW, nodeH);
-          }
-          if (sellW > 0) {
-            ctx.fillStyle = `${bearColor}dd`;
-            ctx.fillRect(vpStartX + buyW, nodeY, sellW, nodeH);
-          }
-        }
-      } else if (isDelta) {
-        // Net Delta Gradient
-        const isPos = node.delta >= 0;
-        const barCol = isPos ? bullColor : bearColor;
-        ctx.fillStyle = `${barCol}ee`;
-        if (isRightLayout) {
-          ctx.fillRect(vpEndX - barW, nodeY, barW, nodeH);
-        } else {
-          ctx.fillRect(vpStartX, nodeY, barW, nodeH);
-        }
-      } else {
-        // Unified Base Fill
-        ctx.fillStyle = `${bullColor}ee`;
-        if (isRightLayout) {
-          ctx.fillRect(vpEndX - barW, nodeY, barW, nodeH);
-        } else {
-          ctx.fillRect(vpStartX, nodeY, barW, nodeH);
-        }
-      }
-    });
-
-    // Smart 70% Value Area (VA) Highlight Fill Overlay
-    const vaNodes = sortedNodes.filter(n => n.inVa);
-    if (vaNodes.length > 1) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(baseLineX, vaNodes[0].midY);
-      ctx.lineTo(vaNodes[0].tipX, vaNodes[0].midY);
-      for (let i = 0; i < vaNodes.length - 1; i++) {
-        const p0 = vaNodes[i];
-        const p1 = vaNodes[i + 1];
-        const midX = (p0.tipX + p1.tipX) / 2;
-        const midY = (p0.midY + p1.midY) / 2;
-        ctx.quadraticCurveTo(p0.tipX, p0.midY, midX, midY);
-      }
-      const lastVa = vaNodes[vaNodes.length - 1];
-      ctx.lineTo(lastVa.tipX, lastVa.midY);
-      ctx.lineTo(baseLineX, lastVa.midY);
-      ctx.closePath();
-
-      ctx.fillStyle = pocColor;
-      ctx.globalAlpha = 0.35;
-      ctx.fill();
-      ctx.restore();
-    }
-
-    ctx.restore(); // End clipping region
-
-    // Smooth curved black outline line profile using quadratic midpoint interpolation
-    ctx.beginPath();
-    ctx.moveTo(sortedNodes[0].tipX, sortedNodes[0].midY);
-    for (let i = 0; i < sortedNodes.length - 1; i++) {
-      const p0 = sortedNodes[i];
-      const p1 = sortedNodes[i + 1];
-      const midX = (p0.tipX + p1.tipX) / 2;
-      const midY = (p0.midY + p1.midY) / 2;
-      ctx.quadraticCurveTo(p0.tipX, p0.midY, midX, midY);
-    }
-    ctx.lineTo(lastPt.tipX, lastPt.midY);
-    ctx.strokeStyle = isLightBg ? 'rgba(0, 0, 0, 0.45)' : 'rgba(255, 255, 255, 0.35)';
-    ctx.lineWidth = 0.8;
-    ctx.stroke();
-
-    // Optional Volume Text Labels on Bar
-    if (baseConfig.showVolumeLabels) {
-      sortedNodes.forEach(({ node, nodeY, nodeH, barW }) => {
-        if (barW >= 22 && nodeH >= 8) {
-          ctx.save();
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 7.5px monospace';
-          ctx.textAlign = isRightLayout ? 'right' : 'left';
-          const labelX = isRightLayout ? vpEndX - 4 : vpStartX + 4;
-          ctx.fillText(formatVpVol(node.totalVol), labelX, nodeY + nodeH / 2 + 2.5);
-          ctx.restore();
-        }
-      });
-    }
-  }
-
-  // 5. Point of Control (POC) Super Clean Ray & Micro-Pill Badge
+  // 3. Point of Control (POC) Line (SOLID LINE - tanpa badge)
   if (data.pocNode) {
     const pocY = getY(data.pocPrice);
-
     if (baseConfig.showPocLine && pocY >= 0 && pocY <= mainChartHeight) {
-      const isHovered = crosshairY !== null && crosshairY !== undefined && Math.abs(crosshairY - pocY) <= 8;
       ctx.save();
-      const lineLen = isHovered ? 48 : 36;
+      const lineLen = 36;
       const pStart = isRightLayout ? (vpEndX - barMaxW - lineLen) : vpStartX;
       const pEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + lineLen);
 
-      // Sleek Minimalist POC Filament Line
       ctx.strokeStyle = pocColor;
-      ctx.lineWidth = isHovered ? 1.8 : 1.2;
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([]); // SOLID LINE
       ctx.beginPath();
       ctx.moveTo(pStart, pocY);
       ctx.lineTo(pEnd, pocY);
       ctx.stroke();
-
-      // Sleek Micro-Pill POC Badge (13px)
-      const pocTagW = isHovered ? 26 : 22;
-      const pocTagH = 13;
-      const pocTagX = isRightLayout ? (pStart - pocTagW - 2) : (pEnd + 2);
-
-      ctx.fillStyle = pocColor;
-      ctx.beginPath();
-      if (typeof (ctx as any).roundRect === 'function') {
-        (ctx as any).roundRect(pocTagX, pocY - pocTagH / 2, pocTagW, pocTagH, 2.5);
-      } else {
-        ctx.rect(pocTagX, pocY - pocTagH / 2, pocTagW, pocTagH);
-      }
-      ctx.fill();
-
-      ctx.fillStyle = getContrastTextColor(pocColor);
-      ctx.font = 'bold 7.5px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('POC', pocTagX + pocTagW / 2, pocY + 0.5);
       ctx.restore();
     }
   }
 
-  // 6. Value Area High (VAH) & Value Area Low (VAL) Sleek Dashed Lines & Micro-Badges
+  // 6. Value Area High (VAH) & Value Area Low (VAL) Solid Tebal Lines
   if (baseConfig.showVahValLines) {
     ctx.save();
     const lineLen = 28;
 
-    // VAH Sleek Dashed Line & Badge
+    // VAH Solid Tebal Line
     if (vahY >= 0 && vahY <= mainChartHeight) {
       const vStart = isRightLayout ? (vpEndX - barMaxW - lineLen) : vpStartX;
       const vEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + lineLen);
 
       ctx.strokeStyle = bullColor;
-      ctx.lineWidth = 0.9;
-      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([]); // SOLID TEBAL
       ctx.beginPath();
       ctx.moveTo(vStart, vahY);
       ctx.lineTo(vEnd, vahY);
       ctx.stroke();
-      ctx.setLineDash([]);
-
-      const vahTagW = 20;
-      const vahTagH = 11;
-      const tagX = isRightLayout ? (vStart - vahTagW - 2) : (vEnd + 2);
-
-      ctx.fillStyle = hexToRgbAlpha(bullColor, 0.9);
-      ctx.beginPath();
-      if (typeof (ctx as any).roundRect === 'function') {
-        (ctx as any).roundRect(tagX, vahY - vahTagH / 2, vahTagW, vahTagH, 2);
-      } else {
-        ctx.rect(tagX, vahY - vahTagH / 2, vahTagW, vahTagH);
-      }
-      ctx.fill();
-
-      ctx.fillStyle = getContrastTextColor(bullColor);
-      ctx.font = 'bold 7px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('VAH', tagX + vahTagW / 2, vahY + 0.5);
     }
 
-    // VAL Sleek Dashed Line & Badge
+    // VAL Solid Tebal Line
     if (valY >= 0 && valY <= mainChartHeight) {
       const vStart = isRightLayout ? (vpEndX - barMaxW - lineLen) : vpStartX;
       const vEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + lineLen);
 
       ctx.strokeStyle = bearColor;
-      ctx.lineWidth = 0.9;
-      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([]); // SOLID TEBAL
       ctx.beginPath();
       ctx.moveTo(vStart, valY);
       ctx.lineTo(vEnd, valY);
       ctx.stroke();
-      ctx.setLineDash([]);
-
-      const valTagW = 20;
-      const valTagH = 11;
-      const tagX = isRightLayout ? (vStart - valTagW - 2) : (vEnd + 2);
-
-      ctx.fillStyle = hexToRgbAlpha(bearColor, 0.9);
-      ctx.beginPath();
-      if (typeof (ctx as any).roundRect === 'function') {
-        (ctx as any).roundRect(tagX, valY - valTagH / 2, valTagW, valTagH, 2);
-      } else {
-        ctx.rect(tagX, valY - valTagH / 2, valTagW, valTagH);
-      }
-      ctx.fill();
-
-      ctx.fillStyle = getContrastTextColor(bearColor);
-      ctx.font = 'bold 7px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('VAL', tagX + valTagW / 2, valY + 0.5);
     }
 
-    ctx.restore();
-  }
+    // 7. HVN (High Volume Node) & LVN (Low Volume Node) Dashed Tebal Lines
+    if (baseConfig.showHvnLvn !== false) {
+      const prominentHvns = (data.hvnNodes || []).filter((n) => {
+        if (n.isPoc || n.isVah || n.isVal) return false;
+        const idx = n.index;
+        const prev = data.nodes[idx - 1];
+        const next = data.nodes[idx + 1];
+        return (!prev || n.totalVol >= prev.totalVol) && (!next || n.totalVol >= next.totalVol);
+      }).slice(0, 3);
 
-  // 7. High Volume Nodes (HVN) & Low Volume Nodes (LVN) Solid Box Bars & Badges
-  if (baseConfig.showHvnLvn) {
-    ctx.save();
-    const lineLen = 26;
+      const prominentLvns = (data.lvnNodes || []).filter((n) => {
+        if (n.isPoc || n.isVah || n.isVal) return false;
+        const idx = n.index;
+        const prev = data.nodes[idx - 1];
+        const next = data.nodes[idx + 1];
+        return (!prev || n.totalVol <= prev.totalVol) && (!next || n.totalVol <= next.totalVol);
+      }).slice(0, 3);
 
-    // Render prominent HVNs (excluding POC)
-    if (data.hvnNodes && data.hvnNodes.length > 0) {
-      const topHvns = data.hvnNodes.filter(n => !n.isPoc).slice(0, 3);
-      topHvns.forEach(node => {
-        const y = getY(node.priceCenter);
-        if (y < 5 || y > mainChartHeight - 5) return;
+      const hvnColor = (palette as any).hvn || bullColor;
+      const lvnColor = (palette as any).lvn || bearColor;
 
-        const isHovered = crosshairY !== null && crosshairY !== undefined && Math.abs(crosshairY - y) <= 8;
-        const hvnColor = '#06b6d4';
-        if (isHovered) {
-          ctx.shadowBlur = 8;
-          ctx.shadowColor = hvnColor;
+      prominentHvns.forEach((hNode) => {
+        const hy = getY(hNode.priceCenter);
+        if (hy >= 0 && hy <= mainChartHeight) {
+          const lineLen = 24;
+          const hStart = isRightLayout ? (vpEndX - barMaxW - lineLen) : vpStartX;
+          const hEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + lineLen);
+
+          ctx.strokeStyle = hvnColor;
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([5, 4]); // DASHED TEBAL
+          ctx.beginPath();
+          ctx.moveTo(hStart, hy);
+          ctx.lineTo(hEnd, hy);
+          ctx.stroke();
+          ctx.setLineDash([]);
         }
-
-        const hStart = isRightLayout ? (vpEndX - barMaxW - (isHovered ? 34 : lineLen)) : vpStartX;
-        const hEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + (isHovered ? 34 : lineLen));
-
-        // Solid Bar for HVN
-        ctx.fillStyle = hvnColor;
-        ctx.fillRect(hStart, y - 1, hEnd - hStart, 2.5);
-
-        // Solid Box Badge for HVN
-        const hvnTagW = isHovered ? 32 : 26;
-        const hvnTagH = isHovered ? 15 : 13;
-        const tagX = isRightLayout ? (hStart - hvnTagW - 3) : (hEnd + 3);
-
-        ctx.fillStyle = hvnColor;
-        ctx.beginPath();
-        if (typeof (ctx as any).roundRect === 'function') {
-          (ctx as any).roundRect(tagX, y - hvnTagH / 2, hvnTagW, hvnTagH, 2.5);
-        } else {
-          ctx.rect(tagX, y - hvnTagH / 2, hvnTagW, hvnTagH);
-        }
-        ctx.fill();
-
-        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-        ctx.lineWidth = 0.8;
-        ctx.stroke();
-
-        ctx.fillStyle = getContrastTextColor(hvnColor);
-        ctx.font = isHovered ? 'bold 8.5px monospace' : 'bold 7.5px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('HVN', tagX + hvnTagW / 2, y + 2.8);
       });
-    }
 
-    // Render prominent LVNs
-    if (data.lvnNodes && data.lvnNodes.length > 0) {
-      const topLvns = data.lvnNodes.slice(0, 3);
-      topLvns.forEach(node => {
-        const y = getY(node.priceCenter);
-        if (y < 5 || y > mainChartHeight - 5) return;
+      prominentLvns.forEach((lNode) => {
+        const ly = getY(lNode.priceCenter);
+        if (ly >= 0 && ly <= mainChartHeight) {
+          const lineLen = 24;
+          const lStart = isRightLayout ? (vpEndX - barMaxW - lineLen) : vpStartX;
+          const lEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + lineLen);
 
-        const isHovered = crosshairY !== null && crosshairY !== undefined && Math.abs(crosshairY - y) <= 8;
-        const lvnColor = '#a855f7';
-        if (isHovered) {
-          ctx.shadowBlur = 8;
-          ctx.shadowColor = lvnColor;
+          ctx.strokeStyle = lvnColor;
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([5, 4]); // DASHED TEBAL
+          ctx.beginPath();
+          ctx.moveTo(lStart, ly);
+          ctx.lineTo(lEnd, ly);
+          ctx.stroke();
+          ctx.setLineDash([]);
         }
-
-        const lStart = isRightLayout ? (vpEndX - barMaxW - (isHovered ? 34 : lineLen)) : vpStartX;
-        const lEnd = isRightLayout ? vpEndX : (vpStartX + barMaxW + (isHovered ? 34 : lineLen));
-
-        // Solid Bar for LVN
-        ctx.fillStyle = lvnColor;
-        ctx.fillRect(lStart, y - 1, lEnd - lStart, 2.5);
-
-        // Solid Box Badge for LVN
-        const lvnTagW = isHovered ? 32 : 26;
-        const lvnTagH = isHovered ? 15 : 13;
-        const tagX = isRightLayout ? (lStart - lvnTagW - 3) : (lEnd + 3);
-
-        ctx.fillStyle = lvnColor;
-        ctx.beginPath();
-        if (typeof (ctx as any).roundRect === 'function') {
-          (ctx as any).roundRect(tagX, y - lvnTagH / 2, lvnTagW, lvnTagH, 2.5);
-        } else {
-          ctx.rect(tagX, y - lvnTagH / 2, lvnTagW, lvnTagH);
-        }
-        ctx.fill();
-
-        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-        ctx.lineWidth = 0.8;
-        ctx.stroke();
-
-        ctx.fillStyle = getContrastTextColor(lvnColor);
-        ctx.font = isHovered ? 'bold 8.5px monospace' : 'bold 7.5px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('LVN', tagX + lvnTagW / 2, y + 2.8);
       });
     }
 

@@ -4897,13 +4897,8 @@ export default function CustomChartWidget({
       const valY = getY(bookmapData.valPrice);
       const pocY = getY(bookmapData.pocPrice);
 
-      // Highlight 70% Value Area region (VAH to VAL) on Volume Profile with translucent tint
-      if (valY > vahY) {
-        ctx.save();
-        ctx.fillStyle = `${currentPalette.bull}12`;
-        ctx.fillRect(vpStartX - 4, vahY, vpWidth, valY - vahY);
-        ctx.restore();
-      }
+      // Value Area region (VAH to VAL) on Volume Profile: Solid 0 opacity (completely transparent)
+      // ctx.fillRect for Value Area background box is omitted (0 opacity) as requested
 
       // POC Solid Line & Solid Box Badge
       const pocCol = currentPalette.poc || '#ffd600';
@@ -5910,15 +5905,13 @@ export default function CustomChartWidget({
       ctx.lineTo(chartWidth, headerBarY_2);
       ctx.stroke();
 
-      const deltaMidY = panelTop + volDeltaHeight / 2;
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-      ctx.lineWidth = 0.8;
-      ctx.setLineDash([4, 4]);
+      const baseLineY = panelTop + volDeltaHeight - 1;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(0, deltaMidY);
-      ctx.lineTo(chartWidth, deltaMidY);
+      ctx.moveTo(0, baseLineY);
+      ctx.lineTo(chartWidth, baseLineY);
       ctx.stroke();
-      ctx.setLineDash([]);
 
       const deltas: number[] = [];
       const absDeltas: number[] = [];
@@ -5946,32 +5939,34 @@ export default function CustomChartWidget({
       if (maxDelta === 0) maxDelta = 100;
 
       const barWidth = Math.max(2, Math.min(candleWidth * 0.85, 36));
-      const maxBarH = volDeltaHeight / 2 - 4;
+      // Semua volume berdiri ke atas dari baseline bawah (bukan ke bawah dan ke atas)
+      const maxBarH = volDeltaHeight - 28;
       visibleCandles.forEach((c, idx) => {
         const globalIdx = startIndex + idx;
         const x = getX(globalIdx) - barWidth / 2;
         const delta = deltas[idx];
-        const barH = Math.min(Math.abs(delta) / maxDelta, 1.1) * maxBarH;
+        const barH = Math.max(2, Math.min(Math.abs(delta) / maxDelta, 1.0) * maxBarH);
+        const barY = baseLineY - barH;
 
         ctx.fillStyle = delta >= 0 ? (currentPalette.bull || '#10b981') : (currentPalette.bear || '#ef4444');
         ctx.globalAlpha = 0.85;
-        if (delta >= 0) {
-          ctx.fillRect(x, deltaMidY - barH, barWidth, Math.max(1.5, barH));
-        } else {
-          ctx.fillRect(x, deltaMidY, barWidth, Math.max(1.5, barH));
-        }
+        ctx.fillRect(x, barY, barWidth, barH);
       });
       ctx.globalAlpha = 1.0;
 
       let cumDelta = 0;
       const cumDeltas: number[] = [];
       deltas.forEach((d) => { cumDelta += d; cumDeltas.push(cumDelta); });
-      const maxCum = Math.max(...cumDeltas.map(Math.abs), 1);
+      const minCum = Math.min(...cumDeltas);
+      const maxCum = Math.max(...cumDeltas);
+      const cumSpan = Math.max(1, maxCum - minCum);
+      const usableLineH = volDeltaHeight - 34;
+      const lineBaseY = baseLineY - 3;
 
       const latestCvd = cumDeltas[cumDeltas.length - 1] || 0;
       
       const cvdColor = latestCvd >= 0 ? (currentPalette.bull || '#10b981') : (currentPalette.bear || '#ef4444');
-      const cvdGradient = ctx.createLinearGradient(0, panelTop, 0, panelTop + volDeltaHeight);
+      const cvdGradient = ctx.createLinearGradient(0, panelTop + 24, 0, baseLineY);
       cvdGradient.addColorStop(0, `${cvdColor}30`);
       cvdGradient.addColorStop(1, 'rgba(0,0,0,0)');
 
@@ -5980,7 +5975,7 @@ export default function CustomChartWidget({
       visibleCandles.forEach((c, idx) => {
         const x = getX(startIndex + idx);
         lastX = x;
-        const normalizedY = deltaMidY - (cumDeltas[idx] / maxCum) * (volDeltaHeight * 0.45);
+        const normalizedY = lineBaseY - ((cumDeltas[idx] - minCum) / cumSpan) * usableLineH;
         if (idx === 0) ctx.moveTo(x, normalizedY);
         else ctx.lineTo(x, normalizedY);
       });
@@ -5990,8 +5985,8 @@ export default function CustomChartWidget({
       ctx.stroke();
 
       // institutional fill
-      ctx.lineTo(lastX, panelTop + volDeltaHeight);
-      ctx.lineTo(getX(startIndex), panelTop + volDeltaHeight);
+      ctx.lineTo(lastX, baseLineY);
+      ctx.lineTo(getX(startIndex), baseLineY);
       ctx.closePath();
       ctx.fillStyle = cvdGradient;
       ctx.fill();
